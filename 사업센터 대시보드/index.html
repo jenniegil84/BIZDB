@@ -1977,7 +1977,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.216';
+window.__APP_VER='v08.217';
 window.__wembProtect=[];
 
 
@@ -4499,13 +4499,26 @@ window.noDetailModal=function(title,count,reason){
 window.billRecs=function(){
   const B=window.__xlBilling||null;
   const src=(B&&B.byBiz&&Object.keys(B.byBiz).length)?B.byBiz:((B&&B.byName)||{});
-  const custNameMap={};
-  (PAY.cust||[]).forEach(function(c){custNameMap[String(c.nm||'').replace(/\s+/g,'').toLowerCase()]=c.nm;});
+  const usingBiz=!!(B&&B.byBiz&&Object.keys(B.byBiz).length);
+  /* v08.217 요청("고객마스터 미매칭이 전 업체에 다 뜬다") — 원인은 이 매칭이 실제 업로드와
+     무관한 정적 스냅샷(PAY.cust)을 대조 대상으로 썼던 것이다(고객마스터 파일 업로드 기능
+     자체가 없어 PAY.cust는 갱신될 방법이 없었다). 실제 매칭 가능한 원천은 세무사무소목록
+     업로드(window.__xlOfficeRows)뿐이라 이걸로 바꾼다 — 사업자번호(v04.94 원칙과 동일하게
+     byBiz 우선) 먼저 대조하고, 없으면 사무소명으로 보조 대조한다. */
+  const OR=window.__xlOfficeRows||[];
+  const custBizMap={}, custNameMap={};
+  OR.forEach(function(o){
+    const bk=(typeof xlBizKey==='function')?xlBizKey(o.bz):'';
+    if(bk)custBizMap[bk]=o.nm;
+    custNameMap[String(o.nm||'').replace(/\s+/g,'').toLowerCase()]=o.nm;
+  });
   return Object.keys(src).map(function(k){
     const o=src[k]||{};
     const nm=o.nm||k;
     const nk=String(nm).replace(/\s+/g,'').toLowerCase();
-    return {nm:custNameMap[nk]||nm, matched:!!custNameMap[nk], pl:o.pl||'—',
+    const bizHit=usingBiz?(custBizMap[k]||''):'';
+    const hitNm=bizHit||custNameMap[nk]||'';
+    return {nm:hitNm||nm, matched:!!hitNm, pl:o.pl||'—',
       code:(o.promo&&o.promo!=='-')?o.promo:'', exempt:o.exempt===true,
       exS:o.exS||'', exE:o.exE||'', paid:o.paid||0, std:o.std||0};
   });
