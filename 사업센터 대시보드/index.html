@@ -1977,7 +1977,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.217';
+window.__APP_VER='v08.218';
 window.__wembProtect=[];
 
 
@@ -11430,7 +11430,111 @@ const WKKPI_HERO=['도입문의','순증','플러스 가입','플러스 전환']
 const WKKPI_VOC=['총건수','오류','기능문의','사용문의','개선요청','해결완료','미해결'];
 const WEEKTEAMS=[{id:'mkt',nm:'마케팅'},{id:'ux',nm:'UX'},{id:'biz',nm:'영업'}];
 const WEEKDATA={};
-function getWeek(wk){return WEEKDATA[wk]||(WEEKDATA[wk]={perf:{},voc:{},issues:[],shared:[],decisions:[]});}
+function getWeek(wk){return WEEKDATA[wk]||(WEEKDATA[wk]={perf:{},voc:{},issues:[],shared:[],decisions:[],pkgTarget:''});}
+/* ══ v08.218 요청("팀원들이 이 3가지를 목표로 삼고 활동계획을 세우게") ══
+   사업센터 대시보드의 3대 목표(플러스전환·개업세무사성장패키지 가입·정지해지 윈백영업)를
+   주간회의 화면에 연결한다.
+   - 플러스전환: 이미 WKKPI_HERO에 있는 실적을 그대로 재사용(새 계산 없음).
+   - 개업성장패키지 가입: 실적은 자동 집계(아래 pkgJoinCountWeek), 목표는 팀이 직접 입력
+     (getWeek(wk).pkgTarget — 이 파일의 다른 주간 KPI 수동입력과 같은 저장 방식,
+     즉 board_week 저장 대상. board_week는 아직 3자 병합 저장이 아니므로(CLAUDE.md 3번
+     항목) 여러 명이 동시에 같은 주의 목표를 고치면 마지막 저장이 이길 수 있다 — 확인 필요.
+   - 정지·해지 윈백영업: 대상 목록은 세무사무소목록(현재 상태=정지/해지)에서 자동 생성하고,
+     팀원별 처리 상태(연락함/재가입성공/실패)만 WINBACK에 사업자번호 키로 저장한다.
+     WINBACK은 CARDS/UNIS와 같은 3자 병합 저장 대상(board_winback, MERGEABLE_KINDS 참고)이라
+     동시 편집에 안전하다. */
+let WINBACK=[];
+/* 개업성장패키지(=190만원 프로모션, PROMO_190) 신규가입 — 이번 주 가입 중 청구 파일 promo가
+   개업성장패키지인 건. 명칭 매칭(plan190Promo, byName)이 아니라 사업자번호(byBiz) 매칭을
+   쓴다 — v08.217에서 고객마스터 매칭을 이름 대신 사업자번호로 바꾼 것과 같은 이유
+   (CLAUDE.md 28번 항목). 청구 파일을 안 올렸으면 항상 0(지어내지 않음, 정책 11항). */
+function pkgJoinCountWeek(wk){
+  const R=window.__xlOfficeRows||[], B=window.__xlBilling||null;
+  if(!Array.isArray(R)||!R.length||!B||!B.byBiz)return 0;
+  const s=wk, e=wkEndOf(wk);
+  const okd=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
+  const inR=v=>{const d=String(v||'').slice(0,10);return okd(d)&&d>=s&&d<=e;};
+  return R.filter(function(x){
+    if(!inR(x.jn))return false;
+    const bk=(typeof xlBizKey==='function')?xlBizKey(x.bz):'';
+    const rec=bk?B.byBiz[bk]:null;
+    return !!(rec&&isPromo190(rec.promo));
+  }).length;
+}
+function wkSetPkgTarget(v){
+  getWeek(CURWK).pkgTarget=v;
+  if(typeof logAct==='function')logAct('주간회의 개업성장패키지 목표 입력',CURWK,String(v||''));
+  schedulePersist();
+  const el=document.getElementById('wkPkgRate'); if(el)el.outerHTML=pkgRateHtml();
+}
+function pkgRateHtml(){
+  const t=getWeek(CURWK).pkgTarget, tv=(t!==''&&t!=null)?+t:null;
+  const av=pkgJoinCountWeek(CURWK);
+  const rate=(tv&&tv>0)?Math.round(av/tv*100)+'%':'—';
+  return '<span id="wkPkgRate" style="font-size:11px;color:var(--gray-md)">실적 '+av+'건'+(tv!=null?(' · 달성률 '+rate):'')+'</span>';
+}
+/* 정지·해지 윈백영업 — 대상은 세무사무소목록의 현재 상태 스냅샷에서 자동 생성(저장하지
+   않음), 팀원이 실제로 상태를 남긴 업체만 WINBACK에 쌓인다(빈 대상까지 전부 저장하면
+   배열이 수백 건으로 불어나고 대부분 빈 값이라 8번 항목의 "빈 것도 저장" 취지와는 다른
+   문제 — 이건 "생성 안 한 데이터"이지 "지운 빈 값"이 아니다). */
+function winbackTargets(){
+  const R=window.__xlOfficeRows||[];
+  const W={}; WINBACK.forEach(function(w){if(w&&w.id)W[w.id]=w;});
+  return R.filter(function(x){return x.st==='정지'||x.st==='해지';}).map(function(x){
+    const bk=(typeof xlBizKey==='function')?xlBizKey(x.bz):'';
+    const id=bk||('nm:'+x.nm);
+    const w=W[id];
+    return {id:id, nm:x.nm, st:x.st, winSt:(w&&w.winSt)||'', upd:(w&&w.upd)||''};
+  });
+}
+function winbackSetStatus(id,nm,st,winSt){
+  let w=WINBACK.find(function(x){return x.id===id;});
+  if(!w){w={id:id}; WINBACK.push(w);}
+  w.nm=nm; w.st=st; w.winSt=winSt; w.upd=TODAY;
+  if(typeof logAct==='function')logAct('윈백영업 상태 기록',nm,winSt||'(해제)');
+  schedulePersist();
+  const el=document.getElementById('wkWinbackBox'); if(el)el.innerHTML=winbackListHtml();
+  const cel=document.getElementById('wkWinbackCounts'); if(cel)cel.textContent=winbackCountsText();
+}
+function winbackCounts(){
+  const list=winbackTargets();
+  const c={대상:list.length,연락함:0,재가입성공:0,실패:0,미처리:0};
+  list.forEach(function(x){ if(x.winSt&&c[x.winSt]!=null)c[x.winSt]++; else c.미처리++; });
+  return c;
+}
+window.__winbackQ=window.__winbackQ||'';
+window.winbackSetQ=function(v){window.__winbackQ=v;const el=document.getElementById('wkWinbackBox'); if(el)el.innerHTML=winbackListHtml();};
+function winbackListHtml(){
+  const q=(window.__winbackQ||'').trim().toLowerCase();
+  const list=winbackTargets().filter(function(x){return !q||x.nm.toLowerCase().indexOf(q)>=0;})
+    .sort(function(a,b){return a.nm.localeCompare(b.nm,'ko');});
+  const OPTS=['','연락함','재가입성공','실패'];
+  const rows=list.map(function(x,i){
+    const opts=OPTS.map(function(o){return '<option value="'+esc(o)+'"'+(x.winSt===o?' selected':'')+'>'+(o||'미처리')+'</option>';}).join('');
+    return '<tr><td>'+(i+1)+'</td><td style="text-align:left">'+esc(x.nm)+'</td><td>'+esc(x.st)+'</td>'
+      +'<td><select onchange="winbackSetStatus(\''+x.id+'\',\''+esc(x.nm).replace(/'/g,"\\'")+'\',\''+x.st+'\',this.value)" style="font-size:11px">'+opts+'</select></td>'
+      +'<td style="font-size:10px;color:var(--gray-md)">'+(x.upd||'—')+'</td></tr>';
+  }).join('');
+  return '<input value="'+esc(window.__winbackQ||'')+'" oninput="winbackSetQ(this.value)" placeholder="사무소명 검색" '
+    +'style="width:220px;padding:6px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;margin-bottom:8px">'
+    +'<div style="overflow:auto;max-height:360px"><table class="tbl"><thead><tr><th>NO</th><th>사무소</th><th>상태</th><th>처리</th><th>기록일</th></tr></thead>'
+    +'<tbody>'+(rows||'<tr><td colspan="5" class="na" style="text-align:center;padding:16px">정지·해지 대상 없음(세무사무소목록 업로드 필요)</td></tr>')+'</tbody></table></div>';
+}
+function teamGoalsHtml(){
+  const plusConvN=(wkAutoPerf(CURWK)||{})['플러스 전환'];
+  const wc=winbackCounts();
+  return '<div class="wk-kpis" style="grid-template-columns:repeat(3,1fr)">'
+   +'<div class="wk-kpi hero"><div class="wk-kl">① 플러스전환</div><div style="font-size:22px;font-weight:800">'+(plusConvN!=null?plusConvN:'—')+'건</div></div>'
+   +'<div class="wk-kpi hero"><div class="wk-kl">② 개업성장패키지 가입</div>'
+   +'목표 <input type="number" value="'+esc(getWeek(CURWK).pkgTarget||'')+'" style="width:60px;font-size:12px" onchange="wkSetPkgTarget(this.value)">건 · '+pkgRateHtml()+'</div>'
+   +'<div class="wk-kpi hero"><div class="wk-kl">③ 정지·해지 윈백영업</div>'
+   +'<div id="wkWinbackCounts" style="font-size:11px">'+winbackCountsText(wc)+'</div></div>'
+   +'</div>';
+}
+function winbackCountsText(wc){
+  wc=wc||winbackCounts();
+  return '대상 '+wc.대상+'곳 · 연락함 '+wc.연락함+' · 성공 '+wc.재가입성공+' · 실패 '+wc.실패+' · 미처리 '+wc.미처리;
+}
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
    이번 주 내용을 적으려면 매번 ▶로 한 칸 옮겨야 했다. 이제 오늘이 속한 주로 연다.
@@ -11568,6 +11672,8 @@ const BOARD_STATE_MAP={
   /* v07.27 board_inq_manage·board_inq_del 제거 — 목업 쪽 옛 도입 문의 화면이 쓰던 껍데기라
      지금 화면(원본 이식분)은 inq_manage·inq_del에 쌓는다. 빈 값을 되불러 덮지 않도록 뺀다. */
   board_week:'WEEKDATA',
+  /* v08.218 정지·해지 윈백영업 상태 기록 — CARDS·UNIS와 같은 3자 병합 저장(사업자번호 키) */
+  board_winback:'WINBACK',
   /* v07.35 칸반 열 순서 — 종전에는 저장 대상이 아니어서 열을 옮겨도 새로고침·재배포하면
      파일에 박힌 순서로 되돌아갔다. 탭별 세 배열을 한 덩어리로 저장한다. */
   board_gorder:'__GORDER',
@@ -11754,7 +11860,8 @@ function mergeCardMap(base,local,theirs){
   });
   return out;
 }
-/* 병합 대상 5종의 "get 현재값·set 병합값 적용·merge 함수" — saveToSheet가 이 표를 보고 판단한다. */
+/* 병합 대상 6종(v08.218에서 board_winback 추가)의 "get 현재값·set 병합값 적용·merge 함수" —
+   saveToSheet가 이 표를 보고 판단한다. */
 const MERGEABLE_KINDS={
   board_cards:{get:function(){return CARDS;},set:function(v){CARDS.length=0;CARDS.push.apply(CARDS,v||[]);},
     merge:function(b,l,t){return mergeSet(b,l,t,function(x){return x.id;});}},
@@ -11765,7 +11872,9 @@ const MERGEABLE_KINDS={
   board_issues:{get:function(){return ISSUES;},set:function(v){Object.keys(ISSUES).forEach(function(k){delete ISSUES[k];});Object.assign(ISSUES,v||{});},
     merge:mergeCardMap},
   board_log:{get:function(){return LOG;},set:function(v){Object.keys(LOG).forEach(function(k){delete LOG[k];});Object.assign(LOG,v||{});},
-    merge:mergeCardMap}
+    merge:mergeCardMap},
+  board_winback:{get:function(){return WINBACK;},set:function(v){WINBACK.length=0;WINBACK.push.apply(WINBACK,v||[]);},
+    merge:function(b,l,t){return mergeSet(b,l,t,function(x){return x.id;});}}
 };
 /* "서버와 마지막으로 같다고 확인한" 스냅샷 — 로드 직후, 그리고 병합 저장이 성공할 때마다 갱신한다. */
 let __baseSnap={};
@@ -11786,6 +11895,7 @@ async function loadFromSupabase(){
          window[v] 동적 접근 대신 실제 식별자를 직접 참조해 내용만 비우고 다시 채운다. */
       if(v==='CARDS'){CARDS.length=0;CARDS.push(...r.state);}
       else if(v==='UNIS'){UNIS.length=0;UNIS.push(...r.state);}
+      else if(v==='WINBACK'){WINBACK.length=0;WINBACK.push(...(Array.isArray(r.state)?r.state:[]));}
       else if(v==='SEMROWS'){SEMROWS=r.state;}
       else if(v==='__inqDel'){window.__inqDel=r.state;}
       else if(v==='KEYTASK'){Object.keys(KEYTASK).forEach(k=>delete KEYTASK[k]);Object.assign(KEYTASK,r.state);}
@@ -11858,7 +11968,7 @@ function saveToSheet(kind,state){
   clearTimeout(window['__saveTimer_'+kind]);
   window['__saveTimer_'+kind]=setTimeout(async()=>{
     try{
-      /* v08.106 병합 저장 — CARDS·UNIS·DOCS·ISSUES·LOG 다섯 종류만. 저장 직전 서버의 지금
+      /* v08.106 병합 저장 — CARDS·UNIS·DOCS·ISSUES·LOG(+v08.218 WINBACK) 여섯 종류만. 저장 직전 서버의 지금
          값을 다시 읽어와, "마지막으로 서버와 같았던 상태(__baseSnap)"를 기준으로 3자 병합한다.
          병합 결과를 화면(전역 CARDS 등)에도 바로 반영해야 다른 사람이 그새 추가한 카드·
          실행기록이 이 브라우저에도 나타난다. */
@@ -11867,7 +11977,7 @@ function saveToSheet(kind,state){
       if(mrg){
         const {data:cur,error:selErr}=await sb.from('dashboard_state').select('state').eq('kind',kind).maybeSingle();
         if(selErr)throw selErr;
-        const theirs=cur&&cur.state!=null?cur.state:(kind==='board_cards'||kind==='board_unis'?[]:{});
+        const theirs=cur&&cur.state!=null?cur.state:(kind==='board_cards'||kind==='board_unis'||kind==='board_winback'?[]:{});
         /* ══ v08.165 버그 수정("삭제누르면 잠깐 삭제됐다가 다시 되살아남") ══
            화면 데이터에는 로드할 때 고정 id를 붙이는데(v08.163), 서버에 저장된 값에는 아직
            id가 없다. 그러면 같은 항목인데 기준(id 있음)과 서버값(id 없음)의 내용이 달라 보여
@@ -12133,7 +12243,7 @@ function schedulePersist(){
              ['board_issues',ISSUES],['board_unis',UNIS],['board_log',LOG],
              ['board_budget',BUDGET],['board_sem',SEMROWS],['board_week',WEEKDATA],
              ['board_gorder',window.__GORDER],['board_actlog',window.__actLog||[]],
-             ['board_lastmo',MO]];
+             ['board_lastmo',MO],['board_winback',WINBACK]];
     const chg=P.filter(([k,v])=>!__sameAsSaved(k,v));
     /* v07.67 바뀐 게 없으면 배지를 건드리지 않는다 — 방금 뜬 「저장 완료」가 곧바로
        「변경 없음」으로 덮여, 저장이 됐는지 확인할 틈이 없었다. */
@@ -12148,7 +12258,7 @@ function __markBaselineOnly(){
    ['board_issues',ISSUES],['board_unis',UNIS],['board_log',LOG],
    ['board_budget',BUDGET],['board_sem',SEMROWS],['board_week',WEEKDATA],
    ['board_gorder',gorderSnapshot()],['board_actlog',window.__actLog||[]],
-   ['board_lastmo',MO]]
+   ['board_lastmo',MO],['board_winback',WINBACK]]
     .forEach(([k,v])=>{ try{ __lastSaved[k]=JSON.stringify(v); }catch(e){} });
 }
 function markSavedBaseline(){
@@ -14312,7 +14422,10 @@ function paintWeek(){
   if(typeof maybeSelfCheck==='function')setTimeout(maybeSelfCheck,0);
   const b=document.getElementById('weekBody'); if(!b)return;
   b.innerHTML=
-   '<div class="keytask" style="position:static"><div class="kt-h">① 주간 실적 요약</div>'
+   '<div class="keytask" style="position:static;border-left-color:var(--teal)"><div class="kt-h">★ 팀 3대 목표</div>'
+   +teamGoalsHtml()
+   +'<div id="wkWinbackBox" style="margin-top:10px">'+winbackListHtml()+'</div></div>'
+   +'<div class="keytask" style="position:static"><div class="kt-h">① 주간 실적 요약</div>'
    +kpiGridHtml('perf',WKKPI_PERF)+'</div>'
    /* v08.113 요청("주간 실적 요약과 기간별 발생 건 목록 사이에 주간 인사이트") — 아래 ①-3 목록과
       같은 원천(wkEventRows)을 그대로 집계하므로 두 블록의 숫자는 항상 맞는다. 순서상 목록이
