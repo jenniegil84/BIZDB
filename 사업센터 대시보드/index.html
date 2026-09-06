@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.248';
+window.__APP_VER='v08.249';
 window.__wembProtect=[];
 
 
@@ -11697,9 +11697,14 @@ function monPerfTableHtml(){
   /* v08.226 요청("숫자 가운데 정렬") — 이 표는 #ixHost 밖(주간회의)에 있어 .tbl의 가운데 정렬
      기본값이 안 먹힌다(그 규칙도 #ixHost 스코프). td마다 직접 text-align:center를 준다. */
   const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
-  const tr=function(label,cells,sumTxt,style){
-    return '<tr><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
+  const tr=function(label,cells,sumTxt,style,rowStyle){
+    return '<tr'+(rowStyle?' style="'+rowStyle+'"':'')+'><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
   };
+  /* v08.249 요청("프로모션임을 강조해줘" — 참고 스크린샷의 빨간 테두리) — 프로모션 가입
+     목표·실적·달성 실적·달성률 4행을 연한 주황 배경(--orange-lt, 이 파일이 프로모션 색으로
+     이미 쓰는 --orange 계열)으로 묶어 위 가입 블록과 시각적으로 구분한다. */
+  const pkgRowStyle='background:var(--orange-lt)';
+  const pkgLabelStyle='color:var(--orange);font-weight:700';
   const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
@@ -11709,12 +11714,14 @@ function monPerfTableHtml(){
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]));}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
-    +tr('프로모션 가입 목표',months.map(function(m){return td(targetCell('pkg',m));}),pkgTSum)
-    +tr('프로모션 가입 실적',months.map(function(m){return td(actCell(rows.pkgA[m]));}),pkgASum)
+    +tr('프로모션 가입 목표',months.map(function(m){return td(targetCell('pkg',m));}),pkgTSum,pkgLabelStyle,pkgRowStyle)
+    +tr('프로모션 가입 실적',months.map(function(m){return td(actCell(rows.pkgA[m]));}),pkgASum,pkgLabelStyle,pkgRowStyle)
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.pkgA[m],rows.pkgT[m]));}),
-        pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—')
+        pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
+        pkgLabelStyle,pkgRowStyle)
     +tr('달성률',months.map(function(m){return td(rateCell(rows.pkgA[m],rows.pkgT[m]));}),
-        '<span style="color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</span>')
+        '<span style="color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</span>',
+        pkgLabelStyle,pkgRowStyle)
     +'</tbody></table>';
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
     +'<button class="btn gh" style="padding:3px 9px" onclick="monTgtShift(-1)">◀</button>'
