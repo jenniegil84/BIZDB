@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.245';
+window.__APP_VER='v08.246';
 window.__wembProtect=[];
 
 
@@ -5444,12 +5444,6 @@ function custToMg(c,step,status,problem,action,dmn){
       }).join('')}
     </div>
   </div>
-
-  <div class="sec-label">상세 분석 <span class="sec-tag t">필요할 때 펼쳐 보기 · 기존 표 그대로 유지</span></div>
-
-  <details class="fold"><summary>세모리포트 요금제별 현황 <span class="fs">정상 ${_fN(_hNor)}곳 · ${(typeof planStats==='function'?planStats().length:0)}종</span></summary><div class="fold-b">
-  ${planBoardHTML()}
-  </div></details>
 
 `;
   }
