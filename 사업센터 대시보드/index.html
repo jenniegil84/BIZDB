@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.240';
+window.__APP_VER='v08.241';
 window.__wembProtect=[];
 
 
@@ -11563,6 +11563,17 @@ function joinCountRange(s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return inR(x.jn);}).length;
 }
+/* v08.241 요청("이게 시스템 집계인데 이것과 맞는지 검증해" — 외부 「세무사 가입」 화면 스크린샷) —
+   그 화면의 "가입" 월별 합계(80·18/20/9/8/4/6/4/9/2)가 이 표의 "신규가입 실적"과 정확히 일치함을
+   확인(joinCountRange 검증 완료). "재가입"(11·1/2/2/0/0/0/3/1/2) 행은 이 표에 비교 대상이 없어
+   같은 방식(officeInRange, jn 대신 rj)으로 새로 노출한다 — 실제 값 대조는 사용자가 화면에서
+   직접 확인해야 한다(이 세션엔 실제 업로드 파일이 없어 여기서 숫자까지 재현하진 못했다). */
+function rejoinCountRange(s,e){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return 0;
+  const inR=officeInRange(s,e);
+  return R.filter(function(x){return inR(x.rj);}).length;
+}
 /* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에" 「전체 가입 현황」 표 추가) — 세무사무소목록
    기준 "가입일 또는 재가입일이 이 기간에 있으면" 센다(참고 이미지 산식 "가입수 = 신규가입 +
    재가입") — pkgJoinCountRange(v08.227)가 이미 쓰던 것과 같은 방식을 재사용한다(새 계산 없음,
@@ -11631,15 +11642,19 @@ function monPerfTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   const num=v=>(v!==''&&v!=null)?+v:null;
-  const rows={newT:{},newA:{},pkgT:{},pkgA:{}};
+  const rows={newT:{},newA:{},rejA:{},pkgT:{},pkgA:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     rows.newA[m]=future(m)?null:joinCountRange.apply(null,monRangeOf(y,m));
+    /* v08.241 요청("이게 시스템 집계인데 이것과 맞는지 검증해") — 외부 화면의 "재가입" 행과
+       대조할 수 있게, 이미 있는 rj 필드로 같은 방식(rejoinCountRange)만 추가. 목표는 없음
+       (외부 화면도 재가입엔 별도 목표가 없다), 실적만 노출한다. */
+    rows.rejA[m]=future(m)?null:rejoinCountRange.apply(null,monRangeOf(y,m));
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
     rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
-  const newTSum=sum(rows.newT), newASum=sum(rows.newA);
+  const newTSum=sum(rows.newT), newASum=sum(rows.newA), rejASum=sum(rows.rejA);
   const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
   const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
   const targetCell=function(kind,m){
@@ -11666,6 +11681,7 @@ function monPerfTableHtml(){
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]));}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
+    +tr('재가입 실적',months.map(function(m){return td(actCell(rows.rejA[m]));}),rejASum)
     +tr('프로모션 가입 목표',months.map(function(m){return td(targetCell('pkg',m));}),pkgTSum)
     +tr('프로모션 가입 실적',months.map(function(m){return td(actCell(rows.pkgA[m]));}),pkgASum)
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.pkgA[m],rows.pkgT[m]));}),
