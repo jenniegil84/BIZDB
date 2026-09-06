@@ -197,6 +197,12 @@ body.sidecol #content{margin-left:46px}
   .keytask{break-inside:avoid;page-break-after:always;box-shadow:none!important}
   .keytask:last-child{page-break-after:auto}
 }
+/* v08.261 요청("슬라이드 크기에 맞춰야해") — 기본 인쇄 용지(A4 세로)가 아니라 구글 슬라이드·
+   파워포인트 와이드스크린(16:9) 크기로 페이지를 잡는다. @page는 print 전용 규칙이라 화면
+   표시에는 관여하지 않는다(@media print로 감쌀 필요 없음). 내용이 이 크기보다 길면 그 섹션은
+   다음 페이지로 이어진다(한 슬라이드 안에 억지로 욱여넣지 않음 — 실제 파워포인트에 큰 표를
+   붙여도 마찬가지다). */
+@page{ size:13.333in 7.5in; margin:0.35in; }
 .h1{font-size:17px;font-weight:700;letter-spacing:-.2px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
 .h1 .ic{color:var(--tx3);font-size:14px}
 
@@ -2006,7 +2012,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.260';
+window.__APP_VER='v08.261';
 window.__wembProtect=[];
 
 
