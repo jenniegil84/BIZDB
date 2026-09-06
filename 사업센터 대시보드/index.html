@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.247';
+window.__APP_VER='v08.248';
 window.__wembProtect=[];
 
 
@@ -11735,12 +11735,15 @@ function planJoinTableHtml(){
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
-  const rows={plus:{},pkg:{},report:{}};
+  const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
     rows.plus[m]=future(m)?null:planJoinCountRangeByIns(true,r[0],r[1]);
     rows.pkg[m]=future(m)?null:pkgJoinCountRange(r[0],r[1]);
     rows.report[m]=future(m)?null:planJoinCountRangeByIns(false,r[0],r[1]);
+    /* v08.248 요청("플러스+리포트 합계도 보여줘") — 개업성장패키지는 플러스 안에 이미 포함된
+       세부 항목이라(v08.238) 여기 더하면 중복 계산이 된다, 플러스+리포트만 더한다. */
+    rows.total[m]=(rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
@@ -11760,6 +11763,7 @@ function planJoinTableHtml(){
     +tr('플러스',rows.plus)
     +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
+    +tr('합계',rows.total,'font-weight:700')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>';
 }
