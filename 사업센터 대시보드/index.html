@@ -1979,7 +1979,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.225';
+window.__APP_VER='v08.226';
 window.__wembProtect=[];
 
 
@@ -11586,22 +11586,25 @@ function monPerfTableHtml(){
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
   const deltaCell=function(a,t){ if(a==null||t==null)return '<span class="na">—</span>'; const d=a-t; return '<span style="color:'+(d<0?'var(--red)':'var(--teal-dk)')+'">'+(d>0?'+':'')+d+'</span>'; };
   const rateCell=function(a,t){ if(a==null||t==null)return '<span class="na">—</span>'; const p=t>0?(a/t*100):null; return '<span style="color:'+(p!=null&&p<100?'var(--red)':'var(--teal-dk)')+'">'+rate(a,t)+'</span>'; };
+  /* v08.226 요청("숫자 가운데 정렬") — 이 표는 #ixHost 밖(주간회의)에 있어 .tbl의 가운데 정렬
+     기본값이 안 먹힌다(그 규칙도 #ixHost 스코프). td마다 직접 text-align:center를 준다. */
+  const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
   const tr=function(label,cells,sumTxt){
-    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'+cells.join('')+'<td style="font-weight:700">'+sumTxt+'</td></tr>';
+    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
   };
   const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
-    +months.map(function(m){return '<th>'+m+'월</th>';}).join('')+'<th>합계</th></tr></thead><tbody>'
-    +tr('신규가입 목표',months.map(function(m){return '<td>'+targetCell('new',m)+'</td>';}),newTSum)
-    +tr('신규가입 실적',months.map(function(m){return '<td>'+actCell(rows.newA[m])+'</td>';}),newASum)
-    +tr('달성 실적',months.map(function(m){return '<td>'+deltaCell(rows.newA[m],rows.newT[m])+'</td>';}),
+    +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
+    +tr('신규가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
+    +tr('신규가입 실적',months.map(function(m){return td(actCell(rows.newA[m]));}),newASum)
+    +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]));}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
-    +tr('달성률',months.map(function(m){return '<td>'+rateCell(rows.newA[m],rows.newT[m])+'</td>';}),
+    +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]));}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
-    +tr('프로모션 가입 목표',months.map(function(m){return '<td>'+targetCell('pkg',m)+'</td>';}),pkgTSum)
-    +tr('프로모션 가입 실적',months.map(function(m){return '<td>'+actCell(rows.pkgA[m])+'</td>';}),pkgASum)
-    +tr('달성 실적',months.map(function(m){return '<td>'+deltaCell(rows.pkgA[m],rows.pkgT[m])+'</td>';}),
+    +tr('프로모션 가입 목표',months.map(function(m){return td(targetCell('pkg',m));}),pkgTSum)
+    +tr('프로모션 가입 실적',months.map(function(m){return td(actCell(rows.pkgA[m]));}),pkgASum)
+    +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.pkgA[m],rows.pkgT[m]));}),
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—')
-    +tr('달성률',months.map(function(m){return '<td>'+rateCell(rows.pkgA[m],rows.pkgT[m])+'</td>';}),
+    +tr('달성률',months.map(function(m){return td(rateCell(rows.pkgA[m],rows.pkgT[m]));}),
         '<span style="color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</span>')
     +'</tbody></table>';
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
