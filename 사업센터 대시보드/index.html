@@ -1979,7 +1979,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.235';
+window.__APP_VER='v08.237';
 window.__wembProtect=[];
 
 
@@ -11543,6 +11543,16 @@ function joinCountRange(s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return inR(x.jn);}).length;
 }
+/* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에" 「전체 가입 현황」 표 추가) — 요금제별
+   (플러스·베이직) 가입 건수. 세무사무소목록 기준 "가입일 또는 재가입일이 이 기간에 있으면"
+   센다(참고 이미지 산식 "가입수 = 신규가입 + 재가입") — pkgJoinCountRange(v08.227)가 이미
+   쓰던 것과 같은 방식을 재사용한다(새 계산 없음, 6번 항목 원칙). */
+function planJoinCountRange(re,s,e){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return 0;
+  const inR=officeInRange(s,e);
+  return R.filter(function(x){return re.test(String(x.pl||''))&&(inR(x.jn)||inR(x.rj));}).length;
+}
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
@@ -11574,7 +11584,11 @@ function pkgJoinCountWeek(wk){ return pkgJoinCountRange(wk, wkEndOf(wk)); }
 let MONTARGET={};
 function getMonTarget(y){return MONTARGET[y]||(MONTARGET[y]={new:{},pkg:{}});}
 window.__monTgtYear=window.__monTgtYear||+TODAY.slice(0,4);
-function monTgtShift(n){window.__monTgtYear+=n; const el=document.getElementById('wkMonTgtBox'); if(el)el.innerHTML=monPerfTableHtml();}
+function monTgtShift(n){
+  window.__monTgtYear+=n;
+  const el=document.getElementById('wkMonTgtBox'); if(el)el.innerHTML=monPerfTableHtml();
+  const el2=document.getElementById('wkPlanTblBox'); if(el2)el2.innerHTML=planJoinTableHtml();
+}
 function monRangeOf(y,m){
   const last=new Date(y,m,0).getDate();
   return [y+'-'+String(m).padStart(2,'0')+'-01', y+'-'+String(m).padStart(2,'0')+'-'+String(last).padStart(2,'0')];
@@ -11644,6 +11658,36 @@ function monPerfTableHtml(){
     +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div><div style="overflow:auto">'+table+'</div>';
+}
+/* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에 해당 표도 추가" — 참고 이미지의
+   「전체 가입 현황」, 요금제별 월별 가입 현황·목표 입력은 없음, 위 표와 같은 연도(년) 기준을
+   그대로 쓴다(monTgtShift가 두 표를 함께 넘긴다)). */
+function planJoinTableHtml(){
+  const y=window.__monTgtYear;
+  const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
+  const months=[1,2,3,4,5,6,7,8,9,10,11,12];
+  const future=m=>(y>curY)||(y===curY&&m>curM);
+  const rows={plus:{},pkg:{},basic:{}};
+  months.forEach(function(m){
+    const r=monRangeOf(y,m);
+    rows.plus[m]=future(m)?null:planJoinCountRange(/플러스/,r[0],r[1]);
+    rows.pkg[m]=future(m)?null:pkgJoinCountRange(r[0],r[1]);
+    rows.basic[m]=future(m)?null:planJoinCountRange(/베이직/,r[0],r[1]);
+  });
+  const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
+  const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
+  const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
+  const tr=function(label,obj){
+    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'
+      +months.map(function(m){return td(actCell(obj[m]));}).join('')
+      +'<td style="text-align:center;font-weight:700">'+sum(obj)+'</td></tr>';
+  };
+  const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+    +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
+    +tr('플러스',rows.plus)+tr('개업성장패키지',rows.pkg)+tr('베이직',rows.basic)
+    +'</tbody></table>';
+  return '<div style="font-size:10px;color:var(--gray-md);margin-bottom:6px">가입수 = 신규가입 + 재가입</div>'
+    +'<div style="overflow:auto">'+table+'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -13773,8 +13817,8 @@ function wkAutoPerf(wk){
           '정지해제'   :R.filter(x=>inR(x.se)).length,
           '해지'       :_cn,
           /* v08.234 요청("순증을 아래로 내리고 개업성장패키지 가입카드를 대표카드로 추가") —
-             계산은 이미 있는 pkgJoinCountRange(가입일 또는 재가입일 기준, v08.227/233 수정
-             반영)를 그대로 재사용한다(새 계산 없음, 6번 항목 원칙). */
+             계산은 이미 있는 pkgJoinCountRange(청구 파일 「프로모션 시작월」 기준, v08.235
+             수정 반영)를 그대로 재사용한다(새 계산 없음, 6번 항목 원칙). */
           '개업성장패키지 가입':pkgJoinCountWeek(wk)};
 }
 /* ══ v06.84 주간회의 ①-2 기간별 발생 건 목록 ══
@@ -14191,11 +14235,11 @@ function kpiGridHtml(bucket,keys){
      입력·자동채움 동작은 완전히 같다 — 크기와 자리만 다르다. VOC 등 다른 묶음은 종전 그대로. */
   const heroKeys=(bucket==='perf')?keys.filter(k=>WKKPI_HERO.indexOf(k)>=0):[];
   const restKeys=keys.filter(k=>heroKeys.indexOf(k)<0);
+  /* v08.237 요청("주간실적요약 그밖의 지표 제거") — ① 카드는 이제 대표 4개만 보여준다.
+     나머지 항목(순증·신규가입 등)은 화면에서만 뺀 것이고 값 자체(wkAutoPerf·수동 입력)는
+     그대로 유지된다 — ①-2·①-3 등 다른 화면이 참조하는 계산은 영향받지 않는다. */
   let out=resetBtn;
-  if(heroKeys.length){
-    out+='<div class="wk-kpis hero-row">'+heroKeys.map(k=>cell(k,true)).join('')+'</div>'
-       + '<div class="wk-sub-l">그 밖의 지표</div>';
-  }
+  if(heroKeys.length)return out+'<div class="wk-kpis hero-row">'+heroKeys.map(k=>cell(k,true)).join('')+'</div>';
   return out+'<div class="wk-kpis">'+restKeys.map(k=>cell(k,false)).join('')+'</div>';
 }
 /* v06.25 추진현황 — 업무 진행상황(카드 상태·진행률) 기반, 그 주 실행 여부와 무관하게
@@ -14537,7 +14581,9 @@ function paintWeek(){
    /* v08.232 요청("제목글을 더 크게해서 플러스 가입이라는 걸 명확하게 인지할수 있도록") —
       기본 .kt-h(13px)보다 크게 인라인으로 키우고, "플러스 가입" 부분을 따로 강조한다. */
    '<div class="keytask" style="position:static;border-left-color:var(--teal)"><div class="kt-h" style="font-size:17px"><b style="color:var(--teal-dk)">플러스 가입</b> 및 프로모션 가입 — 월별 실적 현황</div>'
-   +'<div id="wkMonTgtBox">'+monPerfTableHtml()+'</div></div>'
+   +'<div id="wkMonTgtBox">'+monPerfTableHtml()+'</div>'
+   +'<div class="kt-h" style="font-size:15px;margin-top:14px">전체 가입 현황</div>'
+   +'<div id="wkPlanTblBox">'+planJoinTableHtml()+'</div></div>'
    +'<div class="keytask" style="position:static"><div class="kt-h">① 주간 실적 요약</div>'
    +kpiGridHtml('perf',WKKPI_PERF)+'</div>'
    /* v08.113 요청("주간 실적 요약과 기간별 발생 건 목록 사이에 주간 인사이트") — 아래 ①-3 목록과
