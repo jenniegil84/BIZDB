@@ -2012,7 +2012,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.261';
+window.__APP_VER='v08.262';
 window.__wembProtect=[];
 
 
@@ -2815,6 +2815,13 @@ window.xlHandleFiles=async function(files){
       }else if(kind==='billing'){
         const B=xlParseBilling(body,hdr);
         window.__xlBilling=B; IX_saveToSheet('billing_stats',B);
+        /* v08.262 버그 수정(요청: "배포할때마다 청구내역관리파일이 초기화 되는이유") — xlParseBilling이
+           채우는 __billAllRows(청구대상 확인 탭·개업성장패키지 카드·190만 일시납 스케줄·종료 관리
+           목록이 쓰는 "파일 전체, 상태 무관" 원본, v08.228부터 신설)는 지금까지 STATE_MAP에 없어
+           저장 자체가 안 됐다 — B(=__xlBilling, 집계값)만 저장되고 원본 행 배열은 새로고침·재배포
+           때마다 사라져, 위 기능들만 마치 "파일이 초기화된 것처럼" 빈 상태로 돌아갔다(__xlBilling의
+           집계 숫자 자체는 멀쩡해 헷갈렸던 원인). __billAllRows도 함께 저장한다. */
+        IX_saveToSheet('bill_all_rows',window.__billAllRows);
         if(typeof window.markUpload==='function')window.markUpload('billing');
         // v08.03 동일 버그 추가 발견 및 수정 — office 분기와 똑같은 경합조건이 billing 분기에도 있었다.
         // setTimeout(0)이 rerenderAll()보다 늦게 실행돼 청구대상고객관리 업로드 후에도 MRR·요금제별
@@ -4890,6 +4897,9 @@ const STATE_MAP={
   // v08.98 어떤 날짜 컬럼이 파일에 있었는지 — '컬럼 없음' vs '값 없음' 구분용
   office_cols:'__xlOfficeCols',
   billing_stats:'__xlBilling', inq_rows:'__xlInqRows',
+  // v08.262 버그 수정 — __billAllRows(청구 파일 원본, 상태 무관 전체)가 이 표에 없어
+  // 저장은 됐어도(위 IX_saveToSheet 호출) 새로고침·재배포 때 복원되지 않았다.
+  bill_all_rows:'__billAllRows',
   xl_uploads:'__xlUploads',   // v07.70 파일별 최신 업로드 시각
   inq_manage:'IX___inqManage', ref_list:'__refList', inq_del:'IX___inqDel', mkt_tasks:'__mktTasks', mkt_budget:'__mktBudgetRows',
   /* v08.167 문의 없는 실적(마스터 사건)에 지정한 채널값 — 플로우 문의(inq_manage)와 섞으면
@@ -4949,6 +4959,23 @@ async function IX_loadFromSupabase(){
         if(IP.groups)window.__inflowGroups=IP.groups;
       }
     }catch(e){ console.error('유입경로 관리 복원 실패:',e); }
+    /* v08.262 복원 후처리 추가 — __billAllRows는 위 일반 루프(window[v]=r.state)로 배열 자체는
+       복원되지만, xlParseBilling이 업로드 시점에 그 배열로부터 매번 새로 만드는 조회용 맵
+       __billAllByBiz/__billAllByName(pkgOf·190만 일시납 스케줄 등이 사업자번호·이름으로 찾을 때
+       씀)은 배열이 아니라 별개 변수라 이 루프만으로는 채워지지 않는다 — xlParseBilling 안의
+       빌드 로직을 그대로 복사해 복원 직후 한 번 더 돌린다. */
+    try{
+      const AB=window.__billAllRows;
+      if(Array.isArray(AB)){
+        const byBiz={}, byName={};
+        AB.forEach(function(r){
+          if(r&&r.bz)byBiz[r.bz]=r;
+          const k=String((r&&r.nm)||'').replace(/\s+/g,'').toLowerCase();
+          if(k)byName[k]=r;
+        });
+        window.__billAllByBiz=byBiz; window.__billAllByName=byName;
+      }
+    }catch(e){ console.error('청구 파일 전체 원본(__billAllRows) 복원 실패:',e); }
     /* ══ v08.98 요청("2번으로 해") — 기준일을 두 파일 중 늦은 날짜로 잡는다 ══
        기준일(__baseDate)은 저장되지 않아 새로고침하면 초기값(2026-08-26)으로 돌아갔다.
        그 결과 플로우가 8-29까지 있어도 누적 탭은 8-26까지만 세어, 실적 관리(기간 제한 없음)와
