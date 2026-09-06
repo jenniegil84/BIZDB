@@ -592,6 +592,15 @@ table.t .na{color:#B6BCC6}
 .wk-kpi.hero .wk-kn{font-size:30px;letter-spacing:-1px}
 .wk-sub-l{font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--tx3);
   text-transform:uppercase;margin:0 0 6px 2px}
+/* v08.239 요청("표형식을 위에 있는 표와 통일하고, 좌우여백을 맞춰봐") — 주간회의의 두 월별 표
+   (monPerfTableHtml·planJoinTableHtml)는 class="tbl"을 쓰지만 그 스타일은 #ixHost 안에서만
+   정의돼 있어(v08.226과 같은 함정) 실제로는 아무 효과가 없었다. 좌우 여백이 표마다 들쭉날쭉해
+   보이던 원인이라, #ixHost .tbl과 같은 값(padding 7px 8px)을 이 화면 전용 클래스로 새로 만들어
+   두 표에 공통 적용한다. */
+.wk-mtbl{width:100%;border-collapse:collapse}
+.wk-mtbl th,.wk-mtbl td{padding:7px 8px;border-bottom:1px solid var(--border)}
+.wk-mtbl thead th{font-weight:700;color:var(--gray-md);white-space:nowrap}
+.wk-mtbl tbody tr:last-child td{border-bottom:none}
 .wk-team{border-top:1px solid var(--line2);padding:12px 0;margin-top:4px}
 .wk-team:first-of-type{border-top:none;margin-top:0;padding-top:4px}
 /* v06.30 팀 구분을 한눈에 — 로고 초록 농도 차 3단(구분 색과 같은 관례)의 색 바탕 헤더.
@@ -1979,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.238';
+window.__APP_VER='v08.240';
 window.__wembProtect=[];
 
 
@@ -3141,6 +3150,14 @@ function xlParseOffice(rows,hdr){
         iOw2=xlIdx(hdr,'대표자명'), iHp=xlIdx(hdr,'대표자휴대폰번호'),
         iTel=xlIdx(hdr,'대표전화번호'), iAd=xlIdx(hdr,'사업장주소'),
         iRfC=xlIdx(hdr,'추천인 코드'), iRfH=xlIdx(hdr,'추천채널'), iRfN=xlIdx(hdr,'추천인');
+  /* v08.240 요청("전체 가입 현황은 가입일자 기준인데 너무 적게 집계" → "베이직이 아니라 리포트로
+     이름 바꾸고, 인사이트 가입을 하지 않은 곳을 리포트로") — 「전체 가입 현황」표(planJoinTableHtml)가
+     이용요금제(pl) 문자열 일치로 플러스/베이직을 나누다 보니, 가입 뒤 요금제가 바뀌었거나 해지된
+     곳은 현재 pl이 안 맞아 아예 빠졌었다(월별 실적표의 신규가입 실적과 비교해 확인). xlParseMonitor가
+     이미 같은 파일에서 읽던 「인사이트 가입일자」를 여기도 담아, 그 유무로 분류하게 한다 —
+     가입일자(jn/rj) 자체는 그대로 두고(정상/현재 요금제 여부와 무관하게 전부 포함), 인사이트
+     가입일자가 있으면 플러스, 없으면 리포트로 가른다(사용자 확정). */
+  const iInsJn=xlIdx(hdr,'인사이트 가입일자');
   /* ══ v08.122 요청("인사이트 사용 현황 — 세무사무소목록의 세 가지를 카드로") ══
      세무사무소목록의 CP·CQ·CR 열. 헤더 표기가 조금씩 달라질 수 있어 느슨하게 찾는다.
      ※ 전자세금계산서는 「인사이트 전자세금계산서 사용건수」인데, 이름이 길어 '사용건수'만으로
@@ -3199,6 +3216,9 @@ function xlParseOffice(rows,hdr){
     insAll: iInsAll>=0?num(r[iInsAll]):null,
     insFund:iInsFund>=0?num(r[iInsFund]):null,
     insTax: iInsTax>=0?num(r[iInsTax]):null,
+    /* v08.240 인사이트 가입일자 — 값이 있으면 인사이트 가입, 없으면 미가입(전체 가입 현황 표
+       「플러스」/「리포트」 분류 기준, xlParseMonitor가 이미 쓰던 같은 컬럼) */
+    insJn: iInsJn>=0?xlDay(r[iInsJn]):'',
     /* v08.137 시장 현황용 — 사업자 구분(개인/법인)·거래처수 */
     bt: iBt>=0?String(r[iBt]||'').trim():'',
     cc: iCc>=0?num(r[iCc]):null,
@@ -11543,15 +11563,20 @@ function joinCountRange(s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return inR(x.jn);}).length;
 }
-/* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에" 「전체 가입 현황」 표 추가) — 요금제별
-   (플러스·베이직) 가입 건수. 세무사무소목록 기준 "가입일 또는 재가입일이 이 기간에 있으면"
-   센다(참고 이미지 산식 "가입수 = 신규가입 + 재가입") — pkgJoinCountRange(v08.227)가 이미
-   쓰던 것과 같은 방식을 재사용한다(새 계산 없음, 6번 항목 원칙). */
-function planJoinCountRange(re,s,e){
+/* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에" 「전체 가입 현황」 표 추가) — 세무사무소목록
+   기준 "가입일 또는 재가입일이 이 기간에 있으면" 센다(참고 이미지 산식 "가입수 = 신규가입 +
+   재가입") — pkgJoinCountRange(v08.227)가 이미 쓰던 것과 같은 방식을 재사용한다(새 계산 없음,
+   6번 항목 원칙).
+   v08.240 요청("가입일자 기준인데 너무 적게 집계돼" → "인사이트 가입 안 한 곳은 리포트로") —
+   처음엔 이용요금제(pl) 문자열로 플러스/베이직을 갈랐는데, 가입 뒤 요금제가 바뀌었거나 해지된
+   곳은 현재 pl이 플러스·베이직 어느 쪽과도 안 맞아 빠지면서 월별 실적표의 신규가입 실적보다
+   한참 적게 나왔다(1월 18건 중 10건만 잡힘 등). 사용자 확정 — 가입일자(jn/rj)는 그대로 전부
+   포함하고, 인사이트 가입일자(insJn) 유무로만 플러스/리포트를 가른다(더 이상 pl 안 씀). */
+function planJoinCountRangeByIns(hasIns,s,e){
   const R=window.__xlOfficeRows||[];
   if(!Array.isArray(R)||!R.length)return 0;
   const inR=officeInRange(s,e);
-  return R.filter(function(x){return re.test(String(x.pl||''))&&(inR(x.jn)||inR(x.rj));}).length;
+  return R.filter(function(x){return !!x.insJn===hasIns&&(inR(x.jn)||inR(x.rj));}).length;
 }
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
@@ -11633,7 +11658,7 @@ function monPerfTableHtml(){
   const tr=function(label,cells,sumTxt){
     return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
   };
-  const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('신규가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
     +tr('신규가입 실적',months.map(function(m){return td(actCell(rows.newA[m]));}),newASum)
@@ -11667,12 +11692,12 @@ function planJoinTableHtml(){
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
-  const rows={plus:{},pkg:{},basic:{}};
+  const rows={plus:{},pkg:{},report:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
-    rows.plus[m]=future(m)?null:planJoinCountRange(/플러스/,r[0],r[1]);
+    rows.plus[m]=future(m)?null:planJoinCountRangeByIns(true,r[0],r[1]);
     rows.pkg[m]=future(m)?null:pkgJoinCountRange(r[0],r[1]);
-    rows.basic[m]=future(m)?null:planJoinCountRange(/베이직/,r[0],r[1]);
+    rows.report[m]=future(m)?null:planJoinCountRangeByIns(false,r[0],r[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
@@ -11684,16 +11709,16 @@ function planJoinTableHtml(){
   };
   /* v08.238 요청(참고 이미지) — 개업성장패키지는 플러스 요금제 위에 얹히는 프로모션이라
      플러스와 별개 행이 아니라 그 아래 딸린 세부 항목으로 보여준다(들여쓰기 "└" + 파란 글자,
-     --link 재사용). 집계 자체(planJoinCountRange·pkgJoinCountRange)는 그대로라 두 행 숫자가
-     겹칠 수 있음은 이전과 같다 — 표시만 이 관계를 드러내도록 바꾼 것. */
-  const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+     --link 재사용). 집계 자체(pkgJoinCountRange)는 그대로라 두 행 숫자가 겹칠 수 있음은
+     이전과 같다 — 표시만 이 관계를 드러내도록 바꾼 것.
+     v08.240 요청("베이직이 아니라 리포트로") — 인사이트 미가입 쪽 행 이름을 리포트로 변경. */
+  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
     +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
-    +tr('베이직',rows.basic)
+    +tr('리포트',rows.report)
     +'</tbody></table>';
-  return '<div style="overflow:auto">'+table+'</div>'
-    +'<div style="font-size:10px;color:var(--gray-md);margin-top:6px">가입수 = 신규가입 + 재가입</div>';
+  return '<div style="overflow:auto">'+table+'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
