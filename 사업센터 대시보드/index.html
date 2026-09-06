@@ -1742,7 +1742,7 @@ table.t .na{color:#B6BCC6}
   <div class="topbar">
     <!-- v08.211 요청("이곳에 버전기록해줘" — 메인 화면 상단 브레드크럼) — 사이드바(#sdVer,
          v08.210)와 같은 window.__APP_VER를 여기서도 보여준다. paintVer()가 두 자리 모두 채운다. -->
-    <span class="crumb">사업센터<span id="hdrVer" style="font-size:9.5px;color:var(--tx3);font-weight:400;margin:0 2px"></span> / <b id="crumb">마케팅</b></span>
+    <span class="crumb">사업센터<span id="hdrVer" style="font-size:9.5px;color:var(--tx3);font-weight:400;margin:0 2px"></span> / <b id="crumb">주간회의</b></span>
     <!-- v07.67 저장 상태 배지를 실제로 화면에 둔다.
      updateSaveBadge()가 .saveBadge를 채우도록 돼 있었는데 그 요소가 어디에도 없어,
      저장이 되고 있어도 확인할 방법이 없었다. 낡은 v06.39 태그는 함께 뺀다(부제와 같은 이유). -->
@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.242';
+window.__APP_VER='v08.244';
 window.__wembProtect=[];
 
 
@@ -2689,11 +2689,17 @@ function refChannelOf(code){
   const hit=L.find(function(r){ return String(r&&r.cd||'').replace(/\s+/g,'').toUpperCase()===c; });
   return (hit&&String(hit.ch||'').trim())||'';
 }
+/* v08.244 요청("실적관리-가입채널 - 플로우 데이터의 하위업무에 있는 추천인코드를 읽고,
+   추천인코드가 있으면 확정반영할것") — 신청내용 섹션에서만 추천인코드를 찾던 것에,
+   플로우 '내용' 컬럼의 "■ 하위업무" 섹션도 같은 방식으로 확인한다(parseInqContent는 어느
+   섹션명이든 "■ 이름" 표시만 있으면 자동으로 사전을 만들어 두므로 파싱 자체는 이미 지원됨).
+   신청내용에 없을 때만 하위업무를 보되, 매핑·미확정(수기 지정분 보존) 규칙은 그대로다. */
 function xlAutoJoinChFromContent(rows){
   rows.forEach(function(r){
     if(!r.ct)return;
     const P=parseInqContent(r.ct);
-    const rf=(P['신청내용']||{})['추천인코드']||'';
+    let rf=(P['신청내용']||{})['추천인코드']||'';
+    if(!rf||rf==='없음'||rf==='-')rf=(P['하위업무']||{})['추천인코드']||'';
     if(!rf||rf==='없음'||rf==='-')return;
     const ch=refChannelOf(rf);
     if(!ch)return;   // 추천정보관리에 매핑이 없으면 자동지정하지 않음
@@ -11766,7 +11772,10 @@ function currentBudget(){
   });
   return (val==null)?DEFAULT_BUDGET:val;
 }
-let TAB='mkt',MO=BASE_MO,VIEW='board',GRP='g',PGID=null,PGKIND='card',ALLP=false,SHOWDONE=false;
+/* v08.243 요청("사업센터 첫 진입시 주간회의를 보여줄것") — 초기 TAB이 'mkt'(마케팅)로 남아 있어
+   해시 없이 처음 열면 마케팅 화면이 떴다. NAV[0].items[0]이 이미 'week'(주간회의)라 goTab()의
+   "탭 없으면 첫 화면(주간회의)로" 폴백과도 어긋났던 값 — 시작 화면만 'week'로 맞춘다. */
+let TAB='week',MO=BASE_MO,VIEW='board',GRP='g',PGID=null,PGKIND='card',ALLP=false,SHOWDONE=false;
 /* v05.02 표 정렬 — 머리글 클릭 3단계: 오름차순 → 내림차순 → 해제(보드 순서로 복귀) */
 let SORT={k:'',dir:1};
 /* v05.06 열 단위 상태 — 접기(FOLD)와 보기 방식(COLV: card|list). 참고 화면의 열 머리 조작. */
