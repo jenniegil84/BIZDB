@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.241';
+window.__APP_VER='v08.242';
 window.__wembProtect=[];
 
 
@@ -11564,10 +11564,12 @@ function joinCountRange(s,e){
   return R.filter(function(x){return inR(x.jn);}).length;
 }
 /* v08.241 요청("이게 시스템 집계인데 이것과 맞는지 검증해" — 외부 「세무사 가입」 화면 스크린샷) —
-   그 화면의 "가입" 월별 합계(80·18/20/9/8/4/6/4/9/2)가 이 표의 "신규가입 실적"과 정확히 일치함을
-   확인(joinCountRange 검증 완료). "재가입"(11·1/2/2/0/0/0/3/1/2) 행은 이 표에 비교 대상이 없어
-   같은 방식(officeInRange, jn 대신 rj)으로 새로 노출한다 — 실제 값 대조는 사용자가 화면에서
-   직접 확인해야 한다(이 세션엔 실제 업로드 파일이 없어 여기서 숫자까지 재현하진 못했다). */
+   그 화면의 "가입" 월별 합계(80·18/20/9/8/4/6/4/9/2)가 이 표의 "신규가입 실적"과, "재가입"
+   (11·1/2/2/0/0/0/3/1/2)도 같은 방식(officeInRange, jn 대신 rj)으로 새로 노출해 정확히 일치함을
+   실제 업로드 파일로 검증 완료(joinCountRange·rejoinCountRange 둘 다 확인).
+   v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — 이후 "가입 실적"이
+   신규가입만 세던 것을 여기 rejoinCountRange 값까지 더한 값으로 바뀌었다(monPerfTableHtml
+   참고) — 재가입도 "가입"의 일부라는 뜻. */
 function rejoinCountRange(s,e){
   const R=window.__xlOfficeRows||[];
   if(!Array.isArray(R)||!R.length)return 0;
@@ -11645,11 +11647,12 @@ function monPerfTableHtml(){
   const rows={newT:{},newA:{},rejA:{},pkgT:{},pkgA:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
-    rows.newA[m]=future(m)?null:joinCountRange.apply(null,monRangeOf(y,m));
-    /* v08.241 요청("이게 시스템 집계인데 이것과 맞는지 검증해") — 외부 화면의 "재가입" 행과
-       대조할 수 있게, 이미 있는 rj 필드로 같은 방식(rejoinCountRange)만 추가. 목표는 없음
-       (외부 화면도 재가입엔 별도 목표가 없다), 실적만 노출한다. */
+    /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
+       신규가입만 세던 것을 재가입까지 더한 값으로 바꾼다(joinCountRange+rejoinCountRange,
+       둘 다 이미 검증된 함수 그대로 재사용). rejA는 그 안에 포함된 재가입만 따로 보여줄
+       세부 항목으로 남긴다(전체 가입 현황의 "└ 개업성장패키지"와 같은 표시 방식). */
     rows.rejA[m]=future(m)?null:rejoinCountRange.apply(null,monRangeOf(y,m));
+    rows.newA[m]=future(m)?null:(joinCountRange.apply(null,monRangeOf(y,m))+rows.rejA[m]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
     rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
   });
@@ -11670,18 +11673,18 @@ function monPerfTableHtml(){
   /* v08.226 요청("숫자 가운데 정렬") — 이 표는 #ixHost 밖(주간회의)에 있어 .tbl의 가운데 정렬
      기본값이 안 먹힌다(그 규칙도 #ixHost 스코프). td마다 직접 text-align:center를 준다. */
   const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
-  const tr=function(label,cells,sumTxt){
-    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
+  const tr=function(label,cells,sumTxt,style){
+    return '<tr><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
   };
   const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
-    +tr('신규가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
-    +tr('신규가입 실적',months.map(function(m){return td(actCell(rows.newA[m]));}),newASum)
+    +tr('가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
+    +tr('가입 실적',months.map(function(m){return td(actCell(rows.newA[m]));}),newASum)
+    +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]));}),rejASum,'color:var(--link)')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]));}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]));}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
-    +tr('재가입 실적',months.map(function(m){return td(actCell(rows.rejA[m]));}),rejASum)
     +tr('프로모션 가입 목표',months.map(function(m){return td(targetCell('pkg',m));}),pkgTSum)
     +tr('프로모션 가입 실적',months.map(function(m){return td(actCell(rows.pkgA[m]));}),pkgASum)
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.pkgA[m],rows.pkgT[m]));}),
@@ -11694,7 +11697,7 @@ function monPerfTableHtml(){
     +'<b style="font-size:12px">'+y+'년</b>'
     +'<button class="btn gh" style="padding:3px 9px" onclick="monTgtShift(1)">▶</button></div>'
     +'<div class="wk-kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">'
-    +'<div class="wk-kpi"><div class="wk-kl">신규가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
+    +'<div class="wk-kpi"><div class="wk-kl">가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
     +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
