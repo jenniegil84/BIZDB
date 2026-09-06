@@ -1979,7 +1979,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.234';
+window.__APP_VER='v08.235';
 window.__wembProtect=[];
 
 
@@ -3351,9 +3351,11 @@ function xlParseBilling(rows,hdr){
   const iNm=xlIdx(hdr,'세무사무소명'), iBz=xlIdx(hdr,'사업자번호'), iFee=xlIdx(hdr,'세모리포트 요금(A)'), iPl=xlIdx(hdr,'이용요금제'),
         iCn=xlIdx(hdr,'해지일시'), iSp=xlIdxLoose(hdr,['정지일시','정지일자','정지일','이용정지일시','서비스정지일시','정지 일시']),
         iEx=xlIdx(hdr,'면제 구분'), iPm=xlIdx(hdr,'프로모션 구분'),
-        iExS=xlIdx(hdr,'면제 시작월'), iExE=xlIdx(hdr,'면제 종료월');   // v04.94 '면제 중' 유효기간 판정용
+        iExS=xlIdx(hdr,'면제 시작월'), iExE=xlIdx(hdr,'면제 종료월'),   // v04.94 '면제 중' 유효기간 판정용
+        iPmS=xlIdx(hdr,'프로모션 시작월'), iPmE=xlIdx(hdr,'프로모션 종료월');   // v08.235 프로모션 가입월 판정용(아래 참고)
   if(iNm<0||iFee<0)throw new Error('필수 컬럼 없음: 세무사무소명 · 세모리포트 요금(A)');
   const live=rows.filter(r=>!xlBlank(r[iNm]) && xlBlank(r[iCn]) && xlBlank(r[iSp]));
+  const ymOnlyTop=function(v){const s=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,6);return s.length===6?s:'';};
   /* v08.228 요청("13건이야" — 청구대상 확인 탭이 6곳만 보여줌) — 원인은 위 live 필터가 정지·
      해지된 곳을 청구 집계에서 제외하는 것(다른 화면들이 "지금 청구 중인 곳"만 보게 하려는
      의도된 동작, byName/byBiz·paid/std 등 기존 계산은 그대로 둔다). "청구대상 확인" 탭은
@@ -3361,15 +3363,9 @@ function xlParseBilling(rows,hdr){
      여부와 무관하게 파일 전체를 세야 한다 — 기존 live 집계와 별도로 전체 행을 추가로 담아
      둔다(기존 반환값·다른 화면 동작에는 영향 없음, 순수 추가). */
   window.__billAllRows=rows.filter(r=>!xlBlank(r[iNm])).map(function(r){
-    return {nm:String(r[iNm]||'').trim(), pl:String(r[iPl]||'').trim(), promo:iPm>=0?String(r[iPm]||'').trim():'', bz:xlBizKey(iBz>=0?r[iBz]:'')};
+    return {nm:String(r[iNm]||'').trim(), pl:String(r[iPl]||'').trim(), promo:iPm>=0?String(r[iPm]||'').trim():'', bz:xlBizKey(iBz>=0?r[iBz]:''),
+      promoS:iPmS>=0?ymOnlyTop(r[iPmS]):'', promoE:iPmE>=0?ymOnlyTop(r[iPmE]):''};
   });
-  /* v08.233 요청("계속 집계가 안되고 있다니까?") — 원인은 개업성장패키지 실적(pkgJoinCountRange)이
-     이 live(정지·해지 제외) byBiz로 프로모션을 대조해서다. "세무그룹 서울택스"처럼 재가입했어도
-     청구 파일의 해지일시가 안 지워진 채 남아있으면 live에서 빠져 byBiz에 없고, 재가입 여부와
-     무관하게 프로모션 매칭 자체가 안 됐다(v08.228과 같은 유형 — "청구대상 확인" 탭만 고치고
-     이쪽은 안 고쳤던 것). 프로모션 매칭용으로 정지·해지 여부와 무관한 원본 기준 byBiz를 따로 둔다. */
-  window.__billAllByBiz={};
-  window.__billAllRows.forEach(function(r){ if(r.bz)window.__billAllByBiz[r.bz]=r; });
   let paid=0, std=0, convN=0, exempt=0, promo=0;
   const byName={}, byBiz={};   // v04.68 고객별 실수납 (사업자번호 우선 · 사무소명 보조)
   const ymOnly=function(v){const s=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,6);return s.length===6?s:'';};
@@ -11551,16 +11547,19 @@ function joinCountRange(s,e){
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
    실적만 "가입일 또는 재가입일이 이 기간에 있으면" 센다(둘 다 걸려도 중복 계산 없이 1건). */
+/* v08.235 요청("프로모션은 프로모션 시작월 종료월을 참고해") — 세무사무소목록의 가입일/재가입일로
+   "언제 이 프로모션이 시작됐는지"를 추정하던 것(v08.227/233)을 그만두고, 청구 파일에 이미 있는
+   "프로모션 시작월" 컬럼을 그대로 쓴다 — 이게 그 프로모션이 실제로 시작된 달의 원본 값이라
+   가입일 추정보다 정확하고, 오피스 파일(가입일)과 청구 파일(프로모션 시작월)을 이어붙이던
+   재가입 포함 로직(v08.227) 자체가 필요 없어진다(청구 파일 하나로 판정 완결). */
 function pkgJoinCountRange(s,e){
-  const R=window.__xlOfficeRows||[];
-  const AB=window.__billAllByBiz||null;
-  if(!Array.isArray(R)||!R.length||!AB)return 0;
-  const inR=officeInRange(s,e);
-  return R.filter(function(x){
-    if(!inR(x.jn)&&!inR(x.rj))return false;
-    const bk=(typeof xlBizKey==='function')?xlBizKey(x.bz):'';
-    const rec=bk?AB[bk]:null;
-    return !!(rec&&isPromo190(rec.promo));
+  const AB=window.__billAllRows||null;
+  if(!Array.isArray(AB)||!AB.length)return 0;
+  const sYM=s.slice(0,4)+s.slice(5,7), eYM=e.slice(0,4)+e.slice(5,7);
+  return AB.filter(function(r){
+    if(!isPromo190(r.promo))return false;
+    if(!r.promoS)return false;
+    return r.promoS>=sYM && r.promoS<=eYM;
   }).length;
 }
 function pkgJoinCountWeek(wk){ return pkgJoinCountRange(wk, wkEndOf(wk)); }
