@@ -1977,7 +1977,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.218';
+window.__APP_VER='v08.219';
 window.__wembProtect=[];
 
 
@@ -11447,13 +11447,23 @@ let WINBACK=[];
 /* 개업성장패키지(=190만원 프로모션, PROMO_190) 신규가입 — 이번 주 가입 중 청구 파일 promo가
    개업성장패키지인 건. 명칭 매칭(plan190Promo, byName)이 아니라 사업자번호(byBiz) 매칭을
    쓴다 — v08.217에서 고객마스터 매칭을 이름 대신 사업자번호로 바꾼 것과 같은 이유
-   (CLAUDE.md 28번 항목). 청구 파일을 안 올렸으면 항상 0(지어내지 않음, 정책 11항). */
-function pkgJoinCountWeek(wk){
+   (CLAUDE.md 28번 항목). 청구 파일을 안 올렸으면 항상 0(지어내지 않음, 정책 11항).
+   v08.219 — 아래 월별 표(joinCountRange·pkgJoinCountRange)와 계산 로직을 공유하도록
+   날짜범위 버전을 만들고, 주간 버전은 그 얇은 래퍼로 바꿨다(같은 계산을 두 번 만들지 않음). */
+function officeInRange(s,e){
+  const okd=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
+  return function(v){const d=String(v||'').slice(0,10);return okd(d)&&d>=s&&d<=e;};
+}
+function joinCountRange(s,e){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return 0;
+  const inR=officeInRange(s,e);
+  return R.filter(function(x){return inR(x.jn);}).length;
+}
+function pkgJoinCountRange(s,e){
   const R=window.__xlOfficeRows||[], B=window.__xlBilling||null;
   if(!Array.isArray(R)||!R.length||!B||!B.byBiz)return 0;
-  const s=wk, e=wkEndOf(wk);
-  const okd=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
-  const inR=v=>{const d=String(v||'').slice(0,10);return okd(d)&&d>=s&&d<=e;};
+  const inR=officeInRange(s,e);
   return R.filter(function(x){
     if(!inR(x.jn))return false;
     const bk=(typeof xlBizKey==='function')?xlBizKey(x.bz):'';
@@ -11461,6 +11471,7 @@ function pkgJoinCountWeek(wk){
     return !!(rec&&isPromo190(rec.promo));
   }).length;
 }
+function pkgJoinCountWeek(wk){ return pkgJoinCountRange(wk, wkEndOf(wk)); }
 function wkSetPkgTarget(v){
   getWeek(CURWK).pkgTarget=v;
   if(typeof logAct==='function')logAct('주간회의 개업성장패키지 목표 입력',CURWK,String(v||''));
@@ -11534,6 +11545,78 @@ function teamGoalsHtml(){
 function winbackCountsText(wc){
   wc=wc||winbackCounts();
   return '대상 '+wc.대상+'곳 · 연락함 '+wc.연락함+' · 성공 '+wc.재가입성공+' · 실패 '+wc.실패+' · 미처리 '+wc.미처리;
+}
+/* ══ v08.219 요청("월별 실적지표를 이미지처럼 만들려고해") ══
+   "★ 팀 3대 목표" 아래에 연간 목표 대비 월별 실적 표를 추가한다. 연간 목표 숫자는
+   확정값이 아니라 팀이 직접 입력하는 칸(요청 확인 완료)이라, BUDGET(월별 예산, 입력한
+   값만 남기고 기본값을 지어내지 않는 방식)과 같은 저장 방식을 그대로 따른다 —
+   board_montarget, 아직 3자 병합 대상은 아니다(board_budget·board_week와 같은 위험
+   수준, CLAUDE.md 3번 항목). 실적(신규가입·개업성장패키지 가입)은 세무사무소목록·청구
+   파일에서 월별로 자동 집계하고, 아직 시작하지 않은 미래 달은 실적을 0으로 지어내지
+   않고 빈 값('—')으로 둔다(정책 11항). */
+let MONTARGET={};
+function getMonTarget(y){return MONTARGET[y]||(MONTARGET[y]={new:{},pkg:{}});}
+window.__monTgtYear=window.__monTgtYear||+TODAY.slice(0,4);
+function monTgtShift(n){window.__monTgtYear+=n; const el=document.getElementById('wkMonTgtBox'); if(el)el.innerHTML=monPerfTableHtml();}
+function monRangeOf(y,m){
+  const last=new Date(y,m,0).getDate();
+  return [y+'-'+String(m).padStart(2,'0')+'-01', y+'-'+String(m).padStart(2,'0')+'-'+String(last).padStart(2,'0')];
+}
+function wkSetMonTarget(kind,y,m,v){
+  const T=getMonTarget(y);
+  if(v===''||v==null)delete T[kind][m]; else T[kind][m]=v;
+  if(typeof logAct==='function')logAct('월별 목표 입력',y+'-'+m+' '+kind,String(v||''));
+  schedulePersist();
+  const el=document.getElementById('wkMonTgtBox'); if(el)el.innerHTML=monPerfTableHtml();
+}
+function monPerfTableHtml(){
+  const y=window.__monTgtYear, T=getMonTarget(y);
+  const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
+  const months=[1,2,3,4,5,6,7,8,9,10,11,12];
+  const future=m=>(y>curY)||(y===curY&&m>curM);
+  const num=v=>(v!==''&&v!=null)?+v:null;
+  const rows={newT:{},newA:{},pkgT:{},pkgA:{}};
+  months.forEach(function(m){
+    const tv=num(T.new[m]); rows.newT[m]=tv;
+    rows.newA[m]=future(m)?null:joinCountRange.apply(null,monRangeOf(y,m));
+    const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
+    rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
+  });
+  const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
+  const newTSum=sum(rows.newT), newASum=sum(rows.newA);
+  const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
+  const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
+  const targetCell=function(kind,m){
+    return '<input type="number" value="'+esc(T[kind][m]||'')+'" style="width:44px;font-size:10.5px;text-align:center;border:1px solid var(--border);border-radius:4px" '
+      +'onchange="wkSetMonTarget(\''+kind+'\','+y+','+m+',this.value)">';
+  };
+  const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
+  const deltaCell=function(a,t){ if(a==null||t==null)return '<span class="na">—</span>'; const d=a-t; return (d>0?'+':'')+d; };
+  const rateCell=function(a,t){ if(a==null||t==null)return '<span class="na">—</span>'; return rate(a,t); };
+  const tr=function(label,cells,sumTxt){
+    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'+cells.join('')+'<td style="font-weight:700">'+sumTxt+'</td></tr>';
+  };
+  const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+    +months.map(function(m){return '<th>'+m+'월</th>';}).join('')+'<th>합계</th></tr></thead><tbody>'
+    +tr('신규가입 목표',months.map(function(m){return '<td>'+targetCell('new',m)+'</td>';}),newTSum)
+    +tr('신규가입 실적',months.map(function(m){return '<td>'+actCell(rows.newA[m])+'</td>';}),newASum)
+    +tr('달성 실적',months.map(function(m){return '<td>'+deltaCell(rows.newA[m],rows.newT[m])+'</td>';}),(newTSum>0?(newASum-newTSum):'—'))
+    +tr('달성률',months.map(function(m){return '<td>'+rateCell(rows.newA[m],rows.newT[m])+'</td>';}),rate(newASum,newTSum))
+    +tr('프로모션 가입 목표',months.map(function(m){return '<td>'+targetCell('pkg',m)+'</td>';}),pkgTSum)
+    +tr('프로모션 가입 실적',months.map(function(m){return '<td>'+actCell(rows.pkgA[m])+'</td>';}),pkgASum)
+    +tr('달성 실적',months.map(function(m){return '<td>'+deltaCell(rows.pkgA[m],rows.pkgT[m])+'</td>';}),(pkgTSum>0?(pkgASum-pkgTSum):'—'))
+    +tr('달성률',months.map(function(m){return '<td>'+rateCell(rows.pkgA[m],rows.pkgT[m])+'</td>';}),rate(pkgASum,pkgTSum))
+    +'</tbody></table>';
+  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    +'<button class="btn gh" style="padding:3px 9px" onclick="monTgtShift(-1)">◀</button>'
+    +'<b style="font-size:12px">'+y+'년</b>'
+    +'<button class="btn gh" style="padding:3px 9px" onclick="monTgtShift(1)">▶</button></div>'
+    +'<div class="wk-kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">'
+    +'<div class="wk-kpi"><div class="wk-kl">신규가입 최종 달성률</div><div style="font-size:20px;font-weight:800">'+rate(newASum,newTSum)+'</div>'
+    +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
+    +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800">'+rate(pkgASum,pkgTSum)+'</div>'
+    +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
+    +'</div><div style="overflow:auto">'+table+'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -11674,6 +11757,8 @@ const BOARD_STATE_MAP={
   board_week:'WEEKDATA',
   /* v08.218 정지·해지 윈백영업 상태 기록 — CARDS·UNIS와 같은 3자 병합 저장(사업자번호 키) */
   board_winback:'WINBACK',
+  /* v08.219 연간 목표(신규가입·개업성장패키지 가입) — board_budget과 같은 저장 방식 */
+  board_montarget:'MONTARGET',
   /* v07.35 칸반 열 순서 — 종전에는 저장 대상이 아니어서 열을 옮겨도 새로고침·재배포하면
      파일에 박힌 순서로 되돌아갔다. 탭별 세 배열을 한 덩어리로 저장한다. */
   board_gorder:'__GORDER',
@@ -11896,6 +11981,7 @@ async function loadFromSupabase(){
       if(v==='CARDS'){CARDS.length=0;CARDS.push(...r.state);}
       else if(v==='UNIS'){UNIS.length=0;UNIS.push(...r.state);}
       else if(v==='WINBACK'){WINBACK.length=0;WINBACK.push(...(Array.isArray(r.state)?r.state:[]));}
+      else if(v==='MONTARGET'){Object.keys(MONTARGET).forEach(k=>delete MONTARGET[k]);Object.assign(MONTARGET,(r.state&&typeof r.state==='object')?r.state:{});}
       else if(v==='SEMROWS'){SEMROWS=r.state;}
       else if(v==='__inqDel'){window.__inqDel=r.state;}
       else if(v==='KEYTASK'){Object.keys(KEYTASK).forEach(k=>delete KEYTASK[k]);Object.assign(KEYTASK,r.state);}
@@ -12243,7 +12329,7 @@ function schedulePersist(){
              ['board_issues',ISSUES],['board_unis',UNIS],['board_log',LOG],
              ['board_budget',BUDGET],['board_sem',SEMROWS],['board_week',WEEKDATA],
              ['board_gorder',window.__GORDER],['board_actlog',window.__actLog||[]],
-             ['board_lastmo',MO],['board_winback',WINBACK]];
+             ['board_lastmo',MO],['board_winback',WINBACK],['board_montarget',MONTARGET]];
     const chg=P.filter(([k,v])=>!__sameAsSaved(k,v));
     /* v07.67 바뀐 게 없으면 배지를 건드리지 않는다 — 방금 뜬 「저장 완료」가 곧바로
        「변경 없음」으로 덮여, 저장이 됐는지 확인할 틈이 없었다. */
@@ -12258,7 +12344,7 @@ function __markBaselineOnly(){
    ['board_issues',ISSUES],['board_unis',UNIS],['board_log',LOG],
    ['board_budget',BUDGET],['board_sem',SEMROWS],['board_week',WEEKDATA],
    ['board_gorder',gorderSnapshot()],['board_actlog',window.__actLog||[]],
-   ['board_lastmo',MO],['board_winback',WINBACK]]
+   ['board_lastmo',MO],['board_winback',WINBACK],['board_montarget',MONTARGET]]
     .forEach(([k,v])=>{ try{ __lastSaved[k]=JSON.stringify(v); }catch(e){} });
 }
 function markSavedBaseline(){
@@ -14424,7 +14510,9 @@ function paintWeek(){
   b.innerHTML=
    '<div class="keytask" style="position:static;border-left-color:var(--teal)"><div class="kt-h">★ 팀 3대 목표</div>'
    +teamGoalsHtml()
-   +'<div id="wkWinbackBox" style="margin-top:10px">'+winbackListHtml()+'</div></div>'
+   +'<div id="wkWinbackBox" style="margin-top:10px">'+winbackListHtml()+'</div>'
+   +'<div class="wk-sub-l" style="margin-top:14px">월별 플러스 및 프로모션 가입 실적 현황</div>'
+   +'<div id="wkMonTgtBox">'+monPerfTableHtml()+'</div></div>'
    +'<div class="keytask" style="position:static"><div class="kt-h">① 주간 실적 요약</div>'
    +kpiGridHtml('perf',WKKPI_PERF)+'</div>'
    /* v08.113 요청("주간 실적 요약과 기간별 발생 건 목록 사이에 주간 인사이트") — 아래 ①-3 목록과
