@@ -1979,7 +1979,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.237';
+window.__APP_VER='v08.238';
 window.__wembProtect=[];
 
 
@@ -11677,17 +11677,23 @@ function planJoinTableHtml(){
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
   const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
-  const tr=function(label,obj){
-    return '<tr><td style="text-align:left;white-space:nowrap">'+label+'</td>'
+  const tr=function(label,obj,style){
+    return '<tr><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'
       +months.map(function(m){return td(actCell(obj[m]));}).join('')
       +'<td style="text-align:center;font-weight:700">'+sum(obj)+'</td></tr>';
   };
+  /* v08.238 요청(참고 이미지) — 개업성장패키지는 플러스 요금제 위에 얹히는 프로모션이라
+     플러스와 별개 행이 아니라 그 아래 딸린 세부 항목으로 보여준다(들여쓰기 "└" + 파란 글자,
+     --link 재사용). 집계 자체(planJoinCountRange·pkgJoinCountRange)는 그대로라 두 행 숫자가
+     겹칠 수 있음은 이전과 같다 — 표시만 이 관계를 드러내도록 바꾼 것. */
   const table='<table class="tbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
-    +tr('플러스',rows.plus)+tr('개업성장패키지',rows.pkg)+tr('베이직',rows.basic)
+    +tr('플러스',rows.plus)
+    +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
+    +tr('베이직',rows.basic)
     +'</tbody></table>';
-  return '<div style="font-size:10px;color:var(--gray-md);margin-bottom:6px">가입수 = 신규가입 + 재가입</div>'
-    +'<div style="overflow:auto">'+table+'</div>';
+  return '<div style="overflow:auto">'+table+'</div>'
+    +'<div style="font-size:10px;color:var(--gray-md);margin-top:6px">가입수 = 신규가입 + 재가입</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
