@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.255';
+window.__APP_VER='v08.256';
 window.__wembProtect=[];
 
 
@@ -2935,18 +2935,25 @@ window.__syncPromo=function(){
       return String(y)+String(m).padStart(2,'0');
     };
     const lim=addM(base,3);
+    /* v08.256 요청("프로모션, 할인, 면제등만 보여줘") — "-"·"." 같은 무의미 표기를 있는 값으로
+       잘못 세던 것(churn 화면 해지사유와 같은 관례로 통일)을 고치고, 프로모션이 없어도 면제·
+       할인이 있으면 목록에 포함하도록 넓힌다(그전엔 프로모션 없는 곳은 아예 안 보였다). */
+    const has=function(v){ v=String(v||'').trim(); return !!(v&&v!=='-'&&v!=='.'); };
     const rows=[]; let soon=0, past=0, exem=0;
     Object.keys(map).forEach(function(k){
       const v=map[k];
-      if(v.exempt)exem++;
-      if(!v.promo)return;
-      const e=v.pE||'';
+      const hasPromo=has(v.promo), hasExempt=!!v.exempt, hasDiscount=has(v.discount);
+      if(hasExempt)exem++;
+      if(!hasPromo&&!hasExempt&&!hasDiscount)return;
+      const e=hasPromo?(v.pE||''):'';
       let stt='';
-      if(!e||e==='209912')stt='무기한';
+      if(!hasPromo)stt='무기한';   // 프로모션 없이 면제·할인만 있는 곳 — 종료 개념이 없다
+      else if(!e||e==='209912')stt='무기한';
       else if(e<base){ past++; stt='종료 경과'; }
       else if(e<=lim){ soon++; stt='종료 3개월 전 대상'; }
       else stt='진행 중';
-      rows.push([v.nm||'', (v.pl||'—'), v.promo, e||'—', stt]);
+      const tag=[hasPromo?'프로모션':'',hasDiscount?'할인':'',hasExempt?'면제':''].filter(Boolean).join('·');
+      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt]);
     });
     const ORD={'종료 경과':0,'종료 3개월 전 대상':1,'진행 중':2,'무기한':3};
     rows.sort(function(a,b){ return (ORD[a[4]]-ORD[b[4]])||String(a[3]).localeCompare(String(b[3])); });
@@ -3424,7 +3431,12 @@ function xlParseBilling(rows,hdr){
     paid+=a; std+=s; if(s>a)convN++;
     if(ex)exempt++;
     if(iPm>=0&&!xlBlank(r[iPm]))promo++;
-    const rec={paid:a, std:s, pl:pl, promo:pm, exempt:ex, exS:exS, exE:exE, nm:String(r[iNm]||'').trim()};
+    /* v08.256 요청("프로모션, 할인, 면제등만 보여줘" — 종료 관리 목록) — pE(프로모션 종료월)가
+       그동안 이 rec에 없어 __syncPromo()가 항상 '무기한'으로 잘못 판정했다(v.pE가 사용되는
+       유일한 자리인데 어디서도 채워진 적이 없었다). discount(dc)도 이 파일에서 처음 다루는
+       할인 구분 컬럼이라 새로 담는다. */
+    const dc=(iDcK>=0&&!xlBlank(r[iDcK]))?String(r[iDcK]).trim():'';
+    const rec={paid:a, std:s, pl:pl, promo:pm, exempt:ex, exS:exS, exE:exE, pE:(iPmE>=0?ymOnly(r[iPmE]):''), discount:dc, nm:String(r[iNm]||'').trim()};
     const key=String(r[iNm]||'').replace(/\s+/g,'').toLowerCase();
     if(key)byName[key]=rec;
     const bz=xlBizKey(iBz>=0?r[iBz]:'');
