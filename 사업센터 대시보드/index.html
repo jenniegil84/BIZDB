@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.252';
+window.__APP_VER='v08.253';
 window.__wembProtect=[];
 
 
@@ -7579,10 +7579,6 @@ function renderSales(){
 // ══ 11. 프로모션 종료·정상가 전환 ══
 (function(){
   const el=document.getElementById('s-promo');
-  window.__promoQ=window.__promoQ||'';
-  window.__promoCodeF=window.__promoCodeF||'';
-  window.promoSetQ=function(v){window.__promoQ=v;if(RENDER['promo'])RENDER['promo']();};
-  window.promoCodeSetF=function(v){window.__promoCodeF=(window.__promoCodeF===v?'':v);if(RENDER['promo'])RENDER['promo']();};
   function render(){
   const stCol={'예정':'tP3','확정대기':'tP2','데이터보완':'tP1','기한경과':'tP0'};
   /* v08.207 — CLAUDE.md 20번: 이 필드를 "죽은 코드"로 오판해 삭제했다가 원본 값을 복구하지
@@ -7613,33 +7609,6 @@ function renderSales(){
   const sched=(pkg190Rows!=null?pkg190Rows:(A.일시납스케줄||[])).map(s=>`<tr${s.stt==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${s.nm}</td><td>${s.tp}</td><td>${s.st}</td><td>${s.ed}</td><td>${s.al}</td><td><span class="rtag ${stCol[s.stt]}">${s.stt}</span></td><td style="font-size:10px;color:var(--gray-md)">${s.stt==='예정'?'D-90 알림톡→D-60 문자→D-30 전화':s.stt==='기한경과'?'금주 확정→즉시 전화 안내':s.stt==='데이터보완'?'시작월 소급 입력':'한청세 여부 수동 확정'}</td></tr>`).join('');
   const HIST=['알림톡 발송','문자 발송','전화 연결','최초 안내일','최근 안내일','고객 반응','전환 인지','전환 동의','다음 연락일','담당자','처리기한'];
   const promoRows=A.promo_rows.map(r=>`<tr${r[4]==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td>${HIST.map(()=>'<td class="na">—</td>').join('')}</tr>`).join('');
-  // v04.84 프로모션 코드 적용 전체 현황 — 청구대상 고객관리 업로드 파일의 promo 필드 기준 (요청: "청구대상 고객관리파일에 프로모션 코드가 있잖아. 프로모션탭에 프로모션코드가 있는 모든 업체 업데이트 필요")
-  // 위 '종료 관리 목록'(A.promo_rows)은 190만 일시납 종료 임박 대상만 담은 별도 스냅샷 — 이 표는 그와 별개로 청구 파일상 프로모션 코드가 있는 전체 업체를 다룸
-  const B=window.__xlBilling||null;
-  // v04.94 통합현황 청구 현황 표와 동일한 사업자번호 기준(billRecs)으로 통일 — 종전 사무소명 키는 상호가 같은
-  // 별개 사업자를 병합해 148곳으로 집계돼, 같은 파일에서 나온 통합현황의 프로모션 150건과 서로 어긋나 있었음
-  const promoAll=(typeof billRecs==='function'&&B)?billRecs().filter(function(r){return r.code;})
-    .map(function(r){return {nm:r.nm, matched:r.matched, pl:r.pl, code:r.code, paid:r.paid, std:r.std};}):[];
-  const codeCnt={};
-  promoAll.forEach(function(r){codeCnt[r.code]=(codeCnt[r.code]||0)+1;});
-  const codeList=Object.entries(codeCnt).sort(function(a,b){return b[1]-a[1];});
-  const maxCodeN=Math.max(1,...codeList.map(function(x){return x[1];}));
-  const codeRows=codeList.map(function(x){
-    const code=x[0], n=x[1], pct=Math.round(n/maxCodeN*100), sel=window.__promoCodeF===code;
-    return '<tr class="clk" style="'+(sel?'background:var(--teal-lt)':'')+'" onclick="promoCodeSetF(\''+IX_esc(code).replace(/'/g,"\\'")+'\')">'
-      +'<td style="text-align:left"><b>'+IX_esc(code)+'</b></td>'
-      +'<td><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:var(--teal)"></div></div><span style="min-width:34px;text-align:right;display:inline-block;font-weight:700">'+n+'곳</span></div></td></tr>';
-  }).join('');
-  const q=(window.__promoQ||'').trim().toLowerCase();
-  const cf=window.__promoCodeF||'';
-  const filtered=promoAll.filter(function(r){return (!q||r.nm.toLowerCase().includes(q))&&(!cf||r.code===cf);})
-    .sort(function(a,b){return a.nm.localeCompare(b.nm,'ko');});
-  const listRows=filtered.map(function(r){
-    return '<tr><td style="text-align:left">'+IX_esc(r.nm)+(r.matched?'':' <span class="rtag tP2" style="font-size:8px">고객마스터 미매칭</span>')+'</td>'
-      +'<td>'+IX_esc(r.pl)+'</td><td><span class="rtag tP3" style="font-size:9px">'+IX_esc(r.code)+'</span></td>'
-      +'<td>'+(r.std?r.std.toLocaleString()+'원':'—')+'</td><td>'+r.paid.toLocaleString()+'원</td>'
-      +'<td>'+(r.std>r.paid?(r.std-r.paid).toLocaleString()+'원':'—')+'</td></tr>';
-  }).join('');
   el.innerHTML=`
   <div class="notebox warn"><b>190만 일시납 원칙</b> ${srcTag('svc')} ${srcTag('pay')} — 데이터 기준: 서비스 데이터(프로모션 구분·종료월). 입금 실적은 계약·결제 연동 필요. 월 환산하지 않으며 실제 입금 월의 일시납 매출로 관리. 종료 후 <b>플러스 정상가 월 35만원 환복</b> → 사전 안내 없으면 항의·해지 위험(P0 조건). 안내 이력 11항목은 종료안내이력 테이블 신설 후 기록(현재 전건 '—').</div>
   <!-- v08.214 요청("데이터값은 없으면 없는대로 표시, 하드코딩 금지") — 대상·미처리는 청구내역파일
@@ -7662,17 +7631,9 @@ function renderSales(){
    ${ctrlBar()}
    <div style="overflow:auto;max-height:440px"><table class="tbl"><thead><tr><th>사무소</th><th>트랙</th><th>프로모션</th><th>종료월</th><th>상태</th>${HIST.map(h=>`<th>${h}<span class="need">(수집 필요)</span></th>`).join('')}</tr></thead><tbody>${promoRows}</tbody></table></div>
   </div></div>
-  <div class="sec-label">프로모션 코드 적용 전체 현황 <span class="sec-tag t">청구대상 고객관리 기준 · ${promoAll.length}곳 · ${codeList.length}종</span></div>
-  <div class="panel" style="margin-bottom:14px"><table class="tbl stat-tbl" id="promoCodeBoard"><thead><tr><th style="text-align:left">프로모션 코드</th><th style="width:70%">업체 수</th></tr></thead><tbody>${codeRows||'<tr><td colspan="2" class="na" style="text-align:center;padding:12px">청구대상 고객관리 업로드 필요</td></tr>'}</tbody></table></div>
-  <div class="panel"><div class="panel-body">
-   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-    <input value="${IX_esc(window.__promoQ||'')}" oninput="promoSetQ(this.value)" placeholder="사무소명 검색" style="width:220px;padding:6px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px">
-    ${window.__promoCodeF?`<button class="btn gh" onclick="promoCodeSetF('')" style="font-size:11px">필터 해제: ${IX_esc(window.__promoCodeF)} ✕</button>`:''}
-    <span style="font-size:10px;color:var(--gray-md);margin-left:auto">표시 ${filtered.length}곳 / 전체 ${promoAll.length}곳(코드 ${codeList.length}종)</span>
-   </div>
-   <div style="overflow:auto;max-height:420px"><table class="tbl"><thead><tr><th style="text-align:left">사무소명</th><th>요금제</th><th>프로모션 코드</th><th>정가</th><th>실청구</th><th>할인액</th></tr></thead><tbody>${listRows||'<tr><td colspan="6" class="na" style="text-align:center;padding:16px">조회 결과 없음</td></tr>'}</tbody></table></div>
-   <div style="font-size:9px;color:var(--gray-md);margin-top:6px">데이터 기준: 청구대상 고객관리 업로드 파일(promo 필드) — 고객 마스터(요금제 pl) 미매칭 업체는 파일상 원문 표기 그대로 노출(정상 서비스 상태 확인 필요)</div>
-  </div></div>
+  <!-- v08.253 요청("이건 제거" — 프로모션 코드 적용 전체 현황 스크린샷) — 사무소명 검색·업체별
+       정가/실청구/할인액 목록 블록 전체 삭제(promoAll·codeCnt/List·codeRows·filtered·listRows·
+       __promoQ/__promoCodeF 상태와 setter도 함께 정리, 다른 화면에서 참조하지 않음을 확인). -->
   <!-- v08.214 — 아래 4항목(전환율 최저 단계·반복 발생 문제·우선 조치 고객·예상 매출 영향)에
        박혀 있던 구체 수치(49곳·129건·'셈' 사무소·26곳·+70만·+875만)는 과거 특정 시점 조사
        메모였고 업로드와 무관하게 항상 그대로 떴다 — 근거 데이터 경로가 없어 '—'로 되돌렸다
