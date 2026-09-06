@@ -1977,7 +1977,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.220';
+window.__APP_VER='v08.221';
 window.__wembProtect=[];
 
 
@@ -5304,52 +5304,6 @@ function custToMg(c,step,status,problem,action,dmn){
        실적 분석에 없는 것만 남긴다. 기간별 수치는 위 머리글의 「일별·월별·누적 탭」 링크로 간다.
        이 블록만 쓰던 계산값들도 위에서 함께 지웠다(남겨두면 쓰는 곳 없이 계산만 하게 된다). -->
 
-  <!-- v08.145 세모리포트 거래처 현황 — 세무사무소목록의 거래처수 3종(총·가입·해지) -->
-  <div class="blk">
-    <div class="blk-hd"><span class="blk-ttl">세모리포트 거래처 현황</span>${basisTag('n')}
-      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_srStat.base.toLocaleString()}곳 합계 · 해지·정지 제외</span></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${[{k:'tot',l:'총거래처수',tone:''},
-         {k:'jn', l:'가입거래처수',tone:'tc'},
-         {k:'hj', l:'해지거래처수',tone:'rc'}].map(function(o){
-        const s=_srStat[o.k];
-        if(!s.ok)return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
-          +'<div class="kpi-v">—</div><div class="kpi-s">세무사무소목록에 해당 컬럼이 없습니다'
-          +(_srStat.cands.length?(' — 파일의 「'+_srStat.cands.slice(0,4).map(function(x){return IX_esc(x);}).join('」·「')+'」 확인 필요'):'')
-          +'</div></div>';
-        /* 가입거래처수는 총거래처수 대비 비율을 함께 낸다 — 얼마나 실제로 쓰이는지 */
-        const rate=(o.k==='jn'&&_srStat.tot.ok&&_srStat.tot.sum)
-          ? ' · 총 대비 '+Math.round(s.sum/_srStat.tot.sum*100)+'%' : '';
-        return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
-          +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">곳</span></div>'
-          +'<div class="kpi-s">보유 '+s.used.toLocaleString()+'곳'+rate
-          +(s.used?(' · 사무소당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'곳'):'')+'</div></div>';
-      }).join('')}
-    </div>
-  </div>
-
-  <!-- v08.122 인사이트 사용 현황 — 세무사무소목록의 사용건수 3종(총·자금일보·전자세금계산서) -->
-  <div class="blk">
-    <div class="blk-hd"><span class="blk-ttl">인사이트 사용 현황</span>${basisTag('n')}
-      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_insStat.base.toLocaleString()}곳 합계 · 해지·정지 제외</span></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${[{k:'all',l:'인사이트 총 사용건수',tone:'tc'},
-         {k:'fund',l:'자금일보 사용건수',tone:'oc'},
-         {k:'tax',l:'전자세금계산서 사용건수',tone:'oc'}].map(function(o){
-        const s=_insStat[o.k];
-        if(!s.ok)return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
-          +'<div class="kpi-v">—</div><div class="kpi-s">세무사무소목록에 해당 컬럼이 없습니다'
-          +(_insStat.cands.length?(' — 파일의 「'+_insStat.cands.slice(0,4).map(function(x){return IX_esc(x);}).join('」·「')+'」 확인 필요'):'')
-          +'</div></div>';
-        const rate=_insStat.base?Math.round(s.used/_insStat.base*100):0;
-        return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
-          +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">건</span></div>'
-          +'<div class="kpi-s">사용 '+s.used.toLocaleString()+'곳 · 이용 사무소의 '+rate+'%'
-          +(s.used?(' · 곳당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'건'):'')+'</div></div>';
-      }).join('')}
-    </div>
-  </div>
-
   <div class="blk">
     <div class="blk-hd"><span class="blk-ttl">누적 요약</span>${basisTag('a')}
       <span style="font-size:10px;color:var(--gray-md)">2022.12 ~ ${_bm.replace('-','.')}</span>
@@ -5403,6 +5357,52 @@ function custToMg(c,step,status,problem,action,dmn){
         +'<div class="kpi"><div class="kpi-l">정지 사유</div><div class="kpi-v">—</div>'
         +'<div class="kpi-s">세무사무소목록에 「정지사유」 컬럼이 없습니다 — 파일을 다시 업로드하면 표시됩니다</div></div>'
         +'</div>'}
+  </div>
+
+  <!-- v08.122 인사이트 사용 현황 — 세무사무소목록의 사용건수 3종(총·자금일보·전자세금계산서) -->
+  <div class="blk">
+    <div class="blk-hd"><span class="blk-ttl">인사이트 사용 현황</span>${basisTag('n')}
+      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_insStat.base.toLocaleString()}곳 합계 · 해지·정지 제외</span></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${[{k:'all',l:'인사이트 총 사용건수',tone:'tc'},
+         {k:'fund',l:'자금일보 사용건수',tone:'oc'},
+         {k:'tax',l:'전자세금계산서 사용건수',tone:'oc'}].map(function(o){
+        const s=_insStat[o.k];
+        if(!s.ok)return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
+          +'<div class="kpi-v">—</div><div class="kpi-s">세무사무소목록에 해당 컬럼이 없습니다'
+          +(_insStat.cands.length?(' — 파일의 「'+_insStat.cands.slice(0,4).map(function(x){return IX_esc(x);}).join('」·「')+'」 확인 필요'):'')
+          +'</div></div>';
+        const rate=_insStat.base?Math.round(s.used/_insStat.base*100):0;
+        return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
+          +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">건</span></div>'
+          +'<div class="kpi-s">사용 '+s.used.toLocaleString()+'곳 · 이용 사무소의 '+rate+'%'
+          +(s.used?(' · 곳당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'건'):'')+'</div></div>';
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- v08.145 세모리포트 거래처 현황 — 세무사무소목록의 거래처수 3종(총·가입·해지) -->
+  <div class="blk">
+    <div class="blk-hd"><span class="blk-ttl">세모리포트 거래처 현황</span>${basisTag('n')}
+      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_srStat.base.toLocaleString()}곳 합계 · 해지·정지 제외</span></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+      ${[{k:'tot',l:'총거래처수',tone:''},
+         {k:'jn', l:'가입거래처수',tone:'tc'},
+         {k:'hj', l:'해지거래처수',tone:'rc'}].map(function(o){
+        const s=_srStat[o.k];
+        if(!s.ok)return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
+          +'<div class="kpi-v">—</div><div class="kpi-s">세무사무소목록에 해당 컬럼이 없습니다'
+          +(_srStat.cands.length?(' — 파일의 「'+_srStat.cands.slice(0,4).map(function(x){return IX_esc(x);}).join('」·「')+'」 확인 필요'):'')
+          +'</div></div>';
+        /* 가입거래처수는 총거래처수 대비 비율을 함께 낸다 — 얼마나 실제로 쓰이는지 */
+        const rate=(o.k==='jn'&&_srStat.tot.ok&&_srStat.tot.sum)
+          ? ' · 총 대비 '+Math.round(s.sum/_srStat.tot.sum*100)+'%' : '';
+        return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
+          +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">곳</span></div>'
+          +'<div class="kpi-s">보유 '+s.used.toLocaleString()+'곳'+rate
+          +(s.used?(' · 사무소당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'곳'):'')+'</div></div>';
+      }).join('')}
+    </div>
   </div>
 
   <div class="sec-label">상세 분석 <span class="sec-tag t">필요할 때 펼쳐 보기 · 기존 표 그대로 유지</span></div>
