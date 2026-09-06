@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.258';
+window.__APP_VER='v08.259';
 window.__wembProtect=[];
 
 
@@ -5254,32 +5254,10 @@ function custToMg(c,step,status,problem,action,dmn){
      · 현재 정상 이용 중인 곳만 — 해지·정지된 곳의 과거 거래처수는 지금 현황이 아니다
      · 컬럼이 없으면 0을 지어내지 않고 화면에 「컬럼 없음」으로 둔다
      · 가입거래처수는 「총거래처수 중 실제 가입된 것」이므로 가입률을 함께 낸다 */
-  /* ══ v08.149 요청("정지 구분을 정지사유 기준으로") ══
-     정지 191곳을 사유별로 나눈다. 사유마다 손 쓸 일이 다르다:
-       · 미납        → 회수·결제수단 확인
-       · 프로모션 종료 → 요금제 재선택 안내
-       · 장기 미사용   → 활용 지원·윈백
-     현재 상태='정지'인 곳만 센다 — 지금 조치가 필요한 대상이라야 뜻이 있다.
-     사유 문구는 파일 값을 그대로 두고, 분류만 키워드로 묶는다(문구가 바뀌어도 기타로 빠질 뿐
-     숫자가 사라지지 않는다). */
-  const _spStat=(function(){
-    const C=window.__xlOfficeCols||{};
-    const rows=(window.__xlOfficeRows||[]).filter(function(x){return String(x.st||'').trim()==='정지';});
-    if(!C.spRs)return {ok:false, total:rows.length};
-    const G=[{k:'미납',     m:/미납/,          l:'미납',        d:'회수·결제수단 확인'},
-             {k:'프로모션', m:/프로모션|요금제 미설정/, l:'프로모션 종료', d:'요금제 재선택 안내'},
-             {k:'미사용',   m:/미사용/,        l:'장기 미사용',  d:'활용 지원·윈백'}];
-    const out=G.map(function(g){return {l:g.l,d:g.d,n:0};});
-    let etc=0;
-    rows.forEach(function(x){
-      const v=String(x.spRs||'').trim();
-      const i=G.findIndex(function(g){return g.m.test(v);});
-      if(i>=0)out[i].n++; else etc++;
-    });
-    if(etc)out.push({l:'기타·사유 없음',d:'사유 확인 필요',n:etc});
-    return {ok:true, total:rows.length, list:out.filter(function(x){return x.n;})
-             .sort(function(a,b){return b.n-a.n;})};
-  })();
+  /* v08.259 요청("정지 사유별 현황을 통째로 제거한다" — 고객관리의 정지업체 탭에서 이미
+     같은 분류를 더 자세히(업체 목록까지) 다루고 있어 통합현황에서는 중복) — 여기 있던 _spStat
+     계산과 아래 렌더 블록을 함께 삭제했다. 정지 "총 건수"는 위 누적 요약의 "누적 정지" 카드에
+     그대로 남아 있어 한눈에 보는 용도는 유지된다. */
   const _srStat=(function(){
     const C=window.__xlOfficeCols||{};
     const rows=(window.__xlOfficeRows||[]).filter(function(x){
@@ -5410,29 +5388,6 @@ function custToMg(c,step,status,problem,action,dmn){
        같은 추이를 실적 분석(월별 탭)에서 최근 13개월로 이미 보여주고 있어 중복이었다.
        통합현황은 「현재 상태」를 보는 화면이고 추세는 실적 분석에서 본다 — v08.121에서
        「이번 달 실적」을 뺀 것과 같은 이유다. 추세는 왼쪽바의 월별 탭에서 본다. -->
-
-  <!-- v08.149 정지 사유별 현황 — 사유마다 조치가 달라 나눠서 보여준다 -->
-  <div class="blk">
-    <div class="blk-hd"><span class="blk-ttl">정지 사유별 현황</span>${basisTag('n')}
-      <span style="font-size:10px;color:var(--gray-md)">현재 정지 ${_spStat.total.toLocaleString()}곳</span></div>
-    ${_spStat.ok
-      ? '<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,_spStat.list.length))+',1fr)">'
-        + _spStat.list.map(function(x){
-            const pct=_spStat.total?Math.round(x.n/_spStat.total*100):0;
-            return '<div class="kpi"><div class="kpi-l">'+IX_esc(x.l)+'</div>'
-              +'<div class="kpi-v oc">'+x.n.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">곳</span></div>'
-              +'<div class="kpi-s">'+pct+'% · '+IX_esc(x.d)+'</div></div>';
-          }).join('')
-        + '</div>'
-      /* v08.159 버그 수정("이건 내용이 왜 없어?") — 종전에는 안내를 .notebox로 넣었는데,
-         v03.67에서 「안내문(notebox) 전면 숨김」 규칙(display:none !important)을 걸어 둔 탓에
-         화면에 아무것도 안 보였다. 그 규칙을 건드리면 다른 화면의 숨긴 배너가 되살아나므로,
-         여기서는 notebox를 쓰지 않고 카드 한 장으로 안내한다(다른 「데이터 없음」 카드와 같은 모양). */
-      : '<div class="kpi-grid" style="grid-template-columns:1fr">'
-        +'<div class="kpi"><div class="kpi-l">정지 사유</div><div class="kpi-v">—</div>'
-        +'<div class="kpi-s">세무사무소목록에 「정지사유」 컬럼이 없습니다 — 파일을 다시 업로드하면 표시됩니다</div></div>'
-        +'</div>'}
-  </div>
 
   <!-- v08.122 인사이트 사용 현황 — 세무사무소목록의 사용건수 3종(총·자금일보·전자세금계산서) -->
   <div class="blk">
@@ -7834,7 +7789,7 @@ window.chPaint=function(){
 /* ══ v08.254 요청("고객관리-정지업체탭 추가해줘") ══
    해지·재가입(churn) 화면과 같은 틀(필터+정렬 표, opsPage customList/customPaint)을 그대로
    재사용한다 — 원천은 세무사무소목록의 현재 상태='정지'인 곳(window.__xlOfficeRows), 정지
-   사유 분류는 통합현황의 "정지 사유별 현황"(_spStat, 5250행)과 같은 키워드 규칙(미납·
+   사유 분류는 통합현황에 있던 "정지 사유별 현황"(_spStat, v08.259에서 이 탭과 중복이라 제거됨)과 같은 키워드 규칙(미납·
    프로모션·미사용·기타)을 그대로 쓴다(새 분류 기준을 만들지 않음) — 다만 그 계산은 home
    화면 IIFE 스코프 안에 있어 여기서 직접 가져다 쓸 수 없어(13번 항목과 같은 스코프 제약)
    같은 규칙으로 다시 만든다. */
@@ -7867,7 +7822,7 @@ window.suspendPanelHTML=function(){
       +'</select>';
   };
   const F=window.__spF;
-  /* 통합현황 "정지 사유별 현황"(5254행)과 같은 키워드 그룹 — 문구가 파일마다 달라도
+  /* 통합현황에 있던 "정지 사유별 현황"과 같은 키워드 그룹 — 문구가 파일마다 달라도
      분류만 키워드로 묶는다(새 분류 기준 아님, 같은 규칙 재사용). */
   const G=[{k:'미납',m:/미납/,l:'미납'},{k:'프로모션',m:/프로모션|요금제 미설정/,l:'프로모션 종료'},{k:'미사용',m:/미사용/,l:'장기 미사용'}];
   const grp=G.map(function(g){return {l:g.l,n:0};}); let etc=0;
@@ -7944,7 +7899,7 @@ window.spPaint=function(){
   function suspendRender(){
   opsPage(document.getElementById('s-suspend'),{id:'suspend', links:extBtn('suspend','admin'), domainLegend:true, domain:10, cols:[],
    customList:suspendPanelHTML(), customPaint:function(){ window.spPaint(); },
-   note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 통합현황 "정지 사유별 현황"과 같은 분류(미납·프로모션 종료·장기 미사용·기타)를 쓴다.</div>`});
+   note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 미납·프로모션 종료·장기 미사용·기타로 분류한다.</div>`});
   }
   suspendRender();
   try{ if(typeof RENDER!=='undefined')RENDER['suspend']=suspendRender; }catch(e){}
@@ -14221,8 +14176,8 @@ function wkInsight(wk){
      정지는 사유마다 손 쓸 일이 다르다 — 미납은 회수, 프로모션 종료는 요금제 재선택 안내,
      장기 미사용은 활용 지원. 그 주에 정지된 건을 사유별로 묶어, 무엇을 해야 하는지가
      숫자와 함께 보이게 한다. 사유 문구는 파일 값 그대로 두고 키워드로만 분류한다
-     (문구가 바뀌면 「기타」로 빠질 뿐 건수가 사라지지 않는다). 통합현황 「정지 사유별 현황」과
-     같은 분류 규칙이다 — 두 화면이 다른 기준으로 세면 안 된다. */
+     (문구가 바뀌면 「기타」로 빠질 뿐 건수가 사라지지 않는다). 정지업체 탭·통합현황(v08.259
+     이전)에서 쓰던 것과 같은 분류 규칙이다 — 화면마다 다른 기준으로 세면 안 된다. */
   const pauseKind=(function(){
     const G=[{m:/미납/,          l:'미납',        d:'회수·결제수단 확인'},
              {m:/프로모션|요금제 미설정/, l:'프로모션 종료', d:'요금제 재선택 안내'},
