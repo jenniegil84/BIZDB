@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.253';
+window.__APP_VER='v08.255';
 window.__wembProtect=[];
 
 
@@ -4438,6 +4438,9 @@ const TABS=[
  // ── 고객 관리(팀 공통) ──
  {id:'promo',nm:'프로모션 종료·정상가 전환',st:'full'},
  {id:'churn',nm:'해지·재가입',st:'full'},
+ /* v08.254 요청("고객관리-정지업체탭 추가해줘") — 해지·재가입 바로 뒤, 같은 고객 관리
+    묶음에 둔다. */
+ {id:'suspend',nm:'정지업체',st:'full'},
  {div:1},
  // ── 조회·데이터 ──
  {id:'cust',nm:'고객 검색',st:'full'},
@@ -5371,20 +5374,20 @@ function custToMg(c,step,status,problem,action,dmn){
     <!-- v08.98 요청("통합현황 누적요약에서도 재가입카드는 빼") — 재가입은 이미 누적 가입에
          포함된 중복이라 별도 카드를 두지 않는다. 5칸으로 되돌린다. -->
     <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);align-items:stretch">
-      <div class="kpi D" onclick="openM({title:'누적 신규가입',sub:'${_fN(_hTot)}곳',hdrs:['사무소명','요금제','가입일'],rows:allJoinRows()})"><div class="kpi-l">누적 가입</div>
+      <div class="kpi"><div class="kpi-l">누적 가입</div>
         <div class="kpi-v">${_fN(_hTot)}곳</div>
         <div class="kpi-s" style="margin-top:6px">세무사무소목록 전체</div></div>
-      <div class="kpi D" onclick="openM({title:'누적 해지',sub:'${_fN(_hChu)}곳 · 해지사유 포함',hdrs:['사무소명','요금제','해지사유','해지일'],rows:allChurnRows()})"><div class="kpi-l">누적 해지</div>
+      <div class="kpi"><div class="kpi-l">누적 해지</div>
         <div class="kpi-v rc">${_fN(_hChu)}곳</div>
         <div class="kpi-s" style="margin-top:6px">누적 해지율 <b>${(_hTot!=null&&_hChu!=null&&_hTot>0)?(_hChu/_hTot*100).toFixed(1)+'%':'—'}</b></div></div>
-      <div class="kpi D" onclick="openM({title:'현재 정지',sub:'${_fN(_hPau)}곳 · 현재 상태 기준',hdrs:['사무소명','요금제','가입일','정지일'],rows:allPauseRows()})"><div class="kpi-l">누적 정지</div>
+      <div class="kpi"><div class="kpi-l">누적 정지</div>
         <div class="kpi-v oc">${_fN(_hPau)}곳</div>
         <div class="kpi-s" style="margin-top:6px">현재 상태 기준</div></div>
-      <div class="kpi D" onclick="drill('normal','정상 고객 전체')"><div class="kpi-l">현재 정상 ${basisTag('n')}</div>
+      <div class="kpi"><div class="kpi-l">현재 정상 ${basisTag('n')}</div>
         <div class="kpi-v tc">${_fN(_hNor)}곳</div>
         <div class="kpi-s" style="margin-top:6px">잔존율 <b>${(_hTot!=null&&_hNor!=null&&_hTot>0)?(_hNor/_hTot*100).toFixed(1)+'%':'—'}</b></div></div>
   <div class="kcard hero oc" style="margin:0;display:flex;flex-direction:column;justify-content:center"><div class="k-lbl">플러스 전환율 (세모리포트 요금제 기준)</div>
-      <div class="k-val D" onclick="drill('plus','플러스 요금제')">${_plusR==null?'—':_plusR+'%'}</div>
+      <div class="k-val">${_plusR==null?'—':_plusR+'%'}</div>
       <div class="k-sub">정상 ${_fN(_nor)}곳 중 <b style="color:var(--teal)">${_fN(_plus)}곳</b></div>
       <div class="k-desc">${(O&&O.plusConv!=null)?('전환 이력 '+O.plusConv+'건 (변경 전 요금제 ≠ 플러스)'):'플러스 요금제'}</div></div>
     </div>
@@ -7814,6 +7817,125 @@ window.chPaint=function(){
   }
   churnRender();
   try{ if(typeof RENDER!=='undefined')RENDER['churn']=churnRender; }catch(e){}
+})();
+
+/* ══ v08.254 요청("고객관리-정지업체탭 추가해줘") ══
+   해지·재가입(churn) 화면과 같은 틀(필터+정렬 표, opsPage customList/customPaint)을 그대로
+   재사용한다 — 원천은 세무사무소목록의 현재 상태='정지'인 곳(window.__xlOfficeRows), 정지
+   사유 분류는 통합현황의 "정지 사유별 현황"(_spStat, 5250행)과 같은 키워드 규칙(미납·
+   프로모션·미사용·기타)을 그대로 쓴다(새 분류 기준을 만들지 않음) — 다만 그 계산은 home
+   화면 IIFE 스코프 안에 있어 여기서 직접 가져다 쓸 수 없어(13번 항목과 같은 스코프 제약)
+   같은 규칙으로 다시 만든다. */
+window.__spF={q:'',pl:'',rs:'',mo:''};
+window.__spSort={k:'sp',dir:-1};
+window.suspendRowsAll=function(){
+  const R=window.__xlOfficeRows||[];
+  return R.filter(function(x){return String(x.st||'').trim()==='정지';})
+    .map(function(x){
+      const rs=String(x.spRs||'').trim();
+      return { nm:x.nm||'', pl:String(x.pl||'').trim()||'',
+        rs:(rs&&rs!=='-'&&rs!=='.')?rs:'', sp:x.sp||'', se:x.se||'', bz:x.bz||'' };
+    });
+};
+window.spSet=function(f,v){ window.__spF[f]=v; window.spPaint(); };
+window.spSortBy=function(k){
+  const S=window.__spSort;
+  S.dir=(S.k===k)?-S.dir:(k==='nm'?1:-1);
+  S.k=k; window.spPaint();
+};
+window.spReset=function(){ window.__spF={q:'',pl:'',rs:'',mo:''}; window.spPaint(); };
+window.suspendPanelHTML=function(){
+  const L=window.suspendRowsAll();
+  const uniq=function(get){ const s={}; L.forEach(function(x){ const v=get(x); if(v)s[v]=(s[v]||0)+1; });
+    return Object.keys(s).sort(function(a,b){ return s[b]-s[a]; }); };
+  const opt=function(id,label,list,cur){
+    return '<select onchange="spSet(\''+id+'\',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px">'
+      +'<option value="">'+label+' 전체</option>'
+      +list.map(function(v){ return '<option'+(v===cur?' selected':'')+'>'+IX_esc(v)+'</option>'; }).join('')
+      +'</select>';
+  };
+  const F=window.__spF;
+  /* 통합현황 "정지 사유별 현황"(5254행)과 같은 키워드 그룹 — 문구가 파일마다 달라도
+     분류만 키워드로 묶는다(새 분류 기준 아님, 같은 규칙 재사용). */
+  const G=[{k:'미납',m:/미납/,l:'미납'},{k:'프로모션',m:/프로모션|요금제 미설정/,l:'프로모션 종료'},{k:'미사용',m:/미사용/,l:'장기 미사용'}];
+  const grp=G.map(function(g){return {l:g.l,n:0};}); let etc=0;
+  L.forEach(function(x){ const i=G.findIndex(function(g){return g.m.test(x.rs);}); if(i>=0)grp[i].n++; else etc++; });
+  if(etc)grp.push({l:'기타·사유 없음',n:etc});
+  const card=function(l,v,s,tone){
+    return '<div class="kpi"><div class="kpi-l">'+l+'</div><div class="kpi-v '+(tone||'')+'">'+v+'</div>'
+      +'<div class="kpi-s" style="margin-top:5px">'+s+'</div></div>';
+  };
+  return '<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,grp.length))+',1fr)">'
+    +grp.map(function(g){ return card(g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
+    +'</div>'
+    +'<div class="filters" style="margin-bottom:10px">'
+    +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·사업자번호 검색" '
+    +'oninput="spSet(\'q\',this.value)" style="width:200px">'
+    +opt('pl','요금제',uniq(function(x){return x.pl;}),F.pl)
+    +opt('rs','정지사유',uniq(function(x){return x.rs;}),F.rs)
+    +'<select onchange="spSet(\'mo\',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px">'
+    +['','3','6','12'].map(function(v){
+        const t=v?('최근 '+v+'개월'):'기간 전체';
+        return '<option value="'+v+'"'+(v===F.mo?' selected':'')+'>'+t+'</option>'; }).join('')
+    +'</select>'
+    +'<span onclick="spReset()" style="cursor:pointer;font-size:10.5px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;color:var(--gray-md)">필터 초기화</span>'
+    +'<span class="fcnt" id="spCnt"></span></div>'
+    +'<div class="panel"><div class="panel-body" style="padding:0"><div id="spList" style="overflow:auto;max-height:560px"></div></div></div>';
+};
+window.spPaint=function(){
+  const box=document.getElementById('spList'); if(!box)return;
+  const F=window.__spF, S=window.__spSort;
+  const nq=String(F.q||'').replace(/\s+/g,'').toLowerCase();
+  const hit=function(v){ return String(v||'').replace(/\s+/g,'').toLowerCase().indexOf(nq)>=0; };
+  let lim='';
+  if(F.mo){
+    const b=(window.__xlOffice&&window.__xlOffice.maxDate)||'';
+    if(b){ const d=new Date(b+'T00:00:00'); d.setMonth(d.getMonth()-(+F.mo));
+      lim=d.toISOString().slice(0,10); }
+  }
+  const L=window.suspendRowsAll().filter(function(x){
+    if(nq&&!(hit(x.nm)||hit(x.bz)))return false;
+    if(F.pl&&x.pl!==F.pl)return false;
+    if(F.rs&&x.rs!==F.rs)return false;
+    if(lim&&(!x.sp||x.sp<lim))return false;
+    return true;
+  });
+  const k=S.k, dir=S.dir;
+  L.sort(function(a,b){
+    const va=String(a[k]||''), vb=String(b[k]||'');
+    if(va===vb)return String(a.nm).localeCompare(String(b.nm),'ko');
+    if(!va)return 1; if(!vb)return -1;
+    return va.localeCompare(vb,'ko')*dir;
+  });
+  const arrow=function(key){ return S.k===key?(S.dir>0?' ▲':' ▼'):''; };
+  const th=function(key,label,w){
+    return '<th'+(w?' style="width:'+w+'"':'')+' onclick="spSortBy(\''+key+'\')" style="cursor:pointer'+(w?';width:'+w:'')+'">'+label+arrow(key)+'</th>';
+  };
+  const na='<span class="na">—</span>';
+  box.innerHTML='<table class="tbl chTbl" style="table-layout:fixed;width:100%"><thead><tr>'
+    +th('nm','업체명')+th('pl','요금제','104px')
+    +th('rs','정지 사유')+th('sp','정지일','96px')+th('se','정지해제일','96px')
+    +'</tr></thead><tbody>'
+    +(L.length?L.map(function(x){
+      return '<tr><td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
+        +'<td>'+(x.pl?IX_esc(x.pl):na)+'</td>'
+        +'<td style="text-align:left;font-size:10.5px">'+(x.rs?IX_esc(x.rs):'<span class="na">미기재</span>')+'</td>'
+        +'<td>'+(x.sp?IX_esc(x.sp):na)+'</td>'
+        +'<td>'+(x.se?IX_esc(x.se):na)+'</td></tr>';
+    }).join('')
+    :'<tr><td colspan="5" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
+    +'</tbody></table>';
+  const cc=document.getElementById('spCnt');
+  if(cc)cc.textContent='조회 '+L.length.toLocaleString()+'건 / 전체 '+window.suspendRowsAll().length.toLocaleString()+'건';
+};
+(function(){
+  function suspendRender(){
+  opsPage(document.getElementById('s-suspend'),{id:'suspend', links:extBtn('suspend','admin'), domainLegend:true, domain:10, cols:[],
+   customList:suspendPanelHTML(), customPaint:function(){ window.spPaint(); },
+   note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 통합현황 "정지 사유별 현황"과 같은 분류(미납·프로모션 종료·장기 미사용·기타)를 쓴다.</div>`});
+  }
+  suspendRender();
+  try{ if(typeof RENDER!=='undefined')RENDER['suspend']=suspendRender; }catch(e){}
 })();
 
 /* v08.205 요청("다 삭제해도 돼") — 여기 있던 "14. 담당자·팀 성과 — 보류" 화면을 삭제했다.
@@ -10540,7 +10662,7 @@ window.chPaint=function(){
    이 목업의 왼쪽바에서 해당 탭을 고르면 #ixHost를 본문(#pgBody)으로 옮겨 보여준다. */
 // v08.98 실적 관리(perfmg) 추가 — 이 목록에 없으면 사이드바로 열었을 때 실제 화면 대신
 // STUB(「이 목업에는 화면을 만들지 않았습니다」) 안내가 뜬다.
-const IX_TABS=['home','daily','monthly','cumul','perfmg','inq','promo','churn','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거
+const IX_TABS=['home','daily','monthly','cumul','perfmg','inq','promo','churn','suspend','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가
 function ixMount(tab){
   const host=document.getElementById('ixHost'); if(!host)return;
   const slot=document.getElementById('ixSlot');
@@ -10941,7 +11063,8 @@ const NAV=[
    {id:'mkt',nm:'마케팅',dyn:1},{id:'ux',nm:'UX',dyn:1},{id:'biz',nm:'영업',dyn:1}]},
  {sec:'고객 관리',ic:'▧',items:[
    {id:'sem',nm:'세미나 운영',dyn:2},
-   {id:'promo',nm:'프로모션 종료·정상가 전환'},{id:'churn',nm:'해지·재가입',src:'churn'}]},
+   {id:'promo',nm:'프로모션 종료·정상가 전환'},{id:'churn',nm:'해지·재가입',src:'churn'},
+   {id:'suspend',nm:'정지업체',src:'suspend'}]},
  {sec:'조회·데이터',ic:'▨',items:[
    {id:'cust',nm:'고객 검색',src:'normal'},{id:'data',nm:'데이터 업로드'}]}
  // v08.08 요청(탭 제거): 데이터 품질(qual)·담당자·팀 성과(staff)·해지방어(def) 메뉴에서 제외.
@@ -10961,6 +11084,7 @@ const STUB={
  biz:['영업','v04.00부터 실제 화면 제공 — 왼쪽바 영업 클릭. (이 STUB 텍스트는 화면에 쓰이지 않음)'],
  promo:['프로모션 종료·정상가 전환','프로모션 종료 예정 고객과 정상가 전환.'],
  churn:['해지·재가입','고객 마스터(가입일·해지일) 기준 누적 해지. 화면은 원본 index.html을 그대로 이식해 쓴다.'],
+ suspend:['정지업체','세무사무소목록 현재 상태=정지 기준. (이 STUB 텍스트는 화면에 쓰이지 않음)'],
  cust:['고객 검색','원본 고객 392건.'],
  data:['데이터 업로드','엑셀 파서 — xlParseOffice·xlParseBilling·xlParseMonitor·xlApplyInq.']
  // v08.205: qual·staff·def STUB 항목 삭제(화면 자체를 삭제해 STUB도 필요 없어짐, CLAUDE.md 18번)
@@ -12760,7 +12884,7 @@ function paintSide(){
    아직 화면이 없어 기존 회색을 유지. dyn 유무로 추정하던 v06.14 방식은 v06.41에서 원본 5개 화면이
    들어오며 더 이상 맞지 않아(home·promo·churn·cust·data 전부 dyn 없음) 명시 목록으로 교체했다. */
 // v08.98 실적 관리(perfmg) 추가(요청) — 이 목록에 없으면 왼쪽바에서 화면 없는 탭처럼 회색으로 흐리게 나온다
-const BUILT_TABS=['week','home','act','daily','monthly','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거
+const BUILT_TABS=['week','home','act','daily','monthly','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','suspend','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가
 const isBuilt=id=>BUILT_TABS.indexOf(id)>=0;
 /* v06.44 해지 지표 단일 기준 — 고객 마스터(세무사무소목록 업로드 → window.__xlOffice)의 churned.
    업로드 전에는 이식한 원본 index.html이 들고 있는 폴백값이 그대로 쓰인다. 값을 여기 적어 두지 않는
