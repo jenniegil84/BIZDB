@@ -1988,7 +1988,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.249';
+window.__APP_VER='v08.250';
 window.__wembProtect=[];
 
 
@@ -3378,7 +3378,10 @@ function xlParseBilling(rows,hdr){
         iCn=xlIdx(hdr,'해지일시'), iSp=xlIdxLoose(hdr,['정지일시','정지일자','정지일','이용정지일시','서비스정지일시','정지 일시']),
         iEx=xlIdx(hdr,'면제 구분'), iPm=xlIdx(hdr,'프로모션 구분'),
         iExS=xlIdx(hdr,'면제 시작월'), iExE=xlIdx(hdr,'면제 종료월'),   // v04.94 '면제 중' 유효기간 판정용
-        iPmS=xlIdx(hdr,'프로모션 시작월'), iPmE=xlIdx(hdr,'프로모션 종료월');   // v08.235 프로모션 가입월 판정용(아래 참고)
+        iPmS=xlIdx(hdr,'프로모션 시작월'), iPmE=xlIdx(hdr,'프로모션 종료월'),   // v08.235 프로모션 가입월 판정용(아래 참고)
+        /* v08.250 요청("청구대상 확인 - 이미지 내용추가" — 면제/프로모션 옆 할인 구분·시작월·
+           종료월 컬럼 스크린샷) — 할인은 이 파일에서 처음 다루는 컬럼이라 새로 인덱싱한다. */
+        iDcK=xlIdx(hdr,'할인 구분'), iDcS=xlIdx(hdr,'할인 시작월'), iDcE=xlIdx(hdr,'할인 종료월');
   if(iNm<0||iFee<0)throw new Error('필수 컬럼 없음: 세무사무소명 · 세모리포트 요금(A)');
   const live=rows.filter(r=>!xlBlank(r[iNm]) && xlBlank(r[iCn]) && xlBlank(r[iSp]));
   const ymOnlyTop=function(v){const s=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,6);return s.length===6?s:'';};
@@ -3390,7 +3393,12 @@ function xlParseBilling(rows,hdr){
      둔다(기존 반환값·다른 화면 동작에는 영향 없음, 순수 추가). */
   window.__billAllRows=rows.filter(r=>!xlBlank(r[iNm])).map(function(r){
     return {nm:String(r[iNm]||'').trim(), pl:String(r[iPl]||'').trim(), promo:iPm>=0?String(r[iPm]||'').trim():'', bz:xlBizKey(iBz>=0?r[iBz]:''),
-      promoS:iPmS>=0?ymOnlyTop(r[iPmS]):'', promoE:iPmE>=0?ymOnlyTop(r[iPmE]):''};
+      promoS:iPmS>=0?ymOnlyTop(r[iPmS]):'', promoE:iPmE>=0?ymOnlyTop(r[iPmE]):'',
+      /* v08.250 요청("청구대상 확인 - 이미지 내용추가") — 면제·할인도 프로모션과 같은 방식으로
+         "청구대상 확인" 탭에서 구분별 현황을 보여주기 위해 담는다(청구 집계용 live 판정과는
+         별개, 파일 전체 원본). */
+      exempt:(iEx>=0&&!xlBlank(r[iEx]))?String(r[iEx]).trim():'', exemptS:iExS>=0?ymOnlyTop(r[iExS]):'', exemptE:iExE>=0?ymOnlyTop(r[iExE]):'',
+      discount:(iDcK>=0&&!xlBlank(r[iDcK]))?String(r[iDcK]).trim():'', discountS:iDcS>=0?ymOnlyTop(r[iDcS]):'', discountE:iDcE>=0?ymOnlyTop(r[iDcE]):''};
   });
   /* v08.247 요청("플러스 가입수 전환수 개업성장패키지수 점검") — pkgOf()(perfStat 안, 플러스
      가입·전환 카드의 "개업성장패키지 N건 포함" 계산)가 이 아래 live(정지·해지 제외) 기반
@@ -6898,10 +6906,14 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
     /* v08.228 — billRecs()(청구 집계용, 정지·해지 제외)가 아니라 파일 전체 원본(__billAllRows)을
        쓴다. 이 탭은 "지금 청구 중인가"가 아니라 "파일에 뭐가 있는가"를 보는 화면이라서다. */
     const list=window.__billAllRows||[];
-    const promoCnt={}, planCnt={};
+    /* v08.250 요청("청구대상 확인 - 이미지 내용추가" — 면제·할인 구분 컬럼 스크린샷) —
+       프로모션·요금제와 같은 방식으로 면제·할인 구분별 현황도 집계한다. */
+    const promoCnt={}, planCnt={}, exemptCnt={}, discountCnt={};
     list.forEach(function(r){
       const pm=r.promo||'(프로모션 없음)'; promoCnt[pm]=(promoCnt[pm]||0)+1;
       const pl=r.pl||'미지정'; planCnt[pl]=(planCnt[pl]||0)+1;
+      const ex=r.exempt||'(면제 없음)'; exemptCnt[ex]=(exemptCnt[ex]||0)+1;
+      const dc=r.discount||'(할인 없음)'; discountCnt[dc]=(discountCnt[dc]||0)+1;
     });
     const F=window.__inqBillF;
     const barRows=function(cnt,type){
@@ -6916,19 +6928,30 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       }).join('');
     };
     const filtered=F.type?list.filter(function(r){
-      const v=F.type==='promo'?(r.promo||'(프로모션 없음)'):(r.pl||'미지정');
+      const v=F.type==='promo'?(r.promo||'(프로모션 없음)')
+        :F.type==='exempt'?(r.exempt||'(면제 없음)')
+        :F.type==='discount'?(r.discount||'(할인 없음)')
+        :(r.pl||'미지정');
       return v===F.val;
     }).sort(function(a,b){return a.nm.localeCompare(b.nm,'ko');}):[];
+    /* v08.250 드릴다운 목록에도 면제·할인 구분 컬럼을 추가해, 어느 항목을 눌러도 세 구분을
+       한 표에서 같이 확인할 수 있게 한다(참고 이미지처럼 세 컬럼이 나란히 보이는 형태). */
     const listSection=F.type
       ?'<div class="sec-label">업체 목록 <span class="sec-tag t">'+IX_esc(F.val)+' · '+filtered.length+'곳</span> '
         +'<span class="link" style="font-size:10px;cursor:pointer;color:var(--teal-dk)" onclick="inqBillFilterSet(\'\',\'\')">필터 해제 ✕</span></div>'
-       +'<div class="panel" style="margin-bottom:16px"><div style="overflow:auto;max-height:360px"><table class="tbl"><thead><tr><th>NO</th><th style="text-align:left">사무소명</th><th>요금제</th><th>프로모션 구분</th></tr></thead><tbody>'
-       +filtered.map(function(r,i){return '<tr><td>'+(i+1)+'</td><td style="text-align:left">'+IX_esc(r.nm)+'</td><td>'+IX_esc(r.pl||'—')+'</td><td>'+IX_esc(r.promo||'—')+'</td></tr>';}).join('')
+       +'<div class="panel" style="margin-bottom:16px"><div style="overflow:auto;max-height:360px"><table class="tbl"><thead><tr><th>NO</th><th style="text-align:left">사무소명</th><th>요금제</th><th>면제 구분</th><th>프로모션 구분</th><th>할인 구분</th></tr></thead><tbody>'
+       +filtered.map(function(r,i){return '<tr><td>'+(i+1)+'</td><td style="text-align:left">'+IX_esc(r.nm)+'</td><td>'+IX_esc(r.pl||'—')+'</td><td>'+IX_esc(r.exempt||'—')+'</td><td>'+IX_esc(r.promo||'—')+'</td><td>'+IX_esc(r.discount||'—')+'</td></tr>';}).join('')
        +'</tbody></table></div></div>'
       :'';
-    el2.innerHTML='<div class="sec-label">프로모션 구분별 현황 <span class="sec-tag t">청구대상 고객관리 기준 · '+list.length+'곳 · 행을 누르면 업체 목록이 펼쳐집니다</span></div>'
+    el2.innerHTML='<div class="sec-label">면제 구분별 현황 <span class="sec-tag t">청구대상 고객관리 기준 · '+list.length+'곳 · 행을 누르면 업체 목록이 펼쳐집니다</span></div>'
+     +'<div class="panel" style="margin-bottom:16px"><table class="tbl stat-tbl"><thead><tr><th style="text-align:left">면제 구분</th><th style="width:70%">업체 수</th></tr></thead>'
+     +'<tbody>'+(barRows(exemptCnt,'exempt')||'<tr><td colspan="2" class="na" style="text-align:center;padding:12px">데이터 없음</td></tr>')+'</tbody></table></div>'
+     +'<div class="sec-label">프로모션 구분별 현황</div>'
      +'<div class="panel" style="margin-bottom:16px"><table class="tbl stat-tbl"><thead><tr><th style="text-align:left">프로모션 구분</th><th style="width:70%">업체 수</th></tr></thead>'
      +'<tbody>'+(barRows(promoCnt,'promo')||'<tr><td colspan="2" class="na" style="text-align:center;padding:12px">데이터 없음</td></tr>')+'</tbody></table></div>'
+     +'<div class="sec-label">할인 구분별 현황</div>'
+     +'<div class="panel" style="margin-bottom:16px"><table class="tbl stat-tbl"><thead><tr><th style="text-align:left">할인 구분</th><th style="width:70%">업체 수</th></tr></thead>'
+     +'<tbody>'+(barRows(discountCnt,'discount')||'<tr><td colspan="2" class="na" style="text-align:center;padding:12px">데이터 없음</td></tr>')+'</tbody></table></div>'
      +'<div class="sec-label">요금제별 현황</div>'
      +'<div class="panel" style="margin-bottom:16px"><table class="tbl stat-tbl"><thead><tr><th style="text-align:left">이용요금제</th><th style="width:70%">업체 수</th></tr></thead>'
      +'<tbody>'+(barRows(planCnt,'plan')||'<tr><td colspan="2" class="na" style="text-align:center;padding:12px">데이터 없음</td></tr>')+'</tbody></table></div>'
