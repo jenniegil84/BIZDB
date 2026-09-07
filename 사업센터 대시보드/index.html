@@ -2054,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.275';
+window.__APP_VER='v08.276';
 window.__wembProtect=[];
 
 
@@ -13003,8 +13003,13 @@ function paintSide(){
                : i.src==='inq'    ? flowInqTotal()
                : i.dyn===2 ? SEMROWS.length : i.dyn ? CARDS.filter(c=>tabOf(c)===i.id&&inMonth(c)).length : i.n;
      /* v06.42 화면이 있는 탭은 선명한 검정(+굵게), 없는 탭은 기존 회색 그대로 */
+     /* v08.276 요청("업데이트 내역이 있는데 팀원이 읽지 않았을시 NEW 배지를 보여주고 읽으면
+        배지숨겨줘") — 칸반 열 숨김 배지(.hin, 기존 CSS 재사용)와 같은 모양으로 "업데이트
+        내역" 항목에만 붙인다. */
+     const showNew=(i.id==='updates')&&updIsUnread();
      return '<div class="sd-it'+(TAB===i.id?' on':'')+'" onclick="goTab(\''+i.id+'\')" title="'+esc(i.nm)+'">'
       +'<span class="nm"'+(isBuilt(i.id)&&TAB!==i.id?' style="color:#111827;font-weight:600"':'')+'>'+esc(i.nm)+'</span>'
+      +(showNew?'<span class="hin">NEW</span>':'')
       +(cnt!=null?'<span class="cnt">'+num(cnt)+'</span>':'')+'</div>';}).join('')
    +'</div></div>').join('');
 }
@@ -13198,35 +13203,64 @@ function actShell(){
    v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면 좋겠는데") — 팀원들이
    궁금할 때 들어와서 보는 "업데이트 내역" 화면. AskUserQuestion으로 확인한 내용:
    ① 위치는 사이드바 독립 메뉴(설정 화면 탭이나 버전 배지 클릭이 아니라)
-   ② 새 업데이트가 생겨도 별도 알림 배지는 띄우지 않음(궁금할 때만 보면 됨)
+   ② (v08.271 당시) 새 업데이트가 생겨도 별도 알림 배지는 띄우지 않음
+   → v08.276 요청("업데이트 내역이 있는데 팀원이 읽지 않았을시 NEW 배지를 보여주고 읽으면
+     배지 숨겨줘")으로 ②를 뒤집는다 — 이제 안 읽은 새 항목이 있으면 사이드바에 배지를 띄우고,
+     그 화면을 열면 숨긴다(아래 updLatestId/updIsUnread/updMarkRead 참고).
 
    내용은 PROJECT_CONTEXT.md의 개발용 변경 이력(함수명·코드 구조가 잔뜩 섞인 기술 문서)을
    그대로 보여주지 않는다 — 팀원이 읽었을 때 "뭐가 좋아졌는지" 바로 이해되도록 매번 새로
    쉬운 말 한두 줄로 옮겨 적는다. 화면 구현은 활동 타임라인(actShell/paintAct)과 같은
-   틀(.act-list/.act-day/.act-row 등 기존 CSS 재사용, 새 CSS 없음)을 그대로 쓴다. */
+   틀(.act-list/.act-day/.act-row 등 기존 CSS 재사용, 새 CSS 없음)을 그대로 쓴다.
+   각 항목의 id는 "언제까지 읽었는지" 표시에만 쓰는 고정 값이라, 항목 내용을 고치더라도
+   id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
+   배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
- {d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
+ {id:'u12',d:'2026-09-07',tt:'"활동 타임라인"을 "안내" 메뉴로 이동, 업데이트 내역 안 읽으면 NEW 배지 표시',
+  b:'활동 타임라인이 업데이트 내역과 같은 자리로 옮겨졌고, 새 업데이트를 안 읽으면 사이드바에 NEW가 뜹니다.'},
+ {id:'u11',d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
   b:'글이 길어지면 칸도 같이 늘어나 전체 내용이 다 보입니다.'},
- {d:'2026-09-07',tt:'주간회의 PDF 저장 화면을 실제 화면과 똑같이 수정',
+ {id:'u10',d:'2026-09-07',tt:'주간회의 PDF 저장 화면을 실제 화면과 똑같이 수정',
   b:'팀별 추진현황이 PDF에서도 화면과 같은 2단 배치·색깔로 나옵니다.'},
- {d:'2026-09-07',tt:'팀탭 "성과 지표"에 목표·지표 이름 수정 기능 추가',
+ {id:'u9',d:'2026-09-07',tt:'팀탭 "성과 지표"에 목표·지표 이름 수정 기능 추가',
   b:'지표마다 이번 달 목표를 넣으면 달성률이 함께 보이고, 지표 이름도 나중에 고칠 수 있습니다.'},
- {d:'2026-09-07',tt:'팀탭에 "성과 지표" 섹션 신설',
+ {id:'u8',d:'2026-09-07',tt:'팀탭에 "성과 지표" 섹션 신설',
   b:'마케팅·UX·영업팀이 매일 숫자(예: 블로그 방문자수)를 기록하면 표와 그래프로 쌓여 보입니다.'},
- {d:'2026-09-07',tt:'설정(사용자 명부)에 입력한 이름·부서가 사라지던 문제 수정',
+ {id:'u7',d:'2026-09-07',tt:'설정(사용자 명부)에 입력한 이름·부서가 사라지던 문제 수정',
   b:'로그인할 때마다 다른 팀원이 적어둔 이름·부서가 지워지던 원인을 찾아 고쳤습니다.'},
- {d:'2026-09-06',tt:'청구내역관리 파일 데이터가 새로고침 후 사라지던 문제 수정',
+ {id:'u6',d:'2026-09-06',tt:'청구내역관리 파일 데이터가 새로고침 후 사라지던 문제 수정',
   b:'파일을 다시 올리지 않아도 청구대상 확인·개업성장패키지 관련 화면이 정상 유지됩니다.'},
- {d:'2026-09-06',tt:'주간회의를 구글 슬라이드 크기 그대로 PDF로 저장하는 기능 추가',
+ {id:'u5',d:'2026-09-06',tt:'주간회의를 구글 슬라이드 크기 그대로 PDF로 저장하는 기능 추가',
   b:'화면 오른쪽 위 "🖨 PDF로 저장" 버튼으로 매주 슬라이드에 옮겨 적던 작업을 대신합니다.'},
- {d:'2026-09-06',tt:'고객관리에 "정지업체" 탭 신설',
+ {id:'u4',d:'2026-09-06',tt:'고객관리에 "정지업체" 탭 신설',
   b:'현재 정지 중인 업체 목록·사유를 따로 모아 보여줍니다.'},
- {d:'2026-09-06',tt:'통합현황 화면 정리 — "정지 사유별 현황" 블록 제거',
+ {id:'u3',d:'2026-09-06',tt:'통합현황 화면 정리 — "정지 사유별 현황" 블록 제거',
   b:'같은 내용을 더 자세히 다루는 정지업체 탭과 중복돼 화면을 간단하게 정리했습니다.'},
- {d:'2026-09-06',tt:'전체 가입 현황의 "리포트" 집계 기준을 명확히 함',
+ {id:'u2',d:'2026-09-06',tt:'전체 가입 현황의 "리포트" 집계 기준을 명확히 함',
   b:'인사이트 가입 여부를 기준으로 플러스/리포트를 나눠, 실제 가입 건수와 항상 일치합니다.'}
 ];
 function updatesRows(){ return UPDATE_LOG; }
+/* v08.276 — "안 읽음" 판정은 __userDir[내 이메일].updRead(마지막으로 읽은 항목의 id)와
+   UPDATE_LOG 맨 앞(최신) 항목의 id를 비교하는 것으로 충분하다(새 항목은 항상 배열 맨 앞에
+   추가하는 관례이므로). 사용자 명부(__userDir)는 이미 설정(이름·부서)에 쓰던 것을 그대로
+   재사용 — 새 저장소를 만들지 않는다. */
+function updLatestId(){ return (UPDATE_LOG[0]||{}).id||''; }
+function updIsUnread(){
+  const e=window.__curEmail; if(!e)return false;
+  const latest=updLatestId(); if(!latest)return false;
+  const u=(window.__userDir||{})[e];
+  return !u||u.updRead!==latest;
+}
+function updMarkRead(){
+  const e=window.__curEmail; if(!e)return;
+  const latest=updLatestId(); if(!latest)return;
+  window.__userDir=window.__userDir||{};
+  const u=window.__userDir[e]||(window.__userDir[e]={email:e,nm:'',dept:'',role:'정상'});
+  if(u.updRead===latest)return;
+  u.updRead=latest;
+  if(typeof saveToSheet==='function')saveToSheet('user_dir',window.__userDir);
+  if(typeof paintSide==='function')paintSide();
+}
 function paintUpdates(){
   const b=document.getElementById('updBody'); if(!b)return;
   const rows=updatesRows();
@@ -13256,7 +13290,7 @@ function route(){
   if(TAB==='sales'){ if(typeof ixUnmount==='function')ixUnmount(); p.innerHTML=salesShell(); salesMount(); return; }
   if(typeof ixUnmount==='function')ixUnmount();
   if(TAB==='act'){ p.innerHTML=actShell(); paintAct(); return; }
-  if(TAB==='updates'){ p.innerHTML=updatesShell(); paintUpdates(); return; }
+  if(TAB==='updates'){ p.innerHTML=updatesShell(); paintUpdates(); updMarkRead(); return; }
   if(TAB==='mkt'||TAB==='biz'||TAB==='ux'){ p.innerHTML=shell(); paint(); }
   else if(TAB==='sem'){ p.innerHTML=semShell(); paintSem(); }
   else if(TAB==='week'){ p.innerHTML=weekShell(); paintWeek(); }
@@ -15964,6 +15998,11 @@ function noteUser(email){
   const u=window.__userDir[e]||(window.__userDir[e]={email:e,nm:'',dept:'',role:'정상'});
   u.last=now;
   if(typeof saveToSheet==='function')saveToSheet('user_dir',window.__userDir);
+  /* v08.276 — noteUser는 loadFromSupabase() 직후(서버에 저장된 진짜 명부가 이미 복원된
+     뒤)에만 불린다(v08.263 경합조건 수정 참고). showUser()가 로그인 직후 이르게 그린
+     사이드바는 아직 내 updRead 기록을 몰라 배지가 부정확할 수 있어, 여기서 한 번 더
+     그려 정확한 안 읽음 상태로 맞춘다. */
+  if(typeof paintSide==='function')paintSide();
 }
 window.noteUser=noteUser;
 function showUser(email){
