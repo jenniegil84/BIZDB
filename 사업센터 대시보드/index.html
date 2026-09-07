@@ -2022,7 +2022,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.264';
+window.__APP_VER='v08.265';
 window.__wembProtect=[];
 
 
@@ -11685,6 +11685,17 @@ const BASE_MO=TODAY.slice(0,7);
 const BUDGET={};
 const DEFAULT_BUDGET=3000000;
 
+/* ══ v08.265 "성과 지표" — 팀탭에 숫자 데이터를 남기고 표·그래프로 확인 ══
+   요청("팀원들이 팀탭을 작성할때 데이터를 적었으면", "예를 들어 마케팅팀 컨텐츠라면 블로그
+   방문자수·누적조회수처럼 수치화", "그 수치들이 나중에 그래프로도 보여지면 좋겠어", "매일
+   팀탭을 입력하면 성과가 표와 그래프로 보여져서 업무성과가 확인되게") — 실행기록처럼 문장에
+   숫자를 묻어 적으면 나중에 정확히 뽑아 그래프로 그릴 수 없어(사람마다 표현이 다름), 지표
+   이름과 값을 별도 칸으로 받는다. 지표 이름은 부서 관리(__deptList)와 같은 방식으로 팀마다
+   직접 추가·삭제한다 — 마케팅팀은 사용자가 든 예시를 미리 채워 두고, UX·영업은 팀이 실제로
+   쓸 지표를 스스로 정하도록 빈 목록으로 시작한다(임의로 지어내지 않음). */
+window.__teamMetricDefs=window.__teamMetricDefs||{mkt:['블로그 방문자수','누적조회수'],ux:[],biz:[]};
+window.__teamMetricLog=window.__teamMetricLog||[];   // [{id,team,metric,val,d,by,ts}]
+
 /* v06.22 주간회의(week) — 원본 index.html(v05.10~v05.20)의 주간회의 구조 참고, "보고형 단일
    화면"으로 단순화(요청). 원본은 목요일에 열려 직전에 끝난 목~수 주간을 보고하므로 주 시작
    판정은 (요일+3)%7(목=0). Date#toISOString은 로컬 자정을 UTC로 바꾸며 하루 밀릴 수 있어
@@ -12106,7 +12117,9 @@ const BOARD_STATE_MAP={
   /* v07.75 사용자 명부·부서 목록 */
   user_dir:'__userDir', dept_list:'__deptList',
   /* v08.10 월 롤오버 자동 스냅샷용 — 마지막으로 알려진 활성 월 */
-  board_lastmo:'__lastMO'
+  board_lastmo:'__lastMO',
+  /* v08.265 팀탭 "성과 지표" — 지표 목록(팀별)·입력된 값 이력 */
+  team_metric_defs:'__teamMetricDefs', team_metric_log:'__teamMetricLog'
 };
 let __saveTimer=null, __saveStatus='';
 /* ══ v08.99 버그 수정("카드 하나 클릭시 위 카드까지 같이 선택되는 현상") ══
@@ -12331,6 +12344,11 @@ async function loadFromSupabase(){
       else if(v==='__userDir'){ window.__userDir=(r.state&&typeof r.state==='object')?r.state:{}; }
       else if(v==='__deptList'){ window.__deptList=Array.isArray(r.state)&&r.state.length?r.state:(window.DEPT_DEFAULT||[]).slice(); }
       else if(v==='__inqManage'){Object.keys(window.__inqManage).forEach(k=>delete window.__inqManage[k]);Object.assign(window.__inqManage,r.state);}
+      /* v08.265 — 이 if/else 사슬에는 일반 폴백(다른 키는 그냥 window[v]=state)이 없다.
+         새 kind를 추가할 때 여기 분기를 안 넣으면 저장은 되는데 복원이 안 된다(31·32번
+         실수와 같은 유형) — 잊지 않도록 명시적으로 둔다. */
+      else if(v==='__teamMetricDefs'){ window.__teamMetricDefs=(r.state&&typeof r.state==='object')?r.state:{mkt:[],ux:[],biz:[]}; }
+      else if(v==='__teamMetricLog'){ window.__teamMetricLog=Array.isArray(r.state)?r.state:[]; }
     });
     /* v08.99 서버에서 CARDS·UNIS·SEMROWS를 막 채운 직후 — SEQ를 다시 맞추고, 이미 생긴
        id 중복이 있으면 여기서 바로 분리한다(위 syncSeqFromBoardData·dedupeBoardIds 참고). */
@@ -13242,6 +13260,7 @@ function shell(){
  +'</div>'
  +'<div class="note" id="hint"></div>'
  +'<div class="bud" id="bud"></div>'
+ +'<div id="tmBox"></div>'
  +'<div id="bW"><div class="kb" id="kb"></div></div>'
  +'<div id="tW" style="display:none"><div class="panel" style="overflow:auto">'
  +'<table class="t" style="min-width:1100px"><thead><tr id="tHead"></tr></thead>'
@@ -13379,6 +13398,118 @@ const budKey=()=>TAB+':'+MO;
 function budSet(v){
   if(typeof logAct==='function')logAct('예산 입력',(navItem(TAB)||{}).nm||TAB,MO+' '+String(v||'').replace(/[^0-9]/g,''));const n=Number(String(v).replace(/[^\d]/g,''));
   if(n>0)BUDGET[budKey()]=n; else delete BUDGET[budKey()]; paint();}
+/* ══ v08.265 "성과 지표" 패널 — teamMetricPanelHtml/paintTeamMetric이 shell()의 #tmBox에 그린다 ══ */
+function teamMetricList(team){
+  const D=window.__teamMetricDefs||(window.__teamMetricDefs={});
+  return D[team]||(D[team]=[]);
+}
+function addTeamMetricDef(team){
+  const v=prompt('추가할 지표 이름 (예: 블로그 방문자수)'); if(!v||!v.trim())return;
+  const nm=v.trim(), L=teamMetricList(team);
+  if(L.indexOf(nm)>=0){ if(typeof toast==='function')toast('이미 있는 지표입니다'); return; }
+  L.push(nm);
+  if(typeof logAct==='function')logAct('지표 추가',(navItem(team)||{}).nm||team,nm);
+  if(typeof saveToSheet==='function')saveToSheet('team_metric_defs',window.__teamMetricDefs);
+  paint();
+}
+function delTeamMetricDef(team,i){
+  const L=teamMetricList(team), nm=L[i]; if(nm==null)return;
+  const used=(window.__teamMetricLog||[]).filter(function(e){return e.team===team&&e.metric===nm;}).length;
+  if(!confirm('지표 「'+nm+'」를 지웁니다.'+(used?('\n\n이미 입력된 값 '+used+'건은 기록에 그대로 남습니다.'):'')))return;
+  L.splice(i,1);
+  if(typeof logAct==='function')logAct('지표 삭제',(navItem(team)||{}).nm||team,nm);
+  if(typeof saveToSheet==='function')saveToSheet('team_metric_defs',window.__teamMetricDefs);
+  paint();
+}
+function addTeamMetric(team){
+  const dEl=document.getElementById('tmDate-'+team), mEl=document.getElementById('tmMetric-'+team), vEl=document.getElementById('tmVal-'+team);
+  if(!dEl||!mEl||!vEl)return;
+  const d=dEl.value, metric=mEl.value, vRaw=vEl.value;
+  if(!metric){ if(typeof toast==='function')toast('지표를 먼저 골라주세요'); return; }
+  if(vRaw===''||isNaN(+vRaw)){ vEl.focus(); return; }
+  if(!d){ dEl.focus(); return; }
+  const email=typeof whoAmI==='function'?whoAmI():'';
+  const by=(window.__userDir&&window.__userDir[email]&&window.__userDir[email].nm)||email;
+  const entry={id:genEntryId(),team:team,metric:metric,val:+vRaw,d:d,by:by,ts:Date.now()};
+  (window.__teamMetricLog=window.__teamMetricLog||[]).push(entry);
+  if(typeof logAct==='function')logAct('성과 지표 입력',(navItem(team)||{}).nm||team,metric+' '+entry.val);
+  if(typeof saveToSheet==='function')saveToSheet('team_metric_log',window.__teamMetricLog);
+  vEl.value='';
+  paint();
+}
+function delTeamMetric(id){
+  const L=window.__teamMetricLog||[], i=L.findIndex(function(e){return e.id===id;}); if(i<0)return;
+  const e=L[i]; L.splice(i,1);
+  if(typeof logAct==='function')logAct('성과 지표 삭제',(navItem(e.team)||{}).nm||e.team,e.metric+' '+e.val);
+  if(typeof saveToSheet==='function')saveToSheet('team_metric_log',window.__teamMetricLog);
+  paint();
+}
+/* rows: [{d,val}] 오래된 순 — 최근 값이 오른쪽에 오도록 이미 정렬해서 넘긴다 */
+function metricChartSvg(rows){
+  if(!rows.length)return '<div class="wk-kl" style="padding:6px 0">아직 입력된 값이 없습니다.</div>';
+  const mx=Math.max(1,...rows.map(function(r){return r.val;}));
+  const bw=Math.max(26,Math.min(48,Math.floor(640/Math.max(1,rows.length))));
+  const cw=rows.length*bw+24, ZERO=78, chH=ZERO+24;
+  const bars=rows.map(function(r,i){
+    const h=r.val/mx*60, X=14+i*bw, w=Math.max(8,Math.floor(bw*0.55));
+    return '<rect x="'+X+'" y="'+(ZERO-h).toFixed(1)+'" width="'+w+'" height="'+h.toFixed(1)+'" fill="#1BC5BD" rx="3"/>'
+      +'<text x="'+(X+w/2)+'" y="'+(ZERO+15)+'" font-size="8.5" fill="#7E8299" text-anchor="middle">'+esc(String(r.d).slice(5))+'</text>'
+      +'<text x="'+(X+w/2)+'" y="'+(ZERO-h-4).toFixed(1)+'" font-size="8.5" fill="#13918B" text-anchor="middle">'+r.val+'</text>';
+  }).join('');
+  return '<svg viewBox="0 0 '+cw+' '+chH+'" style="width:100%;max-width:640px;display:block">'
+    +'<line x1="8" y1="'+ZERO+'" x2="'+(cw-4)+'" y2="'+ZERO+'" stroke="#E4E6EF" stroke-width="1"/>'
+    +bars+'</svg>';
+}
+function teamMetricRowsHtml(entriesDesc){
+  if(!entriesDesc.length)return '<tr><td colspan="5" class="na" style="text-align:center;padding:14px;color:#B4BCC4">아직 입력된 값이 없습니다.</td></tr>';
+  return entriesDesc.slice(0,30).map(function(e){
+    return '<tr><td style="text-align:center">'+esc(e.d)+'</td><td style="text-align:left">'+esc(e.metric)+'</td>'
+      +'<td style="text-align:center;font-weight:700">'+e.val+'</td>'
+      +'<td style="text-align:center;font-size:10px;color:var(--tx3)">'+esc(e.by||'')+'</td>'
+      +'<td style="text-align:center"><span onclick="delTeamMetric(\''+e.id+'\')" style="cursor:pointer;color:var(--red);font-weight:700">×</span></td></tr>';
+  }).join('');
+}
+function teamMetricPanelHtml(team){
+  const L=teamMetricList(team);
+  const today=(typeof TODAY==='string'?TODAY:'').slice(0,10);
+  const all=(window.__teamMetricLog||[]).filter(function(e){return e.team===team;});
+  const entriesDesc=all.slice().sort(function(a,b){return (b.d||'').localeCompare(a.d||'')||((b.ts||0)-(a.ts||0));});
+  const defList=L.map(function(nm,i){
+    return '<span style="display:inline-flex;align-items:center;gap:4px;margin:0 4px 4px 0;padding:2px 8px;'
+      +'border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:10.5px">'+esc(nm)
+      +'<span onclick="delTeamMetricDef(\''+team+'\','+i+')" style="cursor:pointer;color:var(--tx3)" title="지표 삭제">×</span></span>';
+  }).join('');
+  const form=L.length
+    ?('<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
+      +'<input type="date" id="tmDate-'+team+'" value="'+today+'" style="font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:5px">'
+      +'<select id="tmMetric-'+team+'" style="font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:5px;max-width:170px">'
+      +L.map(function(nm){return '<option>'+esc(nm)+'</option>';}).join('')+'</select>'
+      +'<input type="number" id="tmVal-'+team+'" placeholder="값" style="width:80px;font-size:11px;padding:4px 6px;border:1px solid var(--line);border-radius:5px">'
+      +'<button class="btn sm" onclick="addTeamMetric(\''+team+'\')">＋ 입력</button>'
+      +'</div>')
+    :('<div class="note" style="margin-bottom:8px">아직 등록된 지표가 없습니다 — 아래 "지표 추가"로 먼저 만들어 주세요(예: 블로그 방문자수, 누적조회수).</div>');
+  const byMetric={};
+  all.forEach(function(e){(byMetric[e.metric]=byMetric[e.metric]||[]).push(e);});
+  const charts=Object.keys(byMetric).map(function(m){
+    const asc=byMetric[m].slice().sort(function(a,b){return (a.d||'').localeCompare(b.d||'');}).slice(-14);
+    return '<div style="margin-bottom:10px"><div class="wk-kl" style="font-weight:700;margin-bottom:4px">'+esc(m)+'</div>'+metricChartSvg(asc)+'</div>';
+  }).join('');
+  return '<div class="panel" style="padding:14px 16px;margin-bottom:14px">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:12.5px">📊 성과 지표</b>'
+    +'<span style="font-size:10.5px;color:var(--tx3)">— 매일 적으면 아래 그래프로 쌓입니다</span></div>'
+    +'<div style="margin-bottom:8px">'+defList
+    +'<span class="link" onclick="addTeamMetricDef(\''+team+'\')">＋ 지표 추가</span></div>'
+    +form+charts
+    +'<table class="wk-mtbl" style="font-size:10.5px;margin-top:4px"><thead><tr>'
+    +'<th style="text-align:center">날짜</th><th style="text-align:left">지표</th><th style="text-align:center">값</th>'
+    +'<th style="text-align:center">입력자</th><th></th></tr></thead>'
+    +'<tbody>'+teamMetricRowsHtml(entriesDesc)+'</tbody></table>'
+    +'</div>';
+}
+function paintTeamMetric(){
+  const el=document.getElementById('tmBox'); if(!el)return;
+  el.innerHTML=teamMetricPanelHtml(TAB);
+}
 function paintBud(){
   const el=document.getElementById('bud');if(!el)return;
   const b=currentBudget(), sp=spent(), rate=b?sp/b*100:null, left=b?b-sp:null;
@@ -15592,6 +15723,7 @@ function paint(){
    +' &nbsp;·&nbsp; '+MO+' 실행 기록 <b>'+logs+'</b> &nbsp;·&nbsp; 액션 <b>'+ad+'/'+at+'</b>'
    +' &nbsp;·&nbsp; 논의 <b>'+allIssues().filter(r=>r.x.st!=='완료').length+'</b> 진행중';
   paintBud();
+  paintTeamMetric();
   if(VIEW==='board')paintBoard();else paintTable();
   paintTray();
   const ri=document.getElementById('renIn');if(ri&&document.activeElement!==ri){ri.focus();ri.select();}
