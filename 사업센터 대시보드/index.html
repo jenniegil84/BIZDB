@@ -206,6 +206,17 @@ body.sidecol #content{margin-left:46px}
   .pf-2col .pf-col{padding:0 16px!important}
   .pf-2col .pf-col:first-child{padding-left:0!important;border-right:1px solid var(--line)!important;border-bottom:none!important;padding-bottom:0!important;margin-bottom:0!important}
   .pf-2col .pf-col:last-child{padding-right:0!important}
+  /* v08.274 요청("PDF 저장 파일 수정요청 - 보이는 화면대로" — ① 주간 실적 요약 KPI 카드,
+     ①-2 주간 인사이트 카드가 화면에서는 가로로 나란한데 PDF에서는 세로로 한 줄씩 쌓여
+     나옴) — .pf-2col과 같은 원인이다. 이 화면 폭보다 훨씬 좁아졌을 때만 1열로 접히게
+     해둔 반응형 규칙들이, 실제로 PDF를 뽑아보면(page.pdf() 결과물을 직접 렌더링해 확인)
+     슬라이드가 충분히 넓은데도 걸려 버린다. 인쇄 중에는 전부 화면과 같은 다열 배치로
+     못박는다. */
+  .wk-kpis.hero-row{grid-template-columns:repeat(4,1fr)!important}
+  .wk-issue-g{grid-template-columns:1fr 1fr!important}
+  .wk-cols2{grid-template-columns:1fr 1fr!important}
+  .wkin-grid{grid-template-columns:repeat(3,1fr)!important}
+  .wkin-grid.four{grid-template-columns:repeat(4,1fr)!important}
   #side,.topbar{display:none!important}
   #content{margin-left:0!important}
   .page{padding:0!important}
@@ -2043,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.273';
+window.__APP_VER='v08.274';
 window.__wembProtect=[];
 
 
