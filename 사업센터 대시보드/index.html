@@ -2043,7 +2043,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.271';
+window.__APP_VER='v08.272';
 window.__wembProtect=[];
 
 
@@ -12956,6 +12956,10 @@ function notiInit(){
   if(__noti.loaded)return;
   notiReload(0).catch(function(){});
 }
+/* v08.272 요청("데이터 업로드는 jennie.gil@roumit.com 이 계정으로 로그인했을때만 보이게 해")
+   — 로그인 이메일(window.__curEmail, showUser()에서 채움)이 이 계정이 아니면 사이드바에서
+   "데이터 업로드" 항목 자체를 뺀다. */
+const DATA_UPLOAD_EMAIL='jennie.gil@roumit.com';
 function paintSide(){
   const num=n=>Number(n).toLocaleString();
   document.getElementById('sideBody').innerHTML=NAV.map(sc=>
@@ -12963,7 +12967,7 @@ function paintSide(){
    '<div class="sd-sec'+(CLOSED[sc.sec]?' closed':'')+'" data-sec="'+esc(sc.sec)+'">'
    +'<div class="sd-sh" onclick="toggleSec(\''+sc.sec+'\')">'
      +'<span class="si">'+sc.ic+'</span><span class="st">'+esc(sc.sec)+'</span><span class="ar">⌃</span></div>'
-   +'<div class="sd-items">'+sc.items.map(i=>{
+   +'<div class="sd-items">'+sc.items.filter(i=>i.id!=='data'||window.__curEmail===DATA_UPLOAD_EMAIL).map(i=>{
      /* v06.21 dyn:2 = SEMROWS 건수(세미나 운영, CARDS 기반 아님) */
      /* v06.44 해지 건수는 고객 마스터(세무사무소목록 → __xlOffice.churned) 하나만 본다.
         기존 하드코딩 307은 이식한 원본 화면이 쓰는 고객 마스터 값(315)과 어긋나 있었다. */
@@ -15936,6 +15940,11 @@ function noteUser(email){
 }
 window.noteUser=noteUser;
 function showUser(email){
+    /* v08.272 — "데이터 업로드" 메뉴 노출 판단에 쓰는 현재 로그인 이메일. showUser는
+       로그인 확정 시점(init()·onAuthStateChange)마다 불리므로 여기서 채우고 사이드바를
+       다시 그린다(최초 paintSide()는 로그인 전에 이미 한 번 그려져 있어 갱신이 필요하다). */
+    window.__curEmail=String(email||'').trim().toLowerCase();
+    if(typeof paintSide==='function')paintSide();
     const box=document.querySelector('.tb-r');
     if(!box||document.getElementById('authUser'))return;
     const el=document.createElement('div');
