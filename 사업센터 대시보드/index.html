@@ -2043,7 +2043,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.272';
+window.__APP_VER='v08.273';
 window.__wembProtect=[];
 
 
@@ -2948,7 +2948,7 @@ window.__resetUploadData=function(){
     A['요금제']={};
     A['월별']=[];
     A['월별전체']=[];
-    A['종료임박']=0; A['종료경과']=0; A['면제플러스']=0; A['promo_rows']=[];
+    A['종료임박']=0; A['종료경과']=0; A['면제플러스']=0; A['종료임박1개월']=0; A['promo_rows']=[];
     if(typeof RENDER!=='undefined'&&RENDER['data'])RENDER['data']();
     if(typeof rerenderAll==='function')rerenderAll();
   }catch(e){
@@ -2997,11 +2997,16 @@ window.__syncPromo=function(){
       return String(y)+String(m).padStart(2,'0');
     };
     const lim=addM(base,3);
+    /* v08.273 요청("종료업체중 한달내에 접촉해야 하는곳은 종료 관리 목록에 보여줘") — 기존
+       3개월 전 대상 구간 안에서, 그중에서도 1개월 이내(=이번 달 안에 접촉해야 하는) 대상만
+       따로 표시하기 위한 기준. 이미 기한이 지난 '종료 경과'는 3개월/1개월 여부와 무관하게
+       가장 급한 축이라 항상 포함한다. */
+    const lim1=addM(base,1);
     /* v08.256 요청("프로모션, 할인, 면제등만 보여줘") — "-"·"." 같은 무의미 표기를 있는 값으로
        잘못 세던 것(churn 화면 해지사유와 같은 관례로 통일)을 고치고, 프로모션이 없어도 면제·
        할인이 있으면 목록에 포함하도록 넓힌다(그전엔 프로모션 없는 곳은 아예 안 보였다). */
     const has=function(v){ v=String(v||'').trim(); return !!(v&&v!=='-'&&v!=='.'); };
-    const rows=[]; let soon=0, past=0, exem=0;
+    const rows=[]; let soon=0, past=0, exem=0, contact1m=0;
     Object.keys(map).forEach(function(k){
       const v=map[k];
       const hasPromo=has(v.promo), hasExempt=!!v.exempt, hasDiscount=has(v.discount);
@@ -3014,12 +3019,15 @@ window.__syncPromo=function(){
       else if(e<base){ past++; stt='종료 경과'; }
       else if(e<=lim){ soon++; stt='종료 3개월 전 대상'; }
       else stt='진행 중';
+      /* v08.273 — 종료 경과(이미 지남) 또는 종료월이 1개월 이내인 대상 = 이번 달 접촉 필요 */
+      const need1m=stt==='종료 경과'||(stt==='종료 3개월 전 대상'&&e<=lim1);
+      if(need1m)contact1m++;
       const tag=[hasPromo?'프로모션':'',hasDiscount?'할인':'',hasExempt?'면제':''].filter(Boolean).join('·');
-      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt]);
+      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt, need1m]);
     });
     const ORD={'종료 경과':0,'종료 3개월 전 대상':1,'진행 중':2,'무기한':3};
     rows.sort(function(a,b){ return (ORD[a[4]]-ORD[b[4]])||String(a[3]).localeCompare(String(b[3])); });
-    A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem;
+    A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem; A['종료임박1개월']=contact1m;
     A['promo_rows']=rows;
     return true;
   }catch(e){ return false; }
@@ -7660,7 +7668,13 @@ function renderSales(){
   })();
   const sched=(pkg190Rows!=null?pkg190Rows:(A.일시납스케줄||[])).map(s=>`<tr${s.stt==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${s.nm}</td><td>${s.tp}</td><td>${s.st}</td><td>${s.ed}</td><td>${s.al}</td><td><span class="rtag ${stCol[s.stt]}">${s.stt}</span></td><td style="font-size:10px;color:var(--gray-md)">${s.stt==='예정'?'D-90 알림톡→D-60 문자→D-30 전화':s.stt==='기한경과'?'금주 확정→즉시 전화 안내':s.stt==='데이터보완'?'시작월 소급 입력':'한청세 여부 수동 확정'}</td></tr>`).join('');
   const HIST=['알림톡 발송','문자 발송','전화 연결','최초 안내일','최근 안내일','고객 반응','전환 인지','전환 동의','다음 연락일','담당자','처리기한'];
-  const promoRows=A.promo_rows.map(r=>`<tr${r[4]==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td>${HIST.map(()=>'<td class="na">—</td>').join('')}</tr>`).join('');
+  /* v08.273 요청("종료업체중 한달내에 접촉해야 하는곳은 종료 관리 목록에 보여줘") — r[5]는
+     __syncPromo()가 계산한 "종료 경과 또는 1개월 이내 종료 예정" 여부(need1m). 그 행만
+     빨간 배경 + "1개월 이내" 배지로 강조한다.
+     (참고: 이전엔 r[4](상태 문자열)를 '기한경과'와 비교해 강조를 시도했지만 __syncPromo가
+     실제로 넣는 값은 '종료 경과'라 조건이 한 번도 참이 된 적이 없었다 — 이번에 함께 고침.) */
+  const promoRows=A.promo_rows.map(r=>`<tr${r[5]?' style="background:var(--red-lt)"':''}><td style="text-align:left">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}${r[5]?' <span class="rtag" style="background:var(--red);color:#fff;margin-left:4px">1개월 이내</span>':''}</td>${HIST.map(()=>'<td class="na">—</td>').join('')}</tr>`).join('');
+  const contact1mN=A.promo_rows.filter(function(r){return r[5];}).length;
   el.innerHTML=`
   <div class="notebox warn"><b>190만 일시납 원칙</b> ${srcTag('svc')} ${srcTag('pay')} — 데이터 기준: 서비스 데이터(프로모션 구분·종료월). 입금 실적은 계약·결제 연동 필요. 월 환산하지 않으며 실제 입금 월의 일시납 매출로 관리. 종료 후 <b>플러스 정상가 월 35만원 환복</b> → 사전 안내 없으면 항의·해지 위험(P0 조건). 안내 이력 11항목은 종료안내이력 테이블 신설 후 기록(현재 전건 '—').</div>
   <!-- v08.214 요청("데이터값은 없으면 없는대로 표시, 하드코딩 금지") — 대상·미처리는 청구내역파일
@@ -7677,6 +7691,7 @@ function renderSales(){
   ${sched?`<div class="panel-body" style="border-top:1px solid var(--border)">
    <div style="font-size:10px;color:var(--gray-md)">필수 안내: 프로모션명·시작/종료일·일시납 기간 종료 사실·<b>종료 후 월 35만 정상가 적용</b>·적용 예정일·제공 서비스·의사표시 기한·문의 방법 — 문구 버전·발송 일시·채널·반응 이력화.</div></div>`:''}</div>
   <div class="sec-label">종료 관리 목록</div>
+  ${contact1mN?`<div style="background:var(--red-lt);border:1px solid var(--red);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px">⚠ 이번 달 접촉 필요 ${contact1mN}곳 — 종료 경과 또는 1개월 이내 종료 예정(표에서 빨간 행)</div>`:''}
   <div style="margin-bottom:8px">${extBtn('promo','admin')}</div>
   ${(function(){const n=(A.promo_rows||[]).length;return cntLine(n,n,n);})()}
   <div class="panel"><div class="panel-body">
