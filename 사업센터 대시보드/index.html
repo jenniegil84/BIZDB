@@ -2022,7 +2022,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.266';
+window.__APP_VER='v08.268';
 window.__wembProtect=[];
 
 
@@ -11695,6 +11695,10 @@ const DEFAULT_BUDGET=3000000;
    쓸 지표를 스스로 정하도록 빈 목록으로 시작한다(임의로 지어내지 않음). */
 window.__teamMetricDefs=window.__teamMetricDefs||{mkt:['블로그 방문자수','누적조회수'],ux:[],biz:[]};
 window.__teamMetricLog=window.__teamMetricLog||[];   // [{id,team,metric,val,d,by,ts}]
+/* v08.267 요청("목표 지표도 필요해") — 가입 목표·프로모션 가입 목표처럼(monPerfTableHtml)
+   지표마다 이번 달 목표값을 넣으면 그 달 실적 합계·달성률을 함께 보여준다. BUDGET과 같은
+   방식으로 "team|지표|월" 키에 숫자 하나만 저장한다. */
+window.__teamMetricTarget=window.__teamMetricTarget||{};   // key: team+'|'+metric+'|'+YYYY-MM -> 숫자
 
 /* v06.22 주간회의(week) — 원본 index.html(v05.10~v05.20)의 주간회의 구조 참고, "보고형 단일
    화면"으로 단순화(요청). 원본은 목요일에 열려 직전에 끝난 목~수 주간을 보고하므로 주 시작
@@ -12119,7 +12123,9 @@ const BOARD_STATE_MAP={
   /* v08.10 월 롤오버 자동 스냅샷용 — 마지막으로 알려진 활성 월 */
   board_lastmo:'__lastMO',
   /* v08.265 팀탭 "성과 지표" — 지표 목록(팀별)·입력된 값 이력 */
-  team_metric_defs:'__teamMetricDefs', team_metric_log:'__teamMetricLog'
+  team_metric_defs:'__teamMetricDefs', team_metric_log:'__teamMetricLog',
+  /* v08.267 팀탭 "성과 지표" — 지표별 월간 목표값 */
+  team_metric_target:'__teamMetricTarget'
 };
 let __saveTimer=null, __saveStatus='';
 /* ══ v08.99 버그 수정("카드 하나 클릭시 위 카드까지 같이 선택되는 현상") ══
@@ -12349,6 +12355,7 @@ async function loadFromSupabase(){
          실수와 같은 유형) — 잊지 않도록 명시적으로 둔다. */
       else if(v==='__teamMetricDefs'){ window.__teamMetricDefs=(r.state&&typeof r.state==='object')?r.state:{mkt:[],ux:[],biz:[]}; }
       else if(v==='__teamMetricLog'){ window.__teamMetricLog=Array.isArray(r.state)?r.state:[]; }
+      else if(v==='__teamMetricTarget'){ window.__teamMetricTarget=(r.state&&typeof r.state==='object')?r.state:{}; }
     });
     /* v08.99 서버에서 CARDS·UNIS·SEMROWS를 막 채운 직후 — SEQ를 다시 맞추고, 이미 생긴
        id 중복이 있으면 여기서 바로 분리한다(위 syncSeqFromBoardData·dedupeBoardIds 참고). */
@@ -13422,6 +13429,39 @@ function delTeamMetricDef(team,i){
   if(typeof saveToSheet==='function')saveToSheet('team_metric_defs',window.__teamMetricDefs);
   paint();
 }
+/* v08.268 요청("지표명 수정도 가능하게 해줘") — 부서 이름 변경(renDept)과 같은 방식. 지표
+   이름이 바뀌면 이미 쌓인 값(__teamMetricLog)·목표(__teamMetricTarget, 키에 지표명이 들어감)도
+   옛 이름을 그대로 들고 있으면 새 이름 쪽 화면에서 안 보이게 되므로 함께 갈아 끼운다. */
+function renTeamMetricDef(team,i){
+  const L=teamMetricList(team), old=L[i]; if(old==null)return;
+  const v=prompt('지표 이름 수정',old); if(!v||!v.trim()||v.trim()===old)return;
+  const nm=v.trim();
+  if(L.indexOf(nm)>=0){ if(typeof toast==='function')toast('이미 있는 지표 이름입니다'); return; }
+  L[i]=nm;
+  (window.__teamMetricLog||[]).forEach(function(e){ if(e.team===team&&e.metric===old)e.metric=nm; });
+  const T=window.__teamMetricTarget||{};
+  Object.keys(T).forEach(function(k){
+    const parts=k.split('|');
+    if(parts[0]===team&&parts[1]===old){ T[[team,nm,parts[2]].join('|')]=T[k]; delete T[k]; }
+  });
+  if(typeof logAct==='function')logAct('지표 이름 변경',(navItem(team)||{}).nm||team,old+' → '+nm);
+  if(typeof saveToSheet==='function'){
+    saveToSheet('team_metric_defs',window.__teamMetricDefs);
+    saveToSheet('team_metric_log',window.__teamMetricLog);
+    saveToSheet('team_metric_target',window.__teamMetricTarget);
+  }
+  paint();
+}
+function teamMetricTargetKey(team,metric){ return team+'|'+metric+'|'+MO; }
+function getTeamMetricTarget(team,metric){ return window.__teamMetricTarget[teamMetricTargetKey(team,metric)]||null; }
+function setTeamMetricTarget(team,metric,v){
+  const n=Number(String(v||'').replace(/[^\d.-]/g,''));
+  const key=teamMetricTargetKey(team,metric);
+  if(typeof logAct==='function')logAct('지표 목표 입력',(navItem(team)||{}).nm||team,metric+' '+MO+' '+(n||0));
+  if(n>0)window.__teamMetricTarget[key]=n; else delete window.__teamMetricTarget[key];
+  if(typeof saveToSheet==='function')saveToSheet('team_metric_target',window.__teamMetricTarget);
+  paint();
+}
 function addTeamMetric(team){
   const dEl=document.getElementById('tmDate-'+team), mEl=document.getElementById('tmMetric-'+team), vEl=document.getElementById('tmVal-'+team);
   if(!dEl||!mEl||!vEl)return;
@@ -13477,7 +13517,8 @@ function teamMetricPanelHtml(team){
   const entriesDesc=all.slice().sort(function(a,b){return (b.d||'').localeCompare(a.d||'')||((b.ts||0)-(a.ts||0));});
   const defList=L.map(function(nm,i){
     return '<span style="display:inline-flex;align-items:center;gap:4px;margin:0 4px 4px 0;padding:2px 8px;'
-      +'border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:10.5px">'+esc(nm)
+      +'border:1px solid var(--line);border-radius:12px;background:var(--panel);font-size:10.5px">'
+      +'<span onclick="renTeamMetricDef(\''+team+'\','+i+')" style="cursor:pointer" title="눌러서 이름 수정">'+esc(nm)+'</span>'
       +'<span onclick="delTeamMetricDef(\''+team+'\','+i+')" style="cursor:pointer;color:var(--tx3)" title="지표 삭제">×</span></span>';
   }).join('');
   const form=L.length
@@ -13491,9 +13532,21 @@ function teamMetricPanelHtml(team){
     :('<div class="note" style="margin-bottom:8px">아직 등록된 지표가 없습니다 — 아래 "지표 추가"로 먼저 만들어 주세요(예: 블로그 방문자수, 누적조회수).</div>');
   const byMetric={};
   all.forEach(function(e){(byMetric[e.metric]=byMetric[e.metric]||[]).push(e);});
+  /* v08.267 요청("목표 지표도 필요해") — 가입 목표·달성률(monPerfTableHtml)과 같은 방식으로
+     지표마다 이번 달 목표를 넣으면 그 달 실적 합계·달성률을 함께 보여준다. */
   const charts=Object.keys(byMetric).map(function(m){
     const asc=byMetric[m].slice().sort(function(a,b){return (a.d||'').localeCompare(b.d||'');}).slice(-14);
-    return '<div style="margin-bottom:10px"><div class="wk-kl" style="font-weight:700;margin-bottom:4px">'+esc(m)+'</div>'+metricChartSvg(asc)+'</div>';
+    const sumThisMo=byMetric[m].filter(function(e){return String(e.d||'').slice(0,7)===MO;}).reduce(function(s,e){return s+e.val;},0);
+    const target=getTeamMetricTarget(team,m);
+    const rate=target?Math.round(sumThisMo/target*100):null;
+    const targetRow='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:10.5px;flex-wrap:wrap">'
+      +'<span style="color:var(--tx3)">'+MO+' 목표</span>'
+      +'<input type="number" value="'+(target||'')+'" placeholder="목표값" style="width:80px;font-size:10.5px;padding:3px 6px;border:1px solid var(--line);border-radius:5px" '
+      +'onchange="setTeamMetricTarget(\''+team+'\',\''+m+'\',this.value)">'
+      +'<span style="color:var(--tx3)">· 이번달 실적 합계 <b style="color:var(--tx1)">'+sumThisMo+'</b></span>'
+      +(rate!=null?('<span style="color:'+(rate<100?'var(--red)':'var(--teal-dk)')+'">· 달성률 '+rate+'%</span>'):'')
+      +'</div>';
+    return '<div style="margin-bottom:10px"><div class="wk-kl" style="font-weight:700;margin-bottom:4px">'+esc(m)+'</div>'+targetRow+metricChartSvg(asc)+'</div>';
   }).join('');
   return '<div class="panel" style="padding:14px 16px;margin-bottom:14px">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font-size:12.5px">📊 성과 지표</b>'
