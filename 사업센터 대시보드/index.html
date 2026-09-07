@@ -2043,7 +2043,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.270';
+window.__APP_VER='v08.271';
 window.__wembProtect=[];
 
 
@@ -11115,10 +11115,13 @@ const NAV=[
    {id:'promo',nm:'프로모션 종료·정상가 전환'},{id:'churn',nm:'해지·재가입',src:'churn'},
    {id:'suspend',nm:'정지업체',src:'suspend'}]},
  {sec:'조회·데이터',ic:'▨',items:[
-   {id:'cust',nm:'고객 검색',src:'normal'},{id:'data',nm:'데이터 업로드'}]}
+   {id:'cust',nm:'고객 검색',src:'normal'},{id:'data',nm:'데이터 업로드'}]},
  // v08.08 요청(탭 제거): 데이터 품질(qual)·담당자·팀 성과(staff)·해지방어(def) 메뉴에서 제외.
  // v08.205 요청("다 삭제해도 돼")으로 화면 코드·TABS·STUB·PAY 데이터까지 전부 삭제 완료
  // (CLAUDE.md 18번). 되살릴 일이 생기면 CLAUDE.md 18번에 삭제 시점 코드가 남아 있다.
+ /* v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면") — 고객·업무 데이터와 무관한
+    "이 대시보드 자체"에 대한 안내라 별도 섹션으로 맨 아래 둔다. */
+ {sec:'안내',ic:'✦',items:[{id:'updates',nm:'업데이트 내역'}]}
 ];
 const STUB={
  week:['주간회의','v06.22부터 실제 화면 제공 — 왼쪽바 주간회의 클릭. (이 STUB 텍스트는 화면에 쓰이지 않음)'],
@@ -12980,7 +12983,7 @@ function paintSide(){
    아직 화면이 없어 기존 회색을 유지. dyn 유무로 추정하던 v06.14 방식은 v06.41에서 원본 5개 화면이
    들어오며 더 이상 맞지 않아(home·promo·churn·cust·data 전부 dyn 없음) 명시 목록으로 교체했다. */
 // v08.98 실적 관리(perfmg) 추가(요청) — 이 목록에 없으면 왼쪽바에서 화면 없는 탭처럼 회색으로 흐리게 나온다
-const BUILT_TABS=['week','home','act','daily','monthly','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','suspend','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가
+const BUILT_TABS=['week','home','act','daily','monthly','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','suspend','cust','data','updates']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가. v08.271 업데이트 내역 탭 추가
 const isBuilt=id=>BUILT_TABS.indexOf(id)>=0;
 /* v06.44 해지 지표 단일 기준 — 고객 마스터(세무사무소목록 업로드 → window.__xlOffice)의 churned.
    업로드 전에는 이식한 원본 index.html이 들고 있는 폴백값이 그대로 쓰인다. 값을 여기 적어 두지 않는
@@ -13160,6 +13163,58 @@ function actShell(){
   const it=navItem('act');
   return '<div class="h1"><span class="ic">'+(it.ic||navIcon('act'))+'</span>'+esc(it.nm)+'</div><div id="actBody"></div>';
 }
+/* ══════════════════════════════════════════════════════════════════
+   v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면 좋겠는데") — 팀원들이
+   궁금할 때 들어와서 보는 "업데이트 내역" 화면. AskUserQuestion으로 확인한 내용:
+   ① 위치는 사이드바 독립 메뉴(설정 화면 탭이나 버전 배지 클릭이 아니라)
+   ② 새 업데이트가 생겨도 별도 알림 배지는 띄우지 않음(궁금할 때만 보면 됨)
+
+   내용은 PROJECT_CONTEXT.md의 개발용 변경 이력(함수명·코드 구조가 잔뜩 섞인 기술 문서)을
+   그대로 보여주지 않는다 — 팀원이 읽었을 때 "뭐가 좋아졌는지" 바로 이해되도록 매번 새로
+   쉬운 말 한두 줄로 옮겨 적는다. 화면 구현은 활동 타임라인(actShell/paintAct)과 같은
+   틀(.act-list/.act-day/.act-row 등 기존 CSS 재사용, 새 CSS 없음)을 그대로 쓴다. */
+const UPDATE_LOG=[
+ {d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
+  b:'글이 길어지면 칸도 같이 늘어나 전체 내용이 다 보입니다.'},
+ {d:'2026-09-07',tt:'주간회의 PDF 저장 화면을 실제 화면과 똑같이 수정',
+  b:'팀별 추진현황이 PDF에서도 화면과 같은 2단 배치·색깔로 나옵니다.'},
+ {d:'2026-09-07',tt:'팀탭 "성과 지표"에 목표·지표 이름 수정 기능 추가',
+  b:'지표마다 이번 달 목표를 넣으면 달성률이 함께 보이고, 지표 이름도 나중에 고칠 수 있습니다.'},
+ {d:'2026-09-07',tt:'팀탭에 "성과 지표" 섹션 신설',
+  b:'마케팅·UX·영업팀이 매일 숫자(예: 블로그 방문자수)를 기록하면 표와 그래프로 쌓여 보입니다.'},
+ {d:'2026-09-07',tt:'설정(사용자 명부)에 입력한 이름·부서가 사라지던 문제 수정',
+  b:'로그인할 때마다 다른 팀원이 적어둔 이름·부서가 지워지던 원인을 찾아 고쳤습니다.'},
+ {d:'2026-09-06',tt:'청구내역관리 파일 데이터가 새로고침 후 사라지던 문제 수정',
+  b:'파일을 다시 올리지 않아도 청구대상 확인·개업성장패키지 관련 화면이 정상 유지됩니다.'},
+ {d:'2026-09-06',tt:'주간회의를 구글 슬라이드 크기 그대로 PDF로 저장하는 기능 추가',
+  b:'화면 오른쪽 위 "🖨 PDF로 저장" 버튼으로 매주 슬라이드에 옮겨 적던 작업을 대신합니다.'},
+ {d:'2026-09-06',tt:'고객관리에 "정지업체" 탭 신설',
+  b:'현재 정지 중인 업체 목록·사유를 따로 모아 보여줍니다.'},
+ {d:'2026-09-06',tt:'통합현황 화면 정리 — "정지 사유별 현황" 블록 제거',
+  b:'같은 내용을 더 자세히 다루는 정지업체 탭과 중복돼 화면을 간단하게 정리했습니다.'},
+ {d:'2026-09-06',tt:'전체 가입 현황의 "리포트" 집계 기준을 명확히 함',
+  b:'인사이트 가입 여부를 기준으로 플러스/리포트를 나눠, 실제 가입 건수와 항상 일치합니다.'}
+];
+function updatesRows(){ return UPDATE_LOG; }
+function paintUpdates(){
+  const b=document.getElementById('updBody'); if(!b)return;
+  const rows=updatesRows();
+  let last='';
+  const list=rows.map(function(r){
+    const head=(r.d!==last)?('<div class="act-day">'+esc(r.d)+'</div>'):'';
+    last=r.d;
+    return head+'<div class="act-row">'
+      +'<div class="act-ic ai-join">✦</div>'
+      +'<div class="act-main"><div class="act-t">'+esc(r.tt)+'</div>'
+      +'<div class="act-s">'+esc(r.b)+'</div></div></div>';
+  }).join('');
+  b.innerHTML='<div class="note" style="margin-bottom:12px">사업센터 대시보드가 개선될 때마다 팀원이 알아두면 좋은 내용만 골라 쉬운 말로 남깁니다.</div>'
+    +(rows.length?'<div class="act-list">'+list+'</div>':'<div class="wk-e">아직 등록된 업데이트가 없습니다.</div>');
+}
+function updatesShell(){
+  const it=navItem('updates');
+  return '<div class="h1"><span class="ic">'+(it.ic||navIcon('updates'))+'</span>'+esc(it.nm)+'</div><div id="updBody"></div>';
+}
 /* ══ 라우팅 ══ */
 function route(){
   const p=document.getElementById('page');
@@ -13170,6 +13225,7 @@ function route(){
   if(TAB==='sales'){ if(typeof ixUnmount==='function')ixUnmount(); p.innerHTML=salesShell(); salesMount(); return; }
   if(typeof ixUnmount==='function')ixUnmount();
   if(TAB==='act'){ p.innerHTML=actShell(); paintAct(); return; }
+  if(TAB==='updates'){ p.innerHTML=updatesShell(); paintUpdates(); return; }
   if(TAB==='mkt'||TAB==='biz'||TAB==='ux'){ p.innerHTML=shell(); paint(); }
   else if(TAB==='sem'){ p.innerHTML=semShell(); paintSem(); }
   else if(TAB==='week'){ p.innerHTML=weekShell(); paintWeek(); }
