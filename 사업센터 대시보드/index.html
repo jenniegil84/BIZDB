@@ -2054,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.274';
+window.__APP_VER='v08.275';
 window.__wembProtect=[];
 
 
@@ -11119,9 +11119,7 @@ const NAV=[
  {sec:'회의',ic:'▤',items:[{id:'week',nm:'주간회의'}]},
  {sec:'요약',ic:'▦',items:[{id:'home',nm:'통합 현황'},
    /* v06.77 시장 현황 — 외부 영업용 대시보드를 그대로 띄우는 화면. 통합 현황 바로 아래에 둔다(요청) */
-   {id:'sales',nm:'시장 현황'},
-   /* v06.98 활동 타임라인 — 누가 언제 무엇을 했는지 시간순으로 훑는 화면(요청) */
-   {id:'act',nm:'활동 타임라인'}]},
+   {id:'sales',nm:'시장 현황'}]},
  {sec:'실적 분석',ic:'▥',items:[{id:'daily',nm:'일별'},{id:'monthly',nm:'월별'},{id:'cumul',nm:'누적'},{id:'perfmg',nm:'실적 관리'}]},
  /* v07.88 고객 CRM에서 도입 문의만 남긴다(요청) — 당시엔 컨설팅·가입/온보딩/활성화 모니터링/
    문의 상담·VOC를 메뉴에서만 뺐었다. v08.216에서 사용자 확정("완전히 삭제해")으로 그 화면
@@ -11146,8 +11144,11 @@ const NAV=[
  // v08.205 요청("다 삭제해도 돼")으로 화면 코드·TABS·STUB·PAY 데이터까지 전부 삭제 완료
  // (CLAUDE.md 18번). 되살릴 일이 생기면 CLAUDE.md 18번에 삭제 시점 코드가 남아 있다.
  /* v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면") — 고객·업무 데이터와 무관한
-    "이 대시보드 자체"에 대한 안내라 별도 섹션으로 맨 아래 둔다. */
- {sec:'안내',ic:'✦',items:[{id:'updates',nm:'업데이트 내역'}]}
+    "이 대시보드 자체"에 대한 안내라 별도 섹션으로 맨 아래 둔다.
+    v08.275 요청("활동 타임라인을 안내쪽으로 이동해줘") — 「요약」에 있던 활동 타임라인(누가
+    언제 무엇을 했는지 보는 화면, v06.98)도 고객·업무 데이터 조회가 아니라 이 대시보드
+    사용 현황을 보는 화면이라 같은 성격 — 업데이트 내역 위로 옮긴다. */
+ {sec:'안내',ic:'✦',items:[{id:'act',nm:'활동 타임라인'},{id:'updates',nm:'업데이트 내역'}]}
 ];
 const STUB={
  week:['주간회의','v06.22부터 실제 화면 제공 — 왼쪽바 주간회의 클릭. (이 STUB 텍스트는 화면에 쓰이지 않음)'],
@@ -15975,8 +15976,10 @@ function showUser(email){
     if(!box||document.getElementById('authUser'))return;
     const el=document.createElement('div');
     el.id='authUser';
+    /* v08.275 요청("설정은 제니 계정만 보이게 해줘") — 데이터 업로드 메뉴와 같은 기준
+       (DATA_UPLOAD_EMAIL)으로 "설정" 버튼도 이 계정일 때만 보여준다. */
     el.innerHTML='<span>'+esc(email||'')+'</span>'
-      +'<span class="out" onclick="openSettings()" title="사용자·부서 관리">설정</span>'
+      +(window.__curEmail===DATA_UPLOAD_EMAIL?'<span class="out" onclick="openSettings()" title="사용자·부서 관리">설정</span>':'')
       +'<span class="out" onclick="authLogout()">로그아웃</span>';
     box.appendChild(el);
   }
