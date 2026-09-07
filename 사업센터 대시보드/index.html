@@ -2022,7 +2022,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.265';
+window.__APP_VER='v08.266';
 window.__wembProtect=[];
 
 
@@ -13260,7 +13260,6 @@ function shell(){
  +'</div>'
  +'<div class="note" id="hint"></div>'
  +'<div class="bud" id="bud"></div>'
- +'<div id="tmBox"></div>'
  +'<div id="bW"><div class="kb" id="kb"></div></div>'
  +'<div id="tW" style="display:none"><div class="panel" style="overflow:auto">'
  +'<table class="t" style="min-width:1100px"><thead><tr id="tHead"></tr></thead>'
@@ -13269,7 +13268,9 @@ function shell(){
  +'<span class="link" style="margin-left:10px" id="doneBtn" onclick="toggleDone()"></span>'
  +'<button class="btn sm" style="margin-left:8px" onclick="addUnis()">＋ 안건</button>'
  +'<span style="margin-left:auto;font-size:10.5px;color:var(--tx3)">완료로 바꾸면 목록에서 빠지고 해당 카드 안에만 남습니다 · 미배정 안건은 카드로 끌어다 놓을 수 있습니다</span></div>'
- +'<div class="tray-b" id="oList"></div></div>';
+ +'<div class="tray-b" id="oList"></div></div>'
+ /* v08.266 요청("성과지표는 맨 아래에 배치") — 보드·논의사항 트레이보다도 아래, 화면 맨 끝으로 이동 */
+ +'<div id="tmBox"></div>';
 }
 
 /* ══ 뷰 ══ */
