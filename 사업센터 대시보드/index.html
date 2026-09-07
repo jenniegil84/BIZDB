@@ -196,6 +196,16 @@ body.sidecol #content{margin-left:46px}
   }
   .keytask{break-inside:avoid;page-break-after:always;box-shadow:none!important}
   .keytask:last-child{page-break-after:auto}
+  /* v08.264 버그 수정(요청: "주간회의 pdf저장할때 카테고리가 잘리는 현상") — 위 .keytask에
+     break-inside:avoid를 줬지만, 그 안의 표(월별 실적 현황·전체 가입 현황 등, wk-mtbl)가
+     한 슬라이드(@page 13.333×7.5in)보다 길면 어차피 안에서 끊길 수밖에 없다. 그런데 표의
+     <tr> 각각에는 이 규칙이 없어서, 끊기는 지점이 하필 어떤 행 "중간"이면 그 행의 구분(첫
+     칸) 글자가 위쪽 페이지에, 나머지 숫자 칸이 다음 페이지에 걸쳐 잘려 보였다("합계" 행의
+     구분 글자만 안 보이고 숫자만 다음 페이지에 뜬 것도 이 때문). 행 단위로 끊기지 않게 하면
+     넘치는 행 전체가 다음 페이지로 통째로 넘어가 잘림 없이 온전히 보인다. */
+  table{break-inside:auto}
+  thead{display:table-header-group}
+  tr{break-inside:avoid;page-break-inside:avoid}
 }
 /* v08.261 요청("슬라이드 크기에 맞춰야해") — 기본 인쇄 용지(A4 세로)가 아니라 구글 슬라이드·
    파워포인트 와이드스크린(16:9) 크기로 페이지를 잡는다. @page는 print 전용 규칙이라 화면
@@ -2012,7 +2022,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.263';
+window.__APP_VER='v08.264';
 window.__wembProtect=[];
 
 
