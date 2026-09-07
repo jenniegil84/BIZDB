@@ -2012,7 +2012,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.262';
+window.__APP_VER='v08.263';
 window.__wembProtect=[];
 
 
@@ -15820,11 +15820,20 @@ async function init(){
       window.__signedIn=true;
       gate().classList.remove('on');
       showUser(session.user.email);
-      noteUser(session.user.email);
-      /* v07.79 내려받는 동안 표시 — 파일에 데이터를 넣지 않으면 이 구간에 화면이 빈다 */
-      dataLoading(true);
+      /* v08.263 버그 수정(요청: "설정 화면 이름·부서 입력했는데 초기화되는 이유") — noteUser가
+         여기서 곧바로 saveToSheet('user_dir', window.__userDir)를 부르는데, 이 시점의
+         window.__userDir는 새로고침 때마다 다시 선언되는 빈 객체(15650행)라 "내 계정 1건,
+         이름·부서 공란"짜리 임시 상태다. saveToSheet는 800ms 뒤 이 "그때 그 참조"를 그대로
+         서버에 덮어쓰므로, 그 사이 아래 loadFromSupabase()가 서버의 진짜 저장본(다른 팀원
+         이름·부서 포함)으로 window.__userDir를 다시 통째로 바꿔치기해도 이미 예약된 저장은
+         옛 빈 객체를 그대로 들고 있어 800ms 뒤 그걸로 서버를 덮어써 버렸다 — 다른 팀원 이름·
+         부서까지 함께 지워지는 원인(v08.03 "복원 전 계산·저장" 경합조건과 같은 유형). noteUser를
+         loadFromSupabase() 뒤로 옮겨, 이미 복원된 전체 명부에 내 접속 기록만 더하도록 순서를
+         바꾼다. */
+      dataLoading(true);   // v07.79 내려받는 동안 표시 — 파일에 데이터를 넣지 않으면 이 구간에 화면이 빈다
       window.__boardSyncing=true;   // v08.99 이 구간 동안엔 팀탭 카드 생성·삭제를 막는다
       try{ await loadFromSupabase(); }catch(e){}
+      noteUser(session.user.email);
       try{ await loadIxState(); }catch(e){}
       window.__boardSyncing=false;
       dataLoading(false);
@@ -15838,11 +15847,13 @@ async function init(){
     sb.auth.onAuthStateChange(async (evt,s)=>{
       if(s && !(await authCheckDomain(s.user&&s.user.email)))return;
       window.__signedIn=!!s;
-      if(s){ noteUser(s.user.email); gate().classList.remove('on'); showUser(s.user.email);
+      if(s){ gate().classList.remove('on'); showUser(s.user.email);
              /* v08.99 세션 갱신(토큰 리프레시 등)으로도 이 콜백이 fire된다 — 그때마다
-                CARDS가 서버본으로 통째 덮어써지므로, 마찬가지로 그 구간을 막는다. */
+                CARDS가 서버본으로 통째 덮어써지므로, 마찬가지로 그 구간을 막는다.
+                v08.263 — noteUser도 위 init()과 같은 이유로 loadFromSupabase() 뒤로 옮긴다. */
              window.__boardSyncing=true;
              try{ await loadFromSupabase(); }catch(e){}
+             noteUser(s.user.email);
              try{ await loadIxState(); }catch(e){}
              window.__boardSyncing=false;
              try{ checkMonthRollover(); }catch(e){ console.error('월 롤오버 확인 실패:',e); }
