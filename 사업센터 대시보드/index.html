@@ -206,6 +206,17 @@ body.sidecol #content{margin-left:46px}
   .pf-2col .pf-col{padding:0 16px!important}
   .pf-2col .pf-col:first-child{padding-left:0!important;border-right:1px solid var(--line)!important;border-bottom:none!important;padding-bottom:0!important;margin-bottom:0!important}
   .pf-2col .pf-col:last-child{padding-right:0!important}
+  /* v08.274 요청("PDF 저장 파일 수정요청 - 보이는 화면대로" — ① 주간 실적 요약 KPI 카드,
+     ①-2 주간 인사이트 카드가 화면에서는 가로로 나란한데 PDF에서는 세로로 한 줄씩 쌓여
+     나옴) — .pf-2col과 같은 원인이다. 이 화면 폭보다 훨씬 좁아졌을 때만 1열로 접히게
+     해둔 반응형 규칙들이, 실제로 PDF를 뽑아보면(page.pdf() 결과물을 직접 렌더링해 확인)
+     슬라이드가 충분히 넓은데도 걸려 버린다. 인쇄 중에는 전부 화면과 같은 다열 배치로
+     못박는다. */
+  .wk-kpis.hero-row{grid-template-columns:repeat(4,1fr)!important}
+  .wk-issue-g{grid-template-columns:1fr 1fr!important}
+  .wk-cols2{grid-template-columns:1fr 1fr!important}
+  .wkin-grid{grid-template-columns:repeat(3,1fr)!important}
+  .wkin-grid.four{grid-template-columns:repeat(4,1fr)!important}
   #side,.topbar{display:none!important}
   #content{margin-left:0!important}
   .page{padding:0!important}
@@ -2043,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.271';
+window.__APP_VER='v08.276';
 window.__wembProtect=[];
 
 
@@ -2948,7 +2959,7 @@ window.__resetUploadData=function(){
     A['요금제']={};
     A['월별']=[];
     A['월별전체']=[];
-    A['종료임박']=0; A['종료경과']=0; A['면제플러스']=0; A['promo_rows']=[];
+    A['종료임박']=0; A['종료경과']=0; A['면제플러스']=0; A['종료임박1개월']=0; A['promo_rows']=[];
     if(typeof RENDER!=='undefined'&&RENDER['data'])RENDER['data']();
     if(typeof rerenderAll==='function')rerenderAll();
   }catch(e){
@@ -2997,11 +3008,16 @@ window.__syncPromo=function(){
       return String(y)+String(m).padStart(2,'0');
     };
     const lim=addM(base,3);
+    /* v08.273 요청("종료업체중 한달내에 접촉해야 하는곳은 종료 관리 목록에 보여줘") — 기존
+       3개월 전 대상 구간 안에서, 그중에서도 1개월 이내(=이번 달 안에 접촉해야 하는) 대상만
+       따로 표시하기 위한 기준. 이미 기한이 지난 '종료 경과'는 3개월/1개월 여부와 무관하게
+       가장 급한 축이라 항상 포함한다. */
+    const lim1=addM(base,1);
     /* v08.256 요청("프로모션, 할인, 면제등만 보여줘") — "-"·"." 같은 무의미 표기를 있는 값으로
        잘못 세던 것(churn 화면 해지사유와 같은 관례로 통일)을 고치고, 프로모션이 없어도 면제·
        할인이 있으면 목록에 포함하도록 넓힌다(그전엔 프로모션 없는 곳은 아예 안 보였다). */
     const has=function(v){ v=String(v||'').trim(); return !!(v&&v!=='-'&&v!=='.'); };
-    const rows=[]; let soon=0, past=0, exem=0;
+    const rows=[]; let soon=0, past=0, exem=0, contact1m=0;
     Object.keys(map).forEach(function(k){
       const v=map[k];
       const hasPromo=has(v.promo), hasExempt=!!v.exempt, hasDiscount=has(v.discount);
@@ -3014,12 +3030,15 @@ window.__syncPromo=function(){
       else if(e<base){ past++; stt='종료 경과'; }
       else if(e<=lim){ soon++; stt='종료 3개월 전 대상'; }
       else stt='진행 중';
+      /* v08.273 — 종료 경과(이미 지남) 또는 종료월이 1개월 이내인 대상 = 이번 달 접촉 필요 */
+      const need1m=stt==='종료 경과'||(stt==='종료 3개월 전 대상'&&e<=lim1);
+      if(need1m)contact1m++;
       const tag=[hasPromo?'프로모션':'',hasDiscount?'할인':'',hasExempt?'면제':''].filter(Boolean).join('·');
-      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt]);
+      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt, need1m]);
     });
     const ORD={'종료 경과':0,'종료 3개월 전 대상':1,'진행 중':2,'무기한':3};
     rows.sort(function(a,b){ return (ORD[a[4]]-ORD[b[4]])||String(a[3]).localeCompare(String(b[3])); });
-    A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem;
+    A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem; A['종료임박1개월']=contact1m;
     A['promo_rows']=rows;
     return true;
   }catch(e){ return false; }
@@ -7660,7 +7679,13 @@ function renderSales(){
   })();
   const sched=(pkg190Rows!=null?pkg190Rows:(A.일시납스케줄||[])).map(s=>`<tr${s.stt==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${s.nm}</td><td>${s.tp}</td><td>${s.st}</td><td>${s.ed}</td><td>${s.al}</td><td><span class="rtag ${stCol[s.stt]}">${s.stt}</span></td><td style="font-size:10px;color:var(--gray-md)">${s.stt==='예정'?'D-90 알림톡→D-60 문자→D-30 전화':s.stt==='기한경과'?'금주 확정→즉시 전화 안내':s.stt==='데이터보완'?'시작월 소급 입력':'한청세 여부 수동 확정'}</td></tr>`).join('');
   const HIST=['알림톡 발송','문자 발송','전화 연결','최초 안내일','최근 안내일','고객 반응','전환 인지','전환 동의','다음 연락일','담당자','처리기한'];
-  const promoRows=A.promo_rows.map(r=>`<tr${r[4]==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td>${HIST.map(()=>'<td class="na">—</td>').join('')}</tr>`).join('');
+  /* v08.273 요청("종료업체중 한달내에 접촉해야 하는곳은 종료 관리 목록에 보여줘") — r[5]는
+     __syncPromo()가 계산한 "종료 경과 또는 1개월 이내 종료 예정" 여부(need1m). 그 행만
+     빨간 배경 + "1개월 이내" 배지로 강조한다.
+     (참고: 이전엔 r[4](상태 문자열)를 '기한경과'와 비교해 강조를 시도했지만 __syncPromo가
+     실제로 넣는 값은 '종료 경과'라 조건이 한 번도 참이 된 적이 없었다 — 이번에 함께 고침.) */
+  const promoRows=A.promo_rows.map(r=>`<tr${r[5]?' style="background:var(--red-lt)"':''}><td style="text-align:left">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}${r[5]?' <span class="rtag" style="background:var(--red);color:#fff;margin-left:4px">1개월 이내</span>':''}</td>${HIST.map(()=>'<td class="na">—</td>').join('')}</tr>`).join('');
+  const contact1mN=A.promo_rows.filter(function(r){return r[5];}).length;
   el.innerHTML=`
   <div class="notebox warn"><b>190만 일시납 원칙</b> ${srcTag('svc')} ${srcTag('pay')} — 데이터 기준: 서비스 데이터(프로모션 구분·종료월). 입금 실적은 계약·결제 연동 필요. 월 환산하지 않으며 실제 입금 월의 일시납 매출로 관리. 종료 후 <b>플러스 정상가 월 35만원 환복</b> → 사전 안내 없으면 항의·해지 위험(P0 조건). 안내 이력 11항목은 종료안내이력 테이블 신설 후 기록(현재 전건 '—').</div>
   <!-- v08.214 요청("데이터값은 없으면 없는대로 표시, 하드코딩 금지") — 대상·미처리는 청구내역파일
@@ -7677,6 +7702,7 @@ function renderSales(){
   ${sched?`<div class="panel-body" style="border-top:1px solid var(--border)">
    <div style="font-size:10px;color:var(--gray-md)">필수 안내: 프로모션명·시작/종료일·일시납 기간 종료 사실·<b>종료 후 월 35만 정상가 적용</b>·적용 예정일·제공 서비스·의사표시 기한·문의 방법 — 문구 버전·발송 일시·채널·반응 이력화.</div></div>`:''}</div>
   <div class="sec-label">종료 관리 목록</div>
+  ${contact1mN?`<div style="background:var(--red-lt);border:1px solid var(--red);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--red);font-weight:700;margin-bottom:8px">⚠ 이번 달 접촉 필요 ${contact1mN}곳 — 종료 경과 또는 1개월 이내 종료 예정(표에서 빨간 행)</div>`:''}
   <div style="margin-bottom:8px">${extBtn('promo','admin')}</div>
   ${(function(){const n=(A.promo_rows||[]).length;return cntLine(n,n,n);})()}
   <div class="panel"><div class="panel-body">
@@ -11093,9 +11119,7 @@ const NAV=[
  {sec:'회의',ic:'▤',items:[{id:'week',nm:'주간회의'}]},
  {sec:'요약',ic:'▦',items:[{id:'home',nm:'통합 현황'},
    /* v06.77 시장 현황 — 외부 영업용 대시보드를 그대로 띄우는 화면. 통합 현황 바로 아래에 둔다(요청) */
-   {id:'sales',nm:'시장 현황'},
-   /* v06.98 활동 타임라인 — 누가 언제 무엇을 했는지 시간순으로 훑는 화면(요청) */
-   {id:'act',nm:'활동 타임라인'}]},
+   {id:'sales',nm:'시장 현황'}]},
  {sec:'실적 분석',ic:'▥',items:[{id:'daily',nm:'일별'},{id:'monthly',nm:'월별'},{id:'cumul',nm:'누적'},{id:'perfmg',nm:'실적 관리'}]},
  /* v07.88 고객 CRM에서 도입 문의만 남긴다(요청) — 당시엔 컨설팅·가입/온보딩/활성화 모니터링/
    문의 상담·VOC를 메뉴에서만 뺐었다. v08.216에서 사용자 확정("완전히 삭제해")으로 그 화면
@@ -11120,8 +11144,11 @@ const NAV=[
  // v08.205 요청("다 삭제해도 돼")으로 화면 코드·TABS·STUB·PAY 데이터까지 전부 삭제 완료
  // (CLAUDE.md 18번). 되살릴 일이 생기면 CLAUDE.md 18번에 삭제 시점 코드가 남아 있다.
  /* v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면") — 고객·업무 데이터와 무관한
-    "이 대시보드 자체"에 대한 안내라 별도 섹션으로 맨 아래 둔다. */
- {sec:'안내',ic:'✦',items:[{id:'updates',nm:'업데이트 내역'}]}
+    "이 대시보드 자체"에 대한 안내라 별도 섹션으로 맨 아래 둔다.
+    v08.275 요청("활동 타임라인을 안내쪽으로 이동해줘") — 「요약」에 있던 활동 타임라인(누가
+    언제 무엇을 했는지 보는 화면, v06.98)도 고객·업무 데이터 조회가 아니라 이 대시보드
+    사용 현황을 보는 화면이라 같은 성격 — 업데이트 내역 위로 옮긴다. */
+ {sec:'안내',ic:'✦',items:[{id:'act',nm:'활동 타임라인'},{id:'updates',nm:'업데이트 내역'}]}
 ];
 const STUB={
  week:['주간회의','v06.22부터 실제 화면 제공 — 왼쪽바 주간회의 클릭. (이 STUB 텍스트는 화면에 쓰이지 않음)'],
@@ -12956,6 +12983,10 @@ function notiInit(){
   if(__noti.loaded)return;
   notiReload(0).catch(function(){});
 }
+/* v08.272 요청("데이터 업로드는 jennie.gil@roumit.com 이 계정으로 로그인했을때만 보이게 해")
+   — 로그인 이메일(window.__curEmail, showUser()에서 채움)이 이 계정이 아니면 사이드바에서
+   "데이터 업로드" 항목 자체를 뺀다. */
+const DATA_UPLOAD_EMAIL='jennie.gil@roumit.com';
 function paintSide(){
   const num=n=>Number(n).toLocaleString();
   document.getElementById('sideBody').innerHTML=NAV.map(sc=>
@@ -12963,7 +12994,7 @@ function paintSide(){
    '<div class="sd-sec'+(CLOSED[sc.sec]?' closed':'')+'" data-sec="'+esc(sc.sec)+'">'
    +'<div class="sd-sh" onclick="toggleSec(\''+sc.sec+'\')">'
      +'<span class="si">'+sc.ic+'</span><span class="st">'+esc(sc.sec)+'</span><span class="ar">⌃</span></div>'
-   +'<div class="sd-items">'+sc.items.map(i=>{
+   +'<div class="sd-items">'+sc.items.filter(i=>i.id!=='data'||window.__curEmail===DATA_UPLOAD_EMAIL).map(i=>{
      /* v06.21 dyn:2 = SEMROWS 건수(세미나 운영, CARDS 기반 아님) */
      /* v06.44 해지 건수는 고객 마스터(세무사무소목록 → __xlOffice.churned) 하나만 본다.
         기존 하드코딩 307은 이식한 원본 화면이 쓰는 고객 마스터 값(315)과 어긋나 있었다. */
@@ -12972,8 +13003,13 @@ function paintSide(){
                : i.src==='inq'    ? flowInqTotal()
                : i.dyn===2 ? SEMROWS.length : i.dyn ? CARDS.filter(c=>tabOf(c)===i.id&&inMonth(c)).length : i.n;
      /* v06.42 화면이 있는 탭은 선명한 검정(+굵게), 없는 탭은 기존 회색 그대로 */
+     /* v08.276 요청("업데이트 내역이 있는데 팀원이 읽지 않았을시 NEW 배지를 보여주고 읽으면
+        배지숨겨줘") — 칸반 열 숨김 배지(.hin, 기존 CSS 재사용)와 같은 모양으로 "업데이트
+        내역" 항목에만 붙인다. */
+     const showNew=(i.id==='updates')&&updIsUnread();
      return '<div class="sd-it'+(TAB===i.id?' on':'')+'" onclick="goTab(\''+i.id+'\')" title="'+esc(i.nm)+'">'
       +'<span class="nm"'+(isBuilt(i.id)&&TAB!==i.id?' style="color:#111827;font-weight:600"':'')+'>'+esc(i.nm)+'</span>'
+      +(showNew?'<span class="hin">NEW</span>':'')
       +(cnt!=null?'<span class="cnt">'+num(cnt)+'</span>':'')+'</div>';}).join('')
    +'</div></div>').join('');
 }
@@ -13167,35 +13203,64 @@ function actShell(){
    v08.271 요청("대시보드 업데이트 목록을 보여주는 게 있었으면 좋겠는데") — 팀원들이
    궁금할 때 들어와서 보는 "업데이트 내역" 화면. AskUserQuestion으로 확인한 내용:
    ① 위치는 사이드바 독립 메뉴(설정 화면 탭이나 버전 배지 클릭이 아니라)
-   ② 새 업데이트가 생겨도 별도 알림 배지는 띄우지 않음(궁금할 때만 보면 됨)
+   ② (v08.271 당시) 새 업데이트가 생겨도 별도 알림 배지는 띄우지 않음
+   → v08.276 요청("업데이트 내역이 있는데 팀원이 읽지 않았을시 NEW 배지를 보여주고 읽으면
+     배지 숨겨줘")으로 ②를 뒤집는다 — 이제 안 읽은 새 항목이 있으면 사이드바에 배지를 띄우고,
+     그 화면을 열면 숨긴다(아래 updLatestId/updIsUnread/updMarkRead 참고).
 
    내용은 PROJECT_CONTEXT.md의 개발용 변경 이력(함수명·코드 구조가 잔뜩 섞인 기술 문서)을
    그대로 보여주지 않는다 — 팀원이 읽었을 때 "뭐가 좋아졌는지" 바로 이해되도록 매번 새로
    쉬운 말 한두 줄로 옮겨 적는다. 화면 구현은 활동 타임라인(actShell/paintAct)과 같은
-   틀(.act-list/.act-day/.act-row 등 기존 CSS 재사용, 새 CSS 없음)을 그대로 쓴다. */
+   틀(.act-list/.act-day/.act-row 등 기존 CSS 재사용, 새 CSS 없음)을 그대로 쓴다.
+   각 항목의 id는 "언제까지 읽었는지" 표시에만 쓰는 고정 값이라, 항목 내용을 고치더라도
+   id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
+   배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
- {d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
+ {id:'u12',d:'2026-09-07',tt:'"활동 타임라인"을 "안내" 메뉴로 이동, 업데이트 내역 안 읽으면 NEW 배지 표시',
+  b:'활동 타임라인이 업데이트 내역과 같은 자리로 옮겨졌고, 새 업데이트를 안 읽으면 사이드바에 NEW가 뜹니다.'},
+ {id:'u11',d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
   b:'글이 길어지면 칸도 같이 늘어나 전체 내용이 다 보입니다.'},
- {d:'2026-09-07',tt:'주간회의 PDF 저장 화면을 실제 화면과 똑같이 수정',
+ {id:'u10',d:'2026-09-07',tt:'주간회의 PDF 저장 화면을 실제 화면과 똑같이 수정',
   b:'팀별 추진현황이 PDF에서도 화면과 같은 2단 배치·색깔로 나옵니다.'},
- {d:'2026-09-07',tt:'팀탭 "성과 지표"에 목표·지표 이름 수정 기능 추가',
+ {id:'u9',d:'2026-09-07',tt:'팀탭 "성과 지표"에 목표·지표 이름 수정 기능 추가',
   b:'지표마다 이번 달 목표를 넣으면 달성률이 함께 보이고, 지표 이름도 나중에 고칠 수 있습니다.'},
- {d:'2026-09-07',tt:'팀탭에 "성과 지표" 섹션 신설',
+ {id:'u8',d:'2026-09-07',tt:'팀탭에 "성과 지표" 섹션 신설',
   b:'마케팅·UX·영업팀이 매일 숫자(예: 블로그 방문자수)를 기록하면 표와 그래프로 쌓여 보입니다.'},
- {d:'2026-09-07',tt:'설정(사용자 명부)에 입력한 이름·부서가 사라지던 문제 수정',
+ {id:'u7',d:'2026-09-07',tt:'설정(사용자 명부)에 입력한 이름·부서가 사라지던 문제 수정',
   b:'로그인할 때마다 다른 팀원이 적어둔 이름·부서가 지워지던 원인을 찾아 고쳤습니다.'},
- {d:'2026-09-06',tt:'청구내역관리 파일 데이터가 새로고침 후 사라지던 문제 수정',
+ {id:'u6',d:'2026-09-06',tt:'청구내역관리 파일 데이터가 새로고침 후 사라지던 문제 수정',
   b:'파일을 다시 올리지 않아도 청구대상 확인·개업성장패키지 관련 화면이 정상 유지됩니다.'},
- {d:'2026-09-06',tt:'주간회의를 구글 슬라이드 크기 그대로 PDF로 저장하는 기능 추가',
+ {id:'u5',d:'2026-09-06',tt:'주간회의를 구글 슬라이드 크기 그대로 PDF로 저장하는 기능 추가',
   b:'화면 오른쪽 위 "🖨 PDF로 저장" 버튼으로 매주 슬라이드에 옮겨 적던 작업을 대신합니다.'},
- {d:'2026-09-06',tt:'고객관리에 "정지업체" 탭 신설',
+ {id:'u4',d:'2026-09-06',tt:'고객관리에 "정지업체" 탭 신설',
   b:'현재 정지 중인 업체 목록·사유를 따로 모아 보여줍니다.'},
- {d:'2026-09-06',tt:'통합현황 화면 정리 — "정지 사유별 현황" 블록 제거',
+ {id:'u3',d:'2026-09-06',tt:'통합현황 화면 정리 — "정지 사유별 현황" 블록 제거',
   b:'같은 내용을 더 자세히 다루는 정지업체 탭과 중복돼 화면을 간단하게 정리했습니다.'},
- {d:'2026-09-06',tt:'전체 가입 현황의 "리포트" 집계 기준을 명확히 함',
+ {id:'u2',d:'2026-09-06',tt:'전체 가입 현황의 "리포트" 집계 기준을 명확히 함',
   b:'인사이트 가입 여부를 기준으로 플러스/리포트를 나눠, 실제 가입 건수와 항상 일치합니다.'}
 ];
 function updatesRows(){ return UPDATE_LOG; }
+/* v08.276 — "안 읽음" 판정은 __userDir[내 이메일].updRead(마지막으로 읽은 항목의 id)와
+   UPDATE_LOG 맨 앞(최신) 항목의 id를 비교하는 것으로 충분하다(새 항목은 항상 배열 맨 앞에
+   추가하는 관례이므로). 사용자 명부(__userDir)는 이미 설정(이름·부서)에 쓰던 것을 그대로
+   재사용 — 새 저장소를 만들지 않는다. */
+function updLatestId(){ return (UPDATE_LOG[0]||{}).id||''; }
+function updIsUnread(){
+  const e=window.__curEmail; if(!e)return false;
+  const latest=updLatestId(); if(!latest)return false;
+  const u=(window.__userDir||{})[e];
+  return !u||u.updRead!==latest;
+}
+function updMarkRead(){
+  const e=window.__curEmail; if(!e)return;
+  const latest=updLatestId(); if(!latest)return;
+  window.__userDir=window.__userDir||{};
+  const u=window.__userDir[e]||(window.__userDir[e]={email:e,nm:'',dept:'',role:'정상'});
+  if(u.updRead===latest)return;
+  u.updRead=latest;
+  if(typeof saveToSheet==='function')saveToSheet('user_dir',window.__userDir);
+  if(typeof paintSide==='function')paintSide();
+}
 function paintUpdates(){
   const b=document.getElementById('updBody'); if(!b)return;
   const rows=updatesRows();
@@ -13225,7 +13290,7 @@ function route(){
   if(TAB==='sales'){ if(typeof ixUnmount==='function')ixUnmount(); p.innerHTML=salesShell(); salesMount(); return; }
   if(typeof ixUnmount==='function')ixUnmount();
   if(TAB==='act'){ p.innerHTML=actShell(); paintAct(); return; }
-  if(TAB==='updates'){ p.innerHTML=updatesShell(); paintUpdates(); return; }
+  if(TAB==='updates'){ p.innerHTML=updatesShell(); paintUpdates(); updMarkRead(); return; }
   if(TAB==='mkt'||TAB==='biz'||TAB==='ux'){ p.innerHTML=shell(); paint(); }
   else if(TAB==='sem'){ p.innerHTML=semShell(); paintSem(); }
   else if(TAB==='week'){ p.innerHTML=weekShell(); paintWeek(); }
@@ -15933,15 +15998,27 @@ function noteUser(email){
   const u=window.__userDir[e]||(window.__userDir[e]={email:e,nm:'',dept:'',role:'정상'});
   u.last=now;
   if(typeof saveToSheet==='function')saveToSheet('user_dir',window.__userDir);
+  /* v08.276 — noteUser는 loadFromSupabase() 직후(서버에 저장된 진짜 명부가 이미 복원된
+     뒤)에만 불린다(v08.263 경합조건 수정 참고). showUser()가 로그인 직후 이르게 그린
+     사이드바는 아직 내 updRead 기록을 몰라 배지가 부정확할 수 있어, 여기서 한 번 더
+     그려 정확한 안 읽음 상태로 맞춘다. */
+  if(typeof paintSide==='function')paintSide();
 }
 window.noteUser=noteUser;
 function showUser(email){
+    /* v08.272 — "데이터 업로드" 메뉴 노출 판단에 쓰는 현재 로그인 이메일. showUser는
+       로그인 확정 시점(init()·onAuthStateChange)마다 불리므로 여기서 채우고 사이드바를
+       다시 그린다(최초 paintSide()는 로그인 전에 이미 한 번 그려져 있어 갱신이 필요하다). */
+    window.__curEmail=String(email||'').trim().toLowerCase();
+    if(typeof paintSide==='function')paintSide();
     const box=document.querySelector('.tb-r');
     if(!box||document.getElementById('authUser'))return;
     const el=document.createElement('div');
     el.id='authUser';
+    /* v08.275 요청("설정은 제니 계정만 보이게 해줘") — 데이터 업로드 메뉴와 같은 기준
+       (DATA_UPLOAD_EMAIL)으로 "설정" 버튼도 이 계정일 때만 보여준다. */
     el.innerHTML='<span>'+esc(email||'')+'</span>'
-      +'<span class="out" onclick="openSettings()" title="사용자·부서 관리">설정</span>'
+      +(window.__curEmail===DATA_UPLOAD_EMAIL?'<span class="out" onclick="openSettings()" title="사용자·부서 관리">설정</span>':'')
       +'<span class="out" onclick="authLogout()">로그아웃</span>';
     box.appendChild(el);
   }
