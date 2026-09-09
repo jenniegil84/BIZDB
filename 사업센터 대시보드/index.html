@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.285';
+window.__APP_VER='v08.292';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -2339,6 +2339,40 @@ window.salesInsideHit=function(r){
   if(!bz)return false;
   if(typeof window.wembProtectHit==='function'&&window.wembProtectHit(r))return false;
   return L.some(function(x){return x.bz&&String(x.bz).replace(/[^0-9]/g,'')===bz;});
+};
+/* ══ v08.286 요청("요금제 변경 기준 통일") ══
+   같은 「요금제 변경」인데 화면마다 세는 기준이 달라, 회의에서 숫자가 서로 안 맞았다.
+     · 월별·일별·누적 카드 : 요금제 변경일이 그 기간인 **전량**(2026-09 = 58건)
+     · 주간 실적 요약      : 전량 − 플러스 해지
+     · 실적 분석 채널표    : 실적이 아닌 변경 2종을 제외(정책 v01.21) ← 확정 정책
+     · 실적 관리 문의 없는 실적 : 위와 같은 제외 + 문의 있는 건 분리
+   확정 정책(v01.21)이 이미 있으므로 **그 기준 하나로 통일**한다. 규칙을 이 함수 한 곳에만 두어
+   앞으로 다시 갈라지지 않게 한다(같은 판정을 여러 곳에서 따로 계산해 어긋난 사고가 반복됐다 —
+   PROJECT_CONTEXT "13. 배운 점" 36번).
+
+   실적으로 보지 않는 요금제 변경 2종:
+     ① 변경 전 = 변경 후 → 시스템 재등록이지 요금제를 바꾼 것이 아니다
+     ② 구간요금제 → 베이직 → 구간요금제 폐지에 따른 내부 일괄 전환
+   변경 전/후 값이 비어 있으면 판단할 수 없으므로 **센다**(없는 근거로 빼지 않는다 — 화면에서 확인).
+   플러스 해지(플러스 → 비플러스)는 실적이 아닌 변경이 아니라 **방향이 반대인 실적**이므로 여기서
+   빼지 않는다 — 화면별로 따로 보여줄지는 각 화면이 정한다(주간 실적 요약은 따로 센다). */
+window.planChgSkipWhy=function(x){
+  const bf=String((x&&x.bf)||'').trim(), pl=String((x&&x.pl)||'').trim();
+  if(!bf||!pl)return '';                                       // 판단 불가 — 제외하지 않는다
+  if(bf===pl)return '재등록';                                   // ① 같은 요금제 재등록
+  if(/구간요금제/.test(bf)&&/베이직/.test(pl))return '구간 폐지'; // ② 구간요금제 폐지 일괄 전환
+  return '';
+};
+window.planChgReal=function(x){ return !window.planChgSkipWhy(x); };
+/* 제외된 건수를 사유별로 센다 — 카드에 「그 외 재등록·구간 폐지 N건」으로 함께 보여주기 위한 값.
+   숫자만 줄어들고 왜 줄었는지 안 보이면, 다른 화면(활동 타임라인 등)과 비교할 때 다시 헷갈린다. */
+window.planChgSkipCount=function(rows){
+  const out={total:0,'재등록':0,'구간 폐지':0};
+  (Array.isArray(rows)?rows:[]).forEach(function(x){
+    const w=window.planChgSkipWhy(x);
+    if(!w)return; out.total++; out[w]=(out[w]||0)+1;
+  });
+  return out;
 };
 // v06.97 판정 규칙이 만들어내는 「대분류 > 소분류」를 모아 대분류별 소분류 목록으로 돌려준다.
 // 규칙과 선택지를 두 곳에서 따로 관리하다 어긋나는 것을 막기 위한 장치다.
@@ -3250,12 +3284,29 @@ window.__xlOffice=window.__xlOffice||null;
 // 값을 못 읽으면 손대지 않고 기존 스냅샷을 그대로 둔다.
 // v07.17 프로모션 종료·면제 집계를 청구 파일에서 다시 만든다.
 // 기준월은 고객 마스터 최신일의 달. 종료월 '209912'는 무기한 표기라 임박·경과 어디에도 넣지 않는다.
+/* ══ v08.291 요청("종료 관리도 마스터로 옮기면 청구파일 없이도 정확해진다 → 진행해줘") ══
+   세무사무소목록(마스터)에 프로모션 구분명·시작 연월·종료 연월이 들어오면서(v08.290) 프로모션
+   종료 관리를 청구 파일 없이도 할 수 있게 됐다. 원천을 마스터로 옮긴다.
+     · 모수는 종전(청구 파일 live)과 같게 맞춘다 — **해지일·정지일이 없는 행**(= 지금 청구 중인 곳).
+       그래야 종료 관리 대상 수가 원천만 바뀌어도 흔들리지 않는다.
+     · 면제·할인은 마스터에 없는 정보라, 청구 파일이 함께 있으면 그것만 보조로 붙인다(정보 손실 방지).
+     · 마스터에 컬럼이 없는 예전 파일이면 종전 청구 파일 로직을 그대로 쓴다. */
+window.promoRowsMaster=function(){
+  if(!((window.__xlOfficeCols||{}).pmNm))return null;      // 프로모션 구분명 컬럼 없음 → 마스터 기준 불가
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return null;
+  return R.filter(function(x){ return !x.cn && !x.sp; });  // 청구 파일 live와 같은 모수
+};
 window.__syncPromo=function(){
   try{
     const B=window.__xlBilling||null;
     const map=(B&&B.byBiz)||null;
-    if(!map||typeof A==='undefined'||!A)return false;
-    const base=(B.baseYm)||String((window.__xlOffice&&window.__xlOffice.maxDate)||'').replace(/-/g,'').slice(0,6);
+    const MR=(typeof window.promoRowsMaster==='function')?window.promoRowsMaster():null;
+    if((!map&&!MR)||typeof A==='undefined'||!A)return false;
+    const base=MR
+      ? (String((window.__xlOffice&&window.__xlOffice.maxDate)||window.__baseDate||'').replace(/-/g,'').slice(0,6)
+         ||((B&&B.baseYm)||''))
+      : ((B&&B.baseYm)||String((window.__xlOffice&&window.__xlOffice.maxDate)||'').replace(/-/g,'').slice(0,6));
     if(!base)return false;
     const addM=function(ym,n){
       let y=+ym.slice(0,4), m=+ym.slice(4,6)+n;
@@ -3273,12 +3324,12 @@ window.__syncPromo=function(){
        할인이 있으면 목록에 포함하도록 넓힌다(그전엔 프로모션 없는 곳은 아예 안 보였다). */
     const has=function(v){ v=String(v||'').trim(); return !!(v&&v!=='-'&&v!=='.'); };
     const rows=[]; let soon=0, past=0, exem=0, contact1m=0;
-    Object.keys(map).forEach(function(k){
-      const v=map[k];
-      const hasPromo=has(v.promo), hasExempt=!!v.exempt, hasDiscount=has(v.discount);
+    /* 한 곳을 한 줄로 만드는 부분은 원천이 무엇이든 같다 — 판정 규칙을 두 번 쓰지 않는다 */
+    const push=function(nm,pl,promo,endYm,exempt,discount){
+      const hasPromo=has(promo), hasExempt=!!exempt, hasDiscount=has(discount);
       if(hasExempt)exem++;
       if(!hasPromo&&!hasExempt&&!hasDiscount)return;
-      const e=hasPromo?(v.pE||''):'';
+      const e=hasPromo?(endYm||''):'';
       let stt='';
       if(!hasPromo)stt='무기한';   // 프로모션 없이 면제·할인만 있는 곳 — 종료 개념이 없다
       else if(!e||e==='209912')stt='무기한';
@@ -3289,8 +3340,21 @@ window.__syncPromo=function(){
       const need1m=stt==='종료 경과'||(stt==='종료 3개월 전 대상'&&e<=lim1);
       if(need1m)contact1m++;
       const tag=[hasPromo?'프로모션':'',hasDiscount?'할인':'',hasExempt?'면제':''].filter(Boolean).join('·');
-      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt, need1m]);
-    });
+      rows.push([nm||'', (pl||'—'), hasPromo?promo:tag, e||'—', stt, need1m]);
+    };
+    if(MR){
+      /* v08.291 마스터 기준 — 프로모션명·종료월은 마스터에서, 면제·할인은 청구 파일이 있으면 보조로 */
+      MR.forEach(function(x){
+        const bill=(map&&x.bz&&typeof xlBizKey==='function')?(map[xlBizKey(x.bz)]||null):null;
+        push(x.nm, x.pl, x.pmNm, x.pmE, bill&&bill.exempt, bill&&bill.discount);
+      });
+    }else{
+      Object.keys(map).forEach(function(k){
+        const v=map[k];
+        push(v.nm, v.pl, v.promo, v.pE, v.exempt, v.discount);
+      });
+    }
+    A['프로모션원천']=MR?'마스터':'청구';
     const ORD={'종료 경과':0,'종료 3개월 전 대상':1,'진행 중':2,'무기한':3};
     rows.sort(function(a,b){ return (ORD[a[4]]-ORD[b[4]])||String(a[3]).localeCompare(String(b[3])); });
     A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem; A['종료임박1개월']=contact1m;
@@ -3514,6 +3578,16 @@ function xlParseOffice(rows,hdr){
      가입일자(jn/rj) 자체는 그대로 두고(정상/현재 요금제 여부와 무관하게 전부 포함), 인사이트
      가입일자가 있으면 플러스, 없으면 리포트로 가른다(사용자 확정). */
   const iInsJn=xlIdx(hdr,'인사이트 가입일자');
+  /* ══ v08.290 요청("마스터파일(세무사무소목록)에 이제 프로모션명과 시작일 종료일도 데이터가
+     들어오게 되어서 청구파일을 굳이 참조하지 않아도 돼") ══
+     세무사무소목록의 CS·CT·CU 열(프로모션 구분명 / 프로모션 시작 연월 / 프로모션 종료 연월).
+     값이 없는 행은 「-」로 들어오므로 그건 빈 값으로 본다(xlBlank이 '-'도 빈 값으로 처리).
+     연월은 숫자만 남겨 YYYYMM으로 통일한다 — 청구 파일의 promoS와 같은 형식이라 비교가 쉽다.
+     헤더 표기가 파일마다 달라질 수 있어 느슨하게 찾고, 없으면 종전대로 청구 파일을 본다. */
+  const iPmNm=xlIdxLoose(hdr,['프로모션 구분명','프로모션구분명','프로모션명','프로모션 구분','프로모션구분']),
+        iPmS =xlIdxLoose(hdr,['프로모션 시작 연월','프로모션시작연월','프로모션 시작월','프로모션시작월','프로모션 시작일','프로모션시작일','프로모션 시작일자']),
+        iPmE =xlIdxLoose(hdr,['프로모션 종료 연월','프로모션종료연월','프로모션 종료월','프로모션종료월','프로모션 종료일','프로모션종료일','프로모션 종료일자']);
+  const _ym6=function(v){ const t=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,6); return t.length===6?t:''; };
   /* ══ v08.122 요청("인사이트 사용 현황 — 세무사무소목록의 세 가지를 카드로") ══
      세무사무소목록의 CP·CQ·CR 열. 헤더 표기가 조금씩 달라질 수 있어 느슨하게 찾는다.
      ※ 전자세금계산서는 「인사이트 전자세금계산서 사용건수」인데, 이름이 길어 '사용건수'만으로
@@ -3559,6 +3633,10 @@ function xlParseOffice(rows,hdr){
     rs:iRs>=0?String(r[iRs]||'').trim():'',
     spRs:iSpRs>=0?String(r[iSpRs]||'').trim():'',   /* v08.149 정지사유 */
     bf:String(r[iBf]||'').trim(),
+    /* v08.290 마스터 파일의 프로모션 3종 — pmNm(구분명) · pmS(시작 연월) · pmE(종료 연월) */
+    pmNm:(iPmNm>=0&&!xlBlank(r[iPmNm]))?String(r[iPmNm]).trim():'',
+    pmS:iPmS>=0?_ym6(r[iPmS]):'',
+    pmE:iPmE>=0?_ym6(r[iPmE]):'',
     bz:iBz>=0?bizno(r[iBz]):'',
     bz2:iBz>=0?String(r[iBz]||'').trim():'',
     ow:iOw2>=0?String(r[iOw2]||'').trim():'',
@@ -3610,6 +3688,9 @@ function xlParseOffice(rows,hdr){
     srCands:_cands('거래처'),
     /* v08.284 변경 전 요금제 컬럼 인식 여부 — 「값 없음」과 「컬럼 없음」을 구분하기 위해 남긴다 */
     bf:iBf>=0, bfCol:_colNm(iBf),
+    /* v08.290 프로모션 3종 컬럼 인식 여부 — 있으면 개업세무사 판정을 마스터로만 한다(청구 파일 불필요) */
+    pmNm:iPmNm>=0, pmS:iPmS>=0, pmE:iPmE>=0,
+    pmNmCol:_colNm(iPmNm), pmSCol:_colNm(iPmS), pmECol:_colNm(iPmE),
     adCol:_colNm(iAd), ad:iAd>=0};
   IX_saveToSheet('office_cols',window.__xlOfficeCols);
   window.__xlOfficeRows=keep; IX_saveToSheet('office_rows',keep);
@@ -8098,9 +8179,15 @@ function renderSales(){
      데이터(__billAllRows·isPromo190·프로모션 시작월/종료월, v08.235에서 이미 검증)로 이
      "190만 일시납" 스케줄을 직접 채울 수 있다 — 새 계산 없이 이미 검증된 판정만 재사용,
      날짜 계산도 이미 있는 monRangeOf(월→시작일/종료일)만 쓴다. */
+  /* v08.291 마스터(세무사무소목록)에 프로모션 구분명·시작·종료 연월이 있으면 그것을 쓴다 —
+     청구 파일 없이도 이 스케줄이 채워진다. 컬럼이 없는 예전 파일이면 종전대로 청구 파일을 본다.
+     두 원천의 필드 이름만 맞춰 주고(promo/promoS/promoE), 아래 판정·표시 로직은 그대로 재사용한다. */
   const pkg190Rows=(function(){
-    const AB=window.__billAllRows||null;
-    if(!Array.isArray(AB)||!AB.length)return null;   // 청구 파일 미업로드 — 판정 불가(하드코딩 금지)
+    const MR=(typeof window.promoRowsMaster==='function')?window.promoRowsMaster():null;
+    const AB=MR
+      ? MR.map(function(x){return {nm:x.nm, promo:x.pmNm, promoS:x.pmS, promoE:x.pmE};})
+      : (window.__billAllRows||null);
+    if(!Array.isArray(AB)||!AB.length)return null;   // 원천 미업로드 — 판정 불가(하드코딩 금지)
     const okYm=v=>/^\d{6}$/.test(String(v||''));
     return AB.filter(function(r){return isPromo190(r.promo);}).map(function(r){
       let st='—', ed='—', al='—', stt='데이터보완';
@@ -8137,7 +8224,7 @@ function renderSales(){
        그 아래 있던 "세무회계 셈" 특정 사무소 안내문은 sched가 비어 있어도 무조건 떠 있던 하드코딩
        텍스트였다 — 근거가 될 행 자체가 없는데 특정 사무소를 지목한 안내가 항상 노출됐다(정책 위반).
        이제 sched에 실제 행이 있을 때만 이 안내 블록을 보여준다. -->
-  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="7" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
+  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="7" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 세무사무소목록(프로모션 구분명·시작·종료 연월) 또는 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
   ${sched?`<div class="panel-body" style="border-top:1px solid var(--border)">
    <div style="font-size:10px;color:var(--gray-md)">필수 안내: 프로모션명·시작/종료일·일시납 기간 종료 사실·<b>종료 후 월 35만 정상가 적용</b>·적용 예정일·제공 서비스·의사표시 기한·문의 방법 — 문구 버전·발송 일시·채널·반응 이력화.</div></div>`:''}</div>
   <div class="sec-label">종료 관리 목록</div>
@@ -8701,7 +8788,16 @@ window.spPaint=function(){
        컬럼이 처음 들어오면서 기간 집계가 가능해졌다(v06.45에서 '확인 필요'로 남겨 둔 항목 해소).
        컬럼이 없는 예전 파일이 올라오면 pc가 전부 비어 0건이 되므로, 그때만 종전처럼 플로우 유형
        (inqCls='plan')으로 되돌린다. */
-    const planM = offRows().filter(x=>inR(x.pc,s,e));
+    /* ══ v08.286 요청("요금제 변경 기준 통일") ══
+       종전에는 planM(=기간 내 요금제 변경 전량)을 그대로 카드·목록에 썼고, 실적 분석 채널표만
+       따로 실적 기준으로 걸렀다(planReal). 그래서 같은 화면 안에서도 카드 58건 / 채널표는 더
+       적은 수가 나왔다. 이제 **공통 규칙(window.planChgReal)** 으로 여기서 한 번 걸러,
+       이 값을 쓰는 모든 자리(월별·일별·누적 카드, 발생 건 목록, 채널표)가 같은 기준을 본다.
+       제외분은 버리지 않고 planAll·planSkip으로 함께 돌려준다 — 카드에서 몇 건이 왜 빠졌는지
+       보여주고, 필요하면 원본 확인도 할 수 있게 한다. */
+    const planAll = offRows().filter(x=>inR(x.pc,s,e));
+    const planM   = planAll.filter(function(x){return window.planChgReal(x);});
+    const planSkip= window.planChgSkipCount(planAll);
     const hasPc = _oc?!!_oc.pc:offRows().some(x=>okD(x.pc));
     const plan  = hasPc ? planM : flow.filter(r=>cls(r)==='plan');
     /* ══ v07.12 전환율은 카드에 보이는 숫자로 낸다(요청) ══
@@ -8726,20 +8822,10 @@ window.spPaint=function(){
     /* v08.247 요청("개업성장패키지수 점검") — 정지·해지된 곳도 프로모션 대상이면 잡히도록
        __billAllByBiz/__billAllByName(파일 전체, 상태 무관)을 우선 쓴다. 청구 파일이 아직
        없을 때는(둘 다 없음) 종전처럼 live byBiz/byName로라도 판정해 하위 호환한다. */
+    /* v08.288 같은 판정을 두 곳에서 따로 계산하지 않는다 — 공통 함수(window.pkgPromoOf)로 위임.
+       규칙(사업자번호 우선 · 청구 파일 전체 원본 사용 · 파일 없으면 null)은 그대로다. */
     const pkgOf=function(x){
-      const B=window.__xlBilling||null;
-      const byBiz=window.__billAllByBiz||window.__billByBiz||(B&&B.byBiz)||null;
-      const byName=window.__billAllByName||window.__billByName||(B&&B.byName)||null;
-      if(!byBiz&&!byName)return null;                       // 청구 파일 없음 — 판정 불가
-      if(byBiz&&x.bz&&typeof xlBizKey==='function'){
-        const k=xlBizKey(x.bz);
-        if(k&&byBiz[k])return (typeof isPromo190==='function')&&isPromo190(byBiz[k].promo);
-      }
-      if(byName){
-        const k2=String(x.nm||'').replace(/\s+/g,'').toLowerCase();
-        if(byName[k2])return (typeof isPromo190==='function')&&isPromo190(byName[k2].promo);
-      }
-      return false;                                          // 청구 파일에 없는 곳 — 프로모션 아님
+      return (typeof window.pkgPromoOf==='function')?window.pkgPromoOf(x):null;
     };
     const pkgHas=(window.__xlBilling||window.__billAllByBiz||window.__billAllByName||window.__billByBiz||window.__billByName)?true:false;
     const pkgNew = pkgHas? join.filter(function(x){return pkgOf(x)===true;}) : null;
@@ -8791,7 +8877,30 @@ window.spPaint=function(){
        안 보였다(플러스 가입 카드는 v08.179부터 이미 표시 중). 새 계산 없이 이미 있는 pkgOf를
        plusConv에도 적용해 개수만 센다 — 판정 자체(누가 플러스 전환인지)는 그대로, 표시만 는다. */
     const plusConvPkgN = pkgHas? plusConv.filter(function(x){return pkgOf(x)===true;}).length : 0;
+    /* ══ v08.287 요청("A로 하고") — 「플러스 가입」 기준 통일 ══
+       종전 이 카드는 **신규 가입 중 가입 시점 요금제명이 플러스**(+개업성장패키지)였고(v08.120·
+       v08.188), 주간회의 「플러스 가입 실적」은 **인사이트 가입 여부**(2026-09-06 확정 정책)라
+       같은 이름인데 숫자가 달랐다(2026-08: 카드 1건 vs 표 3건).
+       사용자 확정에 따라 이 카드도 **주간회의 표와 같은 기준**으로 바꾼다 —
+       계산도 같은 함수(planJoinCountRangeByIns)를 그대로 불러, 두 화면이 구조적으로
+       어긋날 수 없게 한다(신규 가입 + 재가입 중 인사이트 함께 가입).
+       ※ 이 변경으로 v08.182의 근거("월 목표가 신규 기준이니 카드도 신규만")는 무효가 된다 —
+         월 목표 카드(신규 가입 + 플러스 전환, 정책 v01.34)는 그대로 두고, 카드 밑줄에 기준을
+         적어 둔다. 종전 값(plusNew·plusJoinN)도 계산은 그대로 남겨 둔다(다른 화면 호환). */
+    /* v08.289 스펙 v2 — 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입(개업세무사 포함),
+       개업세무사 = 프로모션 시작월 기준. 주간회의 두 표와 같은 함수를 쓴다. */
+    const plusInsN = (typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('plus',s,e)
+      : ((typeof planJoinCountRangeByIns==='function')?planJoinCountRangeByIns(true,s,e):null);
+    const pkgJoinN = (typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('pkg',s,e) : null;
     return { inq, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
+             range: [s,e],                /* v08.289 카드 밑줄에서 모수를 다시 세는 데 쓴다 */
+             plusInsN: plusInsN,          /* v08.289 플러스(인사이트 가입 · 개업세무사 포함) */
+             pkgJoinN: pkgJoinN,          /* v08.289 개업세무사 — 프로모션 시작월 기준 */
+             /* v08.286 요금제 변경 — plan은 실적 기준(제외 적용), planAll은 제외 전 전량,
+                planSkip은 제외 사유별 건수({total, 재등록, 구간 폐지}) */
+             planAll: (hasPc?planAll:[]), planSkip: (hasPc?planSkip:{total:0}),
              plusNew: plusNew, plusConv: plusConv, plusAll: plusAll,
              plus: plusAll.length,                    /* v08.180 가입+전환 합계(중복 제거) */
              plusJoinN: plusNew.length, plusConvN: plusConv.length, plusConvPkgN: plusConvPkgN,
@@ -8926,10 +9035,17 @@ window.spPaint=function(){
        2026-07은 신규 0건인데 전환 6건, 2026-08은 신규 2건에 전환 13건이다.
        합쳐 두면 신규가 멈춘 달을 놓친다. 그래서 전환은 아래 세부 지표로 내린다.
        plusAll(합계)은 계산해 두므로 합계가 필요해지면 그 값을 쓰면 된다. */
-    const plusNote='신규 가입 '+S.join.length+'건 중 플러스'
-      + (S.join.length?(' · 비중 '+Math.round((S.plusJoinN||0)/S.join.length*100)+'%'):'')
-      + ((S.pkg!=null&&S.pkg>0)?(' · 개업성장패키지 '+S.pkg+'건 포함'):'')
-      + ' · 가입 시점 요금제 기준';   /* v08.188 판정 기준 — 값의 정의라 필요하다 */
+    /* v08.287 기준이 「인사이트 가입 여부」로 바뀌었으므로 밑줄도 그 기준으로 다시 쓴다 —
+       모수는 신규 가입 + 재가입이고, 요금제명·개업성장패키지 포함 여부는 이제 판정에 쓰지 않는다. */
+    /* v08.289 모수에 요금제변경이 들어왔다(스펙 v2) — 밑줄에 세 갈래 내역을 그대로 적는다 */
+    const _plusBase=(typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('total',S.range?S.range[0]:'',S.range?S.range[1]:'')
+      : (S.join.length+S.rejoin.length);
+    const plusNote=(S.plusInsN==null)
+      ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
+      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+' · 요금제변경 '+S.plan.length+') 중 인사이트 함께 가입'
+         + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
+         + ' · 개업세무사 포함 · 주간회의 표와 같은 기준');   /* v08.289 스펙 v2 */
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -8953,15 +9069,23 @@ window.spPaint=function(){
     /* v08.245 요청("개업성장패키지는 프로모션 시작일을 기준으로 할것") — 계산(pkgHero →
        pkgJoinCountRange)은 v08.235부터 이미 청구 파일의 프로모션 시작월 기준이었는데, 이 문구만
        그 전(가입일·재가입일 기준) 그대로 남아 실제 산식과 어긋나 있었다. 문구만 바로잡는다. */
-    const pkgHeroNote=(S.pkgHero!=null&&S.pkgHero>0)?'청구대상 고객관리 파일의 프로모션 시작월 기준':'청구대상 고객관리 파일 업로드 필요';
+    /* ══ v08.288 「개업성장패키지 가입」 → 「개업세무사 가입」(스펙 이름) · 기준도 가입일로 통일 ══
+       주간회의 두 표와 같은 함수(joinSplitCount('pkg'))를 쓴다. 프로모션 시작월 기준 값(pkgHero)은
+       참고로 밑줄에 함께 적어 둔다 — 두 숫자가 다른 이유를 화면에서 알 수 있게 한다. */
+    /* v08.290 판정 원천이 마스터 파일의 프로모션 구분명으로 바뀌었고, 날짜는 가입 기준이다 */
+    const pkgHeroNote=(S.pkgJoinN==null)
+      ? '프로모션 정보 없음 — 세무사무소목록(프로모션 구분명) 또는 청구대상 고객관리 파일 필요'
+      : ('가입일·재가입일·요금제변경일 기준 · '
+         +((typeof window.pkgHasMaster==='function'&&window.pkgHasMaster())
+            ?'세무사무소목록의 프로모션 구분명으로 판정':'청구 파일의 프로모션 구분값으로 판정'));
     return '<div class="kpi-head four">'
       + hero('도입 문의', z(S.inq.length), 'tc', d('inq',1), '')
-      + hero('플러스 가입', z(S.plusJoinN||0), 'oc',
-             P?deltaBadge(S.plusJoinN||0,P.plusJoinN||0,1):'', plusNote)
+      + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
+             (P&&S.plusInsN!=null&&P.plusInsN!=null)?deltaBadge(S.plusInsN,P.plusInsN,1):'', plusNote)
       + hero('플러스 전환', z(S.plusConvN||0), 'oc',
              P?deltaBadge(S.plusConvN||0,P.plusConvN||0,1):'', plusConvNote)
-      + hero('개업성장패키지 가입', S.pkgHero!=null?z(S.pkgHero):'—', 'oc',
-             (P&&S.pkgHero!=null&&P.pkgHero!=null)?deltaBadge(S.pkgHero,P.pkgHero,1):'', pkgHeroNote)
+      + hero('개업세무사 가입', S.pkgJoinN!=null?z(S.pkgJoinN):'—', 'oc',
+             (P&&S.pkgJoinN!=null&&P.pkgJoinN!=null)?deltaBadge(S.pkgJoinN,P.pkgJoinN,1):'', pkgHeroNote)
       + '</div>'
       /* v08.146 요청("중간에서 튀는데 그래프쪽으로 넣어볼까") — 월 목표 블록을 여기서 뺀다.
          핵심 카드와 세부 지표 사이에 끼어 있어 흐름이 끊겼다. 이제 추이 그래프 바로 위에서
@@ -8979,7 +9103,13 @@ window.spPaint=function(){
       + c('순증', (S.net>0?'+':'')+S.net, (S.net>=0?'tc':'rc'), P?deltaBadge(S.net,P.net,1):'')
       /* v08.117 도입 문의는 위 핵심 카드로 올렸다 — 여기서는 뺀다(중복 방지) */
       + c('신규 가입',    z(S.join.length),  'tc', d('join',1))
-      + c('요금제 변경',  z(S.plan.length),  'oc', d('plan',0))
+      /* v08.286 실적 기준으로 센 값 + 제외된 건수를 함께 보여준다(왜 줄었는지 화면에서 알 수 있게) */
+      + c('요금제 변경',  z(S.plan.length),  'oc', d('plan',0),
+          (S.planSkip&&S.planSkip.total)
+            ? ('실적 아닌 변경 '+S.planSkip.total+'건 제외'
+               +((S.planSkip['재등록']||S.planSkip['구간 폐지'])
+                  ?(' (재등록 '+(S.planSkip['재등록']||0)+' · 구간 폐지 '+(S.planSkip['구간 폐지']||0)+')'):''))
+            : '')
       + c('해지',         z(S.churn.length), 'rc', d('churn',-1))
       /* v07.97 재가입 = 그 기간에 재가입일이 찍힌 곳 · 정지 = 정지일시가 찍힌 곳.
          정지는 해지와 달리 되돌아올 수 있어 따로 본다.
@@ -9224,13 +9354,9 @@ window.spPaint=function(){
          · 변경 전 = 변경 후 — 시스템 재등록이지 요금제를 바꾼 것이 아니다
          · 구간요금제 → 베이직 — 구간요금제 폐지에 따른 내부 일괄 전환
        그 외의 변경(플러스로 상향·하향·다른 요금제로 이동)은 고객이 실제로 바꾼 것이라 센다. */
-    const planReal=(S.plan||[]).filter(function(x){
-      const bf=String(x.bf||'').trim(), pl=String(x.pl||'').trim();
-      if(!bf||!pl)return true;                                   // 값이 없으면 판단 불가 — 세고 화면에서 확인한다
-      if(bf===pl)return false;                                   // 같은 요금제 재등록
-      if(/구간요금제/.test(bf)&&/베이직/.test(pl))return false;    // 폐지에 따른 내부 일괄 전환
-      return true;
-    });
+    /* v08.286 이 자리에만 있던 제외 규칙을 공통 함수(window.planChgReal)로 옮기고, perfStat이
+       이미 그 기준으로 걸러 주므로 S.plan을 그대로 쓴다 — 규칙이 두 곳에 있으면 또 갈라진다. */
+    const planReal=(S.plan||[]);
     /* v08.175 요청("실적에서 요금제변경은 따로 보여주고 싶어") — 가입과 요금제 변경을 한 표에
        섞으면 「가입이 몇 건인지」가 흐려진다. 모수는 그대로 마스터 실적 사건 전부지만,
        표는 가입(신규·재가입)과 요금제 변경을 나눠 그린다. */
@@ -9636,8 +9762,9 @@ window.spPaint=function(){
            27건(8월 전체)이고 채널 표는 22건이라 두 화면이 어긋났다.
              · 변경 전 = 변경 후   → 시스템 재등록이지 요금제를 바꾼 것이 아니다
              · 구간요금제 → 베이직 → 구간요금제 폐지에 따른 내부 일괄 전환 */
-        const bfT=String(x.bf||'').trim(), plT=String(x.pl||'').trim();
-        const skip=(bfT&&plT&&bfT===plT)||(/구간요금제/.test(bfT)&&/베이직/.test(plT));
+        /* v08.286 여기 있던 인라인 규칙을 공통 함수(window.planChgSkipWhy)로 옮겼다 —
+           카드·목록·채널표·이 목록이 모두 같은 규칙 하나를 본다. */
+        const skip=!window.planChgReal(x);
         /* 플러스로 올라간 건은 실적으로 볼 여지가 커 따로 표시한다(변경 전이 플러스가 아닐 때만) */
         if(!skip)push(isPlus(pl)&&!isPlus(bf)?'플러스 전환':'요금제변경', String(x.pc).slice(0,10), bf+' → '+pl);
       }
@@ -12270,6 +12397,8 @@ const WKKPI_PERF=['도입문의','순증','플러스 가입','신규가입','재
    지표로 내리고(WKKPI_PERF에는 남아 있어 아래 목록엔 계속 보임), 개업성장패키지 가입을
    대표(hero) 카드로 올린다. */
 const WKKPI_HERO=['도입문의','플러스 가입','플러스 전환','개업성장패키지 가입'];
+/* v08.288 화면에 보이는 이름만 바꾸는 표 — 저장 키(위 배열 값)는 그대로 둬야 직접 입력분이 살아 있다 */
+const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입'};
 /* ══ v08.129 요청("플러스해지와 해지는 다른건이야") ══
    두 항목이 같은 「해지」라는 말로 나란히 있어 같은 것으로 읽히기 쉬웠다. 실제로는
      · 플러스 해지 = 요금제 변경일 기준, 플러스 → 다른 요금제. 고객은 그대로 남는다.
@@ -12343,6 +12472,78 @@ function planRejoinCountByIns(hasIns,s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return !!x.insJn===hasIns&&inR(x.rj);}).length;
 }
+/* ══ v08.289 사용자 스펙 v2(엑셀 이미지 · 「기준」 칸 포함) ══
+   v08.288의 스펙이 사용자에 의해 아래와 같이 갱신됐다 — **정의 3줄이 바뀌었다.**
+     가입     = 신규가입 + 재가입 + **요금제변경**            ← 요금제변경이 새로 들어왔다
+     플러스   = 인사이트 가입일자 유무 (**개업세무사 포함**)   ← 개업세무사를 빼지 않는다
+     개업세무사 = 프로모션 구분명이 개업세무사 성장지원 패키지  ← v08.290: 판정은 **마스터 파일**의
+                  (날짜는 가입 모수와 동일)                       프로모션 구분명, 날짜는 가입 모수 기준
+     베이직   = 인사이트 가입일자 없음
+     합계     = **플러스 + 베이직**                            ← 개업세무사는 플러스에 이미 포함
+   그래서 v08.288의 「세 갈래 상호배타」는 폐기다. 지금 구조는:
+     · 모수(가입) = 그 기간에 가입일·재가입일·요금제변경일이 찍힌 사무소(행 단위 1건)
+       요금제변경은 **실적으로 보는 변경만**(v08.286 공통 규칙 planChgReal) 센다.
+     · 플러스 / 베이직 = 그 모수를 인사이트 가입일자 유무로 둘로 나눈 것 → 합계 = 모수 전체
+     · 개업세무사 = 같은 모수 안에서 프로모션 구분명으로 가려내는 값이라 **플러스의 부분집합**이다
+       (v08.290 — 종전 프로모션 시작월 기준은 기간 귀속이 달라 하위가 상위보다 커질 수 있었다)
+   ※ 청구 파일이 없으면 개업세무사는 null(화면 「—」) — 없는 값을 지어내지 않는다. */
+window.pkgHasBilling=function(){
+  return !!(window.__xlBilling||window.__billAllByBiz||window.__billAllByName
+            ||window.__billByBiz||window.__billByName);
+};
+/* v08.290 마스터 파일(세무사무소목록)에 프로모션 구분명 컬럼이 들어왔는지 */
+window.pkgHasMaster=function(){ return !!((window.__xlOfficeCols||{}).pmNm); };
+/* 개업세무사를 판정할 수 있는가 — 마스터 컬럼이 있거나, 없으면 청구 파일이라도 있어야 한다 */
+window.pkgPromoKnown=function(){ return window.pkgHasMaster()||window.pkgHasBilling(); };
+/* 그 사무소가 개업세무사(190만원) 패키지인가 — 사업자번호 우선, 없으면 사무소명(custPaid와 같은 순서).
+   판정 원천은 청구 파일 전체 원본(__billAllByBiz/Name, 상태 무관 — v08.247)이다.
+   청구 파일이 아예 없으면 null(판정 불가). */
+window.pkgPromoOf=function(x){
+  /* ══ v08.290 판정 원천을 마스터 파일로 옮긴다(사용자 확정) ══
+     세무사무소목록에 「프로모션 구분명」 컬럼이 있으면 **그 값만** 본다 — 그 파일이 가장 최신이고
+     빈 값은 「프로모션 없음」이라는 뜻이므로 청구 파일로 되돌아가면 오히려 옛 값이 섞인다.
+     컬럼이 아직 없는 예전 파일이면 종전대로 청구 파일(promo)을 본다. */
+  if(window.pkgHasMaster())
+    return (typeof isPromo190==='function')&&isPromo190((x&&x.pmNm)||'');
+  const B=window.__xlBilling||null;
+  const byBiz=window.__billAllByBiz||window.__billByBiz||(B&&B.byBiz)||null;
+  const byName=window.__billAllByName||window.__billByName||(B&&B.byName)||null;
+  if(!byBiz&&!byName)return null;
+  if(byBiz&&x&&x.bz&&typeof xlBizKey==='function'){
+    const k=xlBizKey(x.bz);
+    if(k&&byBiz[k])return (typeof isPromo190==='function')&&isPromo190(byBiz[k].promo);
+  }
+  if(byName){
+    const k2=String((x&&x.nm)||'').replace(/\s+/g,'').toLowerCase();
+    if(byName[k2])return (typeof isPromo190==='function')&&isPromo190(byName[k2].promo);
+  }
+  return false;                                  // 청구 파일에 없는 곳 — 패키지 아님
+};
+/* kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
+window.joinSplitCount=function(kind,s,e,onlyRejoin){
+  const R=window.__xlOfficeRows||[];
+  if(kind==='pkg'&&!window.pkgPromoKnown())return null;   // 판정 불가 → 화면 「—」
+  if(!Array.isArray(R)||!R.length)return (kind==='pkg')?null:0;
+  const inR=officeInRange(s,e);
+  /* 요금제변경은 **실적으로 보는 변경만** 센다 — 재등록·구간요금제 폐지 전환 제외(v08.286 공통 규칙).
+     그래서 이 모수는 실적 분석의 「요금제 변경」 카드와 같은 집합을 쓴다. */
+  const chg=function(x){
+    if(!inR(x.pc))return false;
+    return (typeof window.planChgReal!=='function')||window.planChgReal(x);
+  };
+  const hit=onlyRejoin?function(x){return inR(x.rj);}
+                      :function(x){return inR(x.jn)||inR(x.rj)||chg(x);};
+  const rows=R.filter(hit);        // 같은 사무소가 가입·요금제변경을 함께 했어도 행 하나라 1건
+  if(kind==='total')return rows.length;
+  if(kind==='plus') return rows.filter(function(x){return !!x.insJn;}).length;
+  if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
+  /* v08.290 개업세무사도 **가입 모수와 같은 날짜 기준**으로 센다(사용자 확정) —
+     그래서 「└ 개업세무사」가 플러스의 진짜 부분집합이 되고 하위가 상위보다 커질 수 없다.
+     판정은 마스터 파일의 프로모션 구분명(없으면 청구 파일) — window.pkgPromoOf. */
+  if(kind==='pkg')  return rows.filter(function(x){return window.pkgPromoOf(x)===true;}).length;
+  return 0;
+};
+
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
@@ -12416,10 +12617,15 @@ function monPerfTableHtml(){
        · 신규 가입 + 재가입 둘 다 포함(가입일 또는 재가입일이 그 달) — 종전 범위와 같다.
        · 「가입 목표」 숫자는 전체 가입 기준으로 입력해 둔 값이라 그대로 남아 있다 —
          사용자가 플러스 기준으로 다시 입력하기로 확정(그때까지 달성률은 낮게 보인다). */
-    rows.rejA[m]=future(m)?null:planRejoinCountByIns.apply(null,[true].concat(monRangeOf(y,m)));
-    rows.newA[m]=future(m)?null:planJoinCountRangeByIns.apply(null,[true].concat(monRangeOf(y,m)));
+    /* v08.289 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**.
+       아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다. */
+    const _r=monRangeOf(y,m);
+    rows.rejA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1],true);
+    rows.newA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
-    rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
+    /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
+       행과 같은 함수를 쓴다(joinSplitCount('pkg') → pkgJoinCountRange). */
+    rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const newTSum=sum(rows.newT), newASum=sum(rows.newA), rejASum=sum(rows.rejA);
@@ -12473,8 +12679,9 @@ function monPerfTableHtml(){
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
-    +pkgTr('프로모션 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
-    +pkgTr('프로모션 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
+    /* v08.288 이름 변경(사용자 스펙) — 「프로모션」 → 「개업세무사」(= 개업세무사 성장지원 패키지) */
+    +pkgTr('개업세무사 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
+    +pkgTr('개업세무사 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
     +pkgTr('달성 실적',function(m){return deltaCell(rows.pkgA[m],rows.pkgT[m]);},
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
         false,false)
@@ -12489,7 +12696,7 @@ function monPerfTableHtml(){
     +'<div class="wk-kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">'
     +'<div class="wk-kpi"><div class="wk-kl">플러스 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
-    +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
+    +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div><div style="overflow:auto">'+table+'</div>';
 }
@@ -12524,15 +12731,22 @@ function planJoinTableHtml(){
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
+  /* ══ v08.289 사용자 스펙 v2 ══
+     · 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**
+     · └ 개업세무사 = 프로모션 시작일 기준(플러스의 세부 항목으로 표시)
+     · 리포트 = 가입 중 인사이트 미가입 · 합계 = **플러스 + 리포트**
+     v08.290 이름 확정: 「베이직」 → 「리포트」 — 이 행에는 플러스·베이직 외 과거 요금제
+     (PREMIUM·STANDARD·구간·기본)까지 들어오므로 특정 요금제 이름(베이직)은 오해를 부른다.
+     「리포트」 = 세모리포트만 쓰는 곳(인사이트 병행 아님)이라는 뜻이다(2026-09-06과 같은 결론). */
   const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
-    rows.plus[m]=future(m)?null:planJoinCountRangeByIns(true,r[0],r[1]);
-    rows.pkg[m]=future(m)?null:pkgJoinCountRange(r[0],r[1]);
-    rows.report[m]=future(m)?null:planJoinCountRangeByIns(false,r[0],r[1]);
-    /* v08.248 요청("플러스+리포트 합계도 보여줘") — 개업성장패키지는 플러스 안에 이미 포함된
-       세부 항목이라(v08.238) 여기 더하면 중복 계산이 된다, 플러스+리포트만 더한다. */
-    rows.total[m]=(rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
+    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1]);
+    rows.pkg[m]   = future(m)?null:window.joinSplitCount('pkg',  r[0],r[1]);
+    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1]);
+    /* v08.289 합계 = 플러스 + 베이직(스펙 v2) — 개업세무사는 플러스에 이미 포함돼 더하지 않는다.
+       모수 전체('total')와 같은 값이지만, 스펙의 산식을 그대로 드러내려고 두 행을 더한다. */
+    rows.total[m] = (rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
@@ -12550,11 +12764,19 @@ function planJoinTableHtml(){
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
-    +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
+    +tr('&nbsp;&nbsp;└ 개업세무사',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
-    +tr('합계',rows.total,'font-weight:700')
+    +tr('합계',rows.total,'font-weight:700;border-top:1px dashed var(--border)')
     +'</tbody></table>';
-  return '<div style="overflow:auto">'+table+'</div>';
+  return '<div style="overflow:auto">'+table+'</div>'
+    +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
+    +'<b>가입</b> = 신규가입 + 재가입 + 요금제변경(실적으로 보는 변경만) · '
+    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳(개업세무사 포함) · '
+    +'<b>리포트</b> = 인사이트 미가입(베이직·PREMIUM·구간 등 그 외 요금제 모두) · <b>합계</b> = 플러스 + 리포트. '
+    +'<b>└ 개업세무사</b>는 같은 가입 건 중 프로모션 구분명이 개업세무사 성장지원 패키지인 곳(플러스에 포함되어 합계에는 더하지 않음).'
+    +(window.pkgPromoKnown()?(window.pkgHasMaster()?'':' 프로모션 구분명 컬럼이 없어 청구대상 고객관리 파일로 판정합니다.')
+                            :' 프로모션 정보가 없어 개업세무사는 판정할 수 없습니다(—).')
+    +'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -13148,6 +13370,71 @@ window.warnBadHost=function(){
     +'font-size:12px;font-weight:700;text-align:center;padding:7px 12px';
   el.textContent='⚠ 여기서 고친 내용은 저장되지 않습니다 — '+why+'. 파일을 Netlify에 올린 뒤 배포 주소(https://…netlify.app)로 접속해 작업해 주세요.';
   document.body.appendChild(el);
+};
+/* ══ v08.292 요청("새 버전 알림 띠 만들어") ══
+   배포는 화면 파일만 새것으로 바꾸고, **이미 열려 있는 창은 자동으로 새로고침되지 않는다**
+   (이 파일에서 강제 새로고침은 로그아웃 한 곳뿐이다). 그래서 팀원이 옛 화면을 계속 열어 두면
+   ① 새 기능·수정이 반영되지 않고 ② 오래된 화면 상태로 저장해 다른 사람이 넣은 값을 밀어낼 수 있다
+   (병합 저장은 칸반 5종만 적용 — CODE_MAP 6번 참고).
+   → 새 버전이 올라온 것을 감지해 **띠로 알리기만** 한다. 강제로 새로고침하지 않는다 —
+     입력 중인 내용이 날아가면 안 되므로, 새로고침은 사람이 버튼을 눌러 결정한다.
+
+   감지 방법(가볍게):
+     · 5분마다 이 페이지 파일에 HEAD 요청 → ETag/Last-Modified가 처음 값과 달라졌으면 새 배포다.
+       (1.3MB 본문을 내려받지 않는다. 화면이 보이지 않는 탭에서는 건너뛴다.)
+     · 새 배포가 감지되면 그때 한 번만 앞부분(256KB)을 Range로 받아 새 버전 번호를 읽는다.
+       Range를 지원하지 않으면 번호 없이 알린다(없는 값을 지어내지 않는다).
+   끄는 조건: 파일을 직접 연 상태·미리보기(badHost) — 그때는 배포 개념이 없다. */
+window.__verWatch={base:'', dismissed:'', on:false};
+window.verBar=function(newVer,tag){
+  if(document.getElementById('verNewBar'))return;
+  const el=document.createElement('div');
+  el.id='verNewBar';
+  el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:10003;background:var(--teal-dk,#0F766E);color:#fff;'
+    +'font-size:12px;font-weight:700;padding:8px 12px;display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap';
+  const cur=window.__APP_VER||'';
+  el.innerHTML='<span>새 버전'+(newVer?(' '+newVer):'')+'이 배포되었습니다'
+    +(cur?(' <span style="font-weight:400;opacity:.85">— 지금 보고 있는 화면은 '+cur+'</span>'):'')+'</span>'
+    +'<span style="font-weight:400;opacity:.85;font-size:11px">입력 중이던 칸이 있으면 칸 밖을 한 번 클릭한 뒤 새로고침해 주세요</span>'
+    +'<button id="verNewGo" style="font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:14px;border:0;background:#fff;color:var(--teal-dk,#0F766E);cursor:pointer">새로고침</button>'
+    +'<button id="verNewLater" style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;cursor:pointer">나중에</button>';
+  document.body.appendChild(el);
+  const go=document.getElementById('verNewGo'), later=document.getElementById('verNewLater');
+  if(go)go.onclick=function(){ location.reload(); };
+  if(later)later.onclick=function(){ window.__verWatch.dismissed=tag||''; el.remove(); };
+};
+window.verWatchStart=function(){
+  if(window.__verWatch.on)return;
+  if(typeof window.badHost==='function'&&window.badHost())return;   // 미리보기·파일 직접 열기 — 배포 개념 없음
+  window.__verWatch.on=true;
+  const url=function(){ return location.pathname+'?__v='+Date.now(); };
+  const tagOf=function(r){
+    if(!r)return '';
+    return String(r.headers.get('etag')||'')+'|'+String(r.headers.get('last-modified')||'');
+  };
+  const readVer=function(){
+    /* 새 배포가 확인됐을 때만 부른다 — 앞부분만 받아 버전 문자열을 찾는다 */
+    return fetch(url(),{cache:'no-store',headers:{Range:'bytes=0-262143'}})
+      .then(function(r){ return r.text(); })
+      .then(function(t){ const m=t.match(/__APP_VER\s*=\s*'([^']+)'/); return m?m[1]:''; })
+      .catch(function(){ return ''; });
+  };
+  const check=function(){
+    if(document.hidden)return;                                       // 안 보이는 탭은 건너뛴다
+    fetch(url(),{method:'HEAD',cache:'no-store'}).then(function(r){
+      if(!r||!r.ok)return;
+      const tag=tagOf(r);
+      if(!tag)return;                                                // 헤더가 없으면 판단 불가 — 아무것도 하지 않는다
+      if(!window.__verWatch.base){ window.__verWatch.base=tag; return; }
+      if(tag===window.__verWatch.base)return;                        // 그대로 = 새 배포 없음
+      if(tag===window.__verWatch.dismissed)return;                   // 「나중에」를 누른 그 버전
+      readVer().then(function(v){ window.verBar(v,tag); });
+    }).catch(function(){});
+  };
+  window.__verWatch.check=check;                 // 필요할 때(점검·테스트) 직접 한 번 돌릴 수 있게
+  const ms=+(window.__verWatch.ms||0)||5*60*1000;  // 확인 주기(기본 5분)
+  check();                                       // 기준값(ETag·Last-Modified) 먼저 확보
+  setInterval(check, ms);
 };
 window.saveFail=function(on,kind,msg){
   let el=document.getElementById('saveFailBar');
@@ -13750,6 +14037,20 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u25',d:'2026-09-09',tt:'새 버전이 배포되면 화면 위에 알림 띠 표시',
+  b:'새 버전이 올라오면 열어 둔 화면 위에 「새 버전이 배포되었습니다 · 새로고침」 띠가 뜹니다. 강제로 새로고침하지 않으니 입력 중인 내용은 안전하고, 새로고침 전에 입력 칸 밖을 한 번 클릭하라는 안내도 함께 보여줍니다.'},
+ {id:'u24',d:'2026-09-09',tt:'프로모션 종료 관리도 세무사무소목록 기준으로 이전',
+  b:'종료 관리 목록과 개업세무사 일시납 스케줄이 세무사무소목록의 프로모션 구분명·시작·종료 연월을 씁니다. 청구대상 고객관리 파일이 없어도 종료 관리가 동작하고, 면제·할인 정보만 청구 파일이 있을 때 함께 표시됩니다.'},
+ {id:'u23',d:'2026-09-09',tt:'개업세무사 판정을 세무사무소목록으로 이전 · 「베이직」 → 「리포트」',
+  b:'세무사무소목록에 프로모션 구분명·시작 연월·종료 연월이 들어와, 개업세무사 판정에 청구 파일을 더 이상 참조하지 않습니다. 세는 날짜도 다른 행과 같은 가입 기준으로 맞춰 「└ 개업세무사」가 플러스에 정확히 포함됩니다. 인사이트 미가입 행은 과거 요금제까지 포함하므로 이름을 「리포트」로 바꿨습니다.'},
+ {id:'u22',d:'2026-09-09',tt:'가입 집계 기준 갱신 — 요금제변경 포함 · 플러스에 개업세무사 포함',
+  b:'「가입」을 신규가입 + 재가입 + 요금제변경(실적으로 보는 변경만)으로 셉니다. 플러스는 그중 인사이트 가입이 있는 곳(개업세무사 포함), 베이직은 인사이트 미가입, 합계는 플러스 + 베이직입니다. 개업세무사는 청구 파일의 프로모션 시작월 기준으로 플러스 아래 세부 항목으로 표시됩니다.'},
+ {id:'u21',d:'2026-09-09',tt:'전체 가입 현황을 「플러스 / 개업세무사 / 베이직 / 합계」로 재구성',
+  b:'가입을 서로 겹치지 않는 세 갈래로 나눕니다 — 개업세무사(청구 파일의 프로모션 구분값) → 그 외에서 인사이트 가입이 있으면 플러스, 없으면 베이직. 세 행 모두 가입일·재가입일 기준이라 합계가 그 달 실제 가입 건수와 같습니다. 「프로모션 가입」은 「개업세무사 가입」으로, 「리포트」는 「베이직」으로 이름이 바뀌었습니다.'},
+ {id:'u20',d:'2026-09-09',tt:'「플러스 가입」 기준을 세 화면에서 하나로 통일 · 개업성장패키지 행 분리',
+  b:'실적 분석(월별·일별·누적) 카드와 주간 실적 요약의 「플러스 가입」이 주간회의 표와 다른 기준이라 숫자가 달랐습니다(2026-08: 1건 vs 3건). 이제 세 화면 모두 같은 기준(인사이트 함께 가입 · 신규+재가입)으로 셉니다. 「전체 가입 현황」의 개업성장패키지는 날짜 기준이 달라(프로모션 시작월) 플러스 하위에서 빼내 별도 행으로 옮기고 기준을 표기했습니다.'},
+ {id:'u19',d:'2026-09-09',tt:'「요금제 변경」 건수 기준을 화면 전체에서 하나로 통일',
+  b:'화면마다 요금제 변경 건수가 다르게 나오던 문제를 고쳤습니다. 이제 모든 화면이 확정 정책과 같은 기준(시스템 재등록·구간요금제 폐지 전환은 실적으로 보지 않음)으로 셉니다. 월별·일별·누적 카드에는 제외된 건수도 「실적 아닌 변경 N건 제외」로 함께 표시됩니다.'},
  {id:'u18',d:'2026-09-09',tt:'월별 실적 현황 표의 「가입 실적」을 플러스 가입 기준으로 변경',
   b:'제목은 「플러스 가입 및 프로모션 가입」인데 실제로는 요금제 구분 없는 전체 가입을 세고 있어(아래 전체 가입 현황 표의 합계와 같은 숫자), 플러스 가입만 세도록 바꿨습니다. 기준은 아래 표의 「플러스」 행과 같습니다(인사이트 함께 가입). 가입 목표 숫자는 전체 가입 기준으로 입력된 값이라 새 기준으로 다시 입력해 주세요.'},
  {id:'u17',d:'2026-09-09',tt:'새로고침·배포 후 하위업무가 사라지던 문제 수정 · 실적확정 명단 관리 화면 추가',
@@ -14952,12 +15253,16 @@ function wkAutoPerf(wk){
         _rj=R.filter(x=>inR(x.rj)).length,
         _cn=R.filter(x=>inR(x.cn)&&String(x.st||'').trim()==='해지').length;
   return {'도입문의'   :P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice'&&cls(r)!=='sub').length,
-    '플러스 해지':R.filter(x=>inR(x.pc)&&isPl(x.bf)&&!isPl(x.pl)).length,
+    /* v08.286 요금제 변경 기준 통일 — 공통 규칙(planChgReal)으로 실적 아닌 변경을 먼저 뺀다 */
+    '플러스 해지':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&isPl(x.bf)&&!isPl(x.pl)).length,
           '신규가입'   :_nj,
-          '플러스 가입':R.filter(x=>inR(x.jn)&&isPl(x.pl)).length,
+          /* v08.287 「플러스 가입」 기준 통일 — 실적 분석 카드·주간회의 표와 같은 함수를 쓴다
+             (인사이트 가입 여부 · 신규 가입 + 재가입). 종전에는 현재 요금제명이 플러스인
+             신규 가입만 세어 세 화면이 서로 달랐다. */
+          '플러스 가입':(typeof window.joinSplitCount==='function')?window.joinSplitCount('plus',s,e):0,   /* v08.288 개업세무사 제외 */
           '순증'       :_nj+_rj-_cn,
           '재가입'     :_rj,
-          '요금제 변경':R.filter(x=>inR(x.pc)&&!(isPl(x.bf)&&!isPl(x.pl))).length,   /* 플러스 해지는 따로 세므로 뺀다 */
+          '요금제 변경':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&!(isPl(x.bf)&&!isPl(x.pl))).length,   /* v08.286 실적 아닌 변경 제외 + 플러스 해지는 따로 세므로 뺀다 */
           /* v08.202 요청("플러스전환추가") — 다른 요금제 → 플러스로 올라간 건만 별도 표시.
              위 「요금제 변경」에 이미 포함된 값 중 일부를 다시 보여주는 것이라(플러스 가입과
              같은 방식) 요금제 변경 합계에서 빼지 않는다 — 빼면 ①-3 발생 건 목록(요금제변경
@@ -14971,7 +15276,10 @@ function wkAutoPerf(wk){
           /* v08.234 요청("순증을 아래로 내리고 개업성장패키지 가입카드를 대표카드로 추가") —
              계산은 이미 있는 pkgJoinCountRange(청구 파일 「프로모션 시작월」 기준, v08.235
              수정 반영)를 그대로 재사용한다(새 계산 없음, 6번 항목 원칙). */
-          '개업성장패키지 가입':pkgJoinCountWeek(wk)};
+          /* v08.288 가입일 기준으로 통일(두 표·실적 분석 카드와 같은 함수).
+             저장 키는 그대로 둔다 — 직접 입력해 둔 값이 키로 보관돼 있어 이름을 바꾸면 사라진다.
+             화면에 보이는 이름만 WKKPI_LABEL로 「개업세무사 가입」으로 바꾼다. */
+          '개업성장패키지 가입':(typeof window.joinSplitCount==='function')?window.joinSplitCount('pkg',s,e):null};
 }
 /* ══ v06.84 주간회의 ①-2 기간별 발생 건 목록 ══
    ①의 5개 숫자가 어떤 건들로 이뤄졌는지 그 자리에서 확인할 수 있게, 같은 주 기간의 발생 건을
@@ -15036,7 +15344,9 @@ function wkEventRows(wk){
      서비스 해지가 아니라 고객은 그대로 남고 요금제만 바뀌는 것이라 「해지」와는 다른 일인데,
      종전에는 요금제변경에 묻혀 플러스 이탈이 눈에 띄지 않았다.
      반대 방향(다른 요금제 → 플러스)은 전환이므로 종전대로 요금제변경에 둔다. */
-  R.filter(x=>inR(x.pc))
+  /* v08.286 요금제 변경 기준 통일 — 실적 아닌 변경(재등록·구간 폐지)은 목록에서도 뺀다.
+     카드(주간 실적 요약)와 목록 건수가 어긋나지 않아야 한다. */
+  R.filter(x=>inR(x.pc)&&window.planChgReal(x))
    .forEach(x=>{
      const wasP=/플러스/.test(String(x.bf||'')), isP=/플러스/.test(String(x.pl||''));
      const k=(wasP&&!isP)?'플러스 해지':'요금제변경';
@@ -15378,7 +15688,7 @@ function kpiGridHtml(bucket,keys){
        직접 입력한 값만 색으로 구분되면 충분하고, 나머지는 읽을 필요 없는 설명이다.
        v08.130 v08.129에서 넣었던 칸 아래 기준 줄과 툴팁을 도로 뺀다(요청) — 위 규칙을 어긴 것이었다.
        「플러스 해지」와 「해지」의 차이 같은 산출 기준은 WKKPI_PERF 위 주석과 wkAutoPerf()에만 남긴다. */
-    return '<div class="wk-kpi'+(isHero?' hero':'')+'"><div class="wk-kl">'+esc(k)+'</div>'
+    return '<div class="wk-kpi'+(isHero?' hero':'')+'"><div class="wk-kl">'+esc((typeof WKKPI_LABEL!=='undefined'&&WKKPI_LABEL[k])||k)+'</div>'
      +'<input class="wk-kn'+(hasMan?' set':'')+'" type="number" value="'+esc(val)+'"'
      +' onchange="wkSetKPI(\''+bucket+'\',\''+k+'\',this.value)"></div>';
   };
@@ -16752,6 +17062,9 @@ async function init(){
       if(typeof hasUploadData==='function'&&!hasUploadData())showNoData();
       markSavedBaseline();
       updateSaveBadge();
+      /* v08.292 새 버전 감시 시작 — 로그인해 실제로 작업하는 사람에게만 알린다.
+         (미리보기·파일 직접 열기는 verWatchStart 안에서 badHost로 걸러진다) */
+      try{ if(typeof window.verWatchStart==='function')window.verWatchStart(); }catch(e){}
     }else{
       gate().classList.add('on');
     }
