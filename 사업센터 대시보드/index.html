@@ -2054,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.279';
+window.__APP_VER='v08.280';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -13853,7 +13853,12 @@ function metricChartSvg(rows){
       +'<text x="'+(X+w/2)+'" y="'+(ZERO+15)+'" font-size="8.5" fill="#7E8299" text-anchor="middle">'+esc(String(r.d).slice(5))+'</text>'
       +'<text x="'+(X+w/2)+'" y="'+(ZERO-h-4).toFixed(1)+'" font-size="8.5" fill="#13918B" text-anchor="middle">'+r.val+'</text>';
   }).join('');
-  return '<svg viewBox="0 0 '+cw+' '+chH+'" style="width:100%;max-width:640px;display:block">'
+  /* ══ v08.280 버그 수정(요청: "막대크기를 좀 정상적으로 줄여봐 너무 비대하잖아") ══
+     viewBox만 주고 style에 width:100%를 걸어 뒀더니, 막대가 몇 개 없을 때 그림이 통째로
+     확대됐다 — 값 2개면 viewBox 폭이 120인데 그걸 640px로 늘려 5배가 넘게 커진다(막대·글씨가
+     전부 같이 커져 화면을 다 잡아먹었다). 실제 크기(cw×chH)를 그대로 쓰고, 막대가 많아 폭이
+     넘칠 때만 줄어들게 max-width:100%만 남긴다. */
+  return '<svg viewBox="0 0 '+cw+' '+chH+'" width="'+cw+'" height="'+chH+'" style="max-width:100%;display:block">'
     +'<line x1="8" y1="'+ZERO+'" x2="'+(cw-4)+'" y2="'+ZERO+'" stroke="#E4E6EF" stroke-width="1"/>'
     +bars+'</svg>';
 }
