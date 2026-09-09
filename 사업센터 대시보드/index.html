@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.287';
+window.__APP_VER='v08.288';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8769,20 +8769,10 @@ window.spPaint=function(){
     /* v08.247 요청("개업성장패키지수 점검") — 정지·해지된 곳도 프로모션 대상이면 잡히도록
        __billAllByBiz/__billAllByName(파일 전체, 상태 무관)을 우선 쓴다. 청구 파일이 아직
        없을 때는(둘 다 없음) 종전처럼 live byBiz/byName로라도 판정해 하위 호환한다. */
+    /* v08.288 같은 판정을 두 곳에서 따로 계산하지 않는다 — 공통 함수(window.pkgPromoOf)로 위임.
+       규칙(사업자번호 우선 · 청구 파일 전체 원본 사용 · 파일 없으면 null)은 그대로다. */
     const pkgOf=function(x){
-      const B=window.__xlBilling||null;
-      const byBiz=window.__billAllByBiz||window.__billByBiz||(B&&B.byBiz)||null;
-      const byName=window.__billAllByName||window.__billByName||(B&&B.byName)||null;
-      if(!byBiz&&!byName)return null;                       // 청구 파일 없음 — 판정 불가
-      if(byBiz&&x.bz&&typeof xlBizKey==='function'){
-        const k=xlBizKey(x.bz);
-        if(k&&byBiz[k])return (typeof isPromo190==='function')&&isPromo190(byBiz[k].promo);
-      }
-      if(byName){
-        const k2=String(x.nm||'').replace(/\s+/g,'').toLowerCase();
-        if(byName[k2])return (typeof isPromo190==='function')&&isPromo190(byName[k2].promo);
-      }
-      return false;                                          // 청구 파일에 없는 곳 — 프로모션 아님
+      return (typeof window.pkgPromoOf==='function')?window.pkgPromoOf(x):null;
     };
     const pkgHas=(window.__xlBilling||window.__billAllByBiz||window.__billAllByName||window.__billByBiz||window.__billByName)?true:false;
     const pkgNew = pkgHas? join.filter(function(x){return pkgOf(x)===true;}) : null;
@@ -8844,10 +8834,16 @@ window.spPaint=function(){
        ※ 이 변경으로 v08.182의 근거("월 목표가 신규 기준이니 카드도 신규만")는 무효가 된다 —
          월 목표 카드(신규 가입 + 플러스 전환, 정책 v01.34)는 그대로 두고, 카드 밑줄에 기준을
          적어 둔다. 종전 값(plusNew·plusJoinN)도 계산은 그대로 남겨 둔다(다른 화면 호환). */
-    const plusInsN = (typeof planJoinCountRangeByIns==='function')
-      ? planJoinCountRangeByIns(true,s,e) : null;
+    /* v08.288 세 갈래(플러스 / 개업세무사 / 베이직)로 통일 — 주간회의 두 표와 같은 함수를 쓴다.
+       플러스는 **개업세무사를 뺀** 인사이트 가입 건이다(상호배타). */
+    const plusInsN = (typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('plus',s,e)
+      : ((typeof planJoinCountRangeByIns==='function')?planJoinCountRangeByIns(true,s,e):null);
+    const pkgJoinN = (typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('pkg',s,e) : null;
     return { inq, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
-             plusInsN: plusInsN,          /* v08.287 인사이트 가입 기준(신규+재가입) — 카드가 쓰는 값 */
+             plusInsN: plusInsN,          /* v08.287·v08.288 플러스(개업세무사 제외 · 인사이트 가입) */
+             pkgJoinN: pkgJoinN,          /* v08.288 개업세무사 가입 — 가입일·재가입일 기준 */
              /* v08.286 요금제 변경 — plan은 실적 기준(제외 적용), planAll은 제외 전 전량,
                 planSkip은 제외 사유별 건수({total, 재등록, 구간 폐지}) */
              planAll: (hasPc?planAll:[]), planSkip: (hasPc?planSkip:{total:0}),
@@ -8992,7 +8988,7 @@ window.spPaint=function(){
       ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
       : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+') 중 인사이트 함께 가입'
          + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
-         + ' · 주간회의 「플러스 가입 실적」과 같은 기준');
+         + ' · 개업세무사 제외 · 주간회의 표와 같은 기준');   /* v08.288 세 갈래 상호배타 */
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -9016,15 +9012,21 @@ window.spPaint=function(){
     /* v08.245 요청("개업성장패키지는 프로모션 시작일을 기준으로 할것") — 계산(pkgHero →
        pkgJoinCountRange)은 v08.235부터 이미 청구 파일의 프로모션 시작월 기준이었는데, 이 문구만
        그 전(가입일·재가입일 기준) 그대로 남아 실제 산식과 어긋나 있었다. 문구만 바로잡는다. */
-    const pkgHeroNote=(S.pkgHero!=null&&S.pkgHero>0)?'청구대상 고객관리 파일의 프로모션 시작월 기준':'청구대상 고객관리 파일 업로드 필요';
+    /* ══ v08.288 「개업성장패키지 가입」 → 「개업세무사 가입」(스펙 이름) · 기준도 가입일로 통일 ══
+       주간회의 두 표와 같은 함수(joinSplitCount('pkg'))를 쓴다. 프로모션 시작월 기준 값(pkgHero)은
+       참고로 밑줄에 함께 적어 둔다 — 두 숫자가 다른 이유를 화면에서 알 수 있게 한다. */
+    const pkgHeroNote=(S.pkgJoinN==null)
+      ? '청구대상 고객관리 파일 업로드 필요'
+      : ('가입일·재가입일 기준 · 청구 파일의 프로모션 구분값으로 판정'
+         + ((S.pkgHero!=null)?(' · 프로모션 시작월 기준 '+S.pkgHero+'건'):''));
     return '<div class="kpi-head four">'
       + hero('도입 문의', z(S.inq.length), 'tc', d('inq',1), '')
       + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
              (P&&S.plusInsN!=null&&P.plusInsN!=null)?deltaBadge(S.plusInsN,P.plusInsN,1):'', plusNote)
       + hero('플러스 전환', z(S.plusConvN||0), 'oc',
              P?deltaBadge(S.plusConvN||0,P.plusConvN||0,1):'', plusConvNote)
-      + hero('개업성장패키지 가입', S.pkgHero!=null?z(S.pkgHero):'—', 'oc',
-             (P&&S.pkgHero!=null&&P.pkgHero!=null)?deltaBadge(S.pkgHero,P.pkgHero,1):'', pkgHeroNote)
+      + hero('개업세무사 가입', S.pkgJoinN!=null?z(S.pkgJoinN):'—', 'oc',
+             (P&&S.pkgJoinN!=null&&P.pkgJoinN!=null)?deltaBadge(S.pkgJoinN,P.pkgJoinN,1):'', pkgHeroNote)
       + '</div>'
       /* v08.146 요청("중간에서 튀는데 그래프쪽으로 넣어볼까") — 월 목표 블록을 여기서 뺀다.
          핵심 카드와 세부 지표 사이에 끼어 있어 흐름이 끊겼다. 이제 추이 그래프 바로 위에서
@@ -12336,6 +12338,8 @@ const WKKPI_PERF=['도입문의','순증','플러스 가입','신규가입','재
    지표로 내리고(WKKPI_PERF에는 남아 있어 아래 목록엔 계속 보임), 개업성장패키지 가입을
    대표(hero) 카드로 올린다. */
 const WKKPI_HERO=['도입문의','플러스 가입','플러스 전환','개업성장패키지 가입'];
+/* v08.288 화면에 보이는 이름만 바꾸는 표 — 저장 키(위 배열 값)는 그대로 둬야 직접 입력분이 살아 있다 */
+const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입'};
 /* ══ v08.129 요청("플러스해지와 해지는 다른건이야") ══
    두 항목이 같은 「해지」라는 말로 나란히 있어 같은 것으로 읽히기 쉬웠다. 실제로는
      · 플러스 해지 = 요금제 변경일 기준, 플러스 → 다른 요금제. 고객은 그대로 남는다.
@@ -12409,6 +12413,55 @@ function planRejoinCountByIns(hasIns,s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return !!x.insJn===hasIns&&inR(x.rj);}).length;
 }
+/* ══ v08.288 요청(스펙 이미지: 플러스 / 개업세무사 / 베이직 / 합계) ══
+   사용자가 적어 준 정의 그대로 「가입」을 **서로 겹치지 않는 세 갈래**로 나눈다.
+     가입     = 신규가입 + 재가입 (가입일 또는 재가입일이 그 기간)
+     개업세무사 = 청구 파일의 **프로모션 구분값** = 개업세무사 성장지원 패키지(=개업성장패키지)
+     플러스   = 개업세무사가 아니면서 **인사이트 가입일자**가 있는 곳
+     베이직   = 개업세무사가 아니면서 인사이트 가입일자가 없는 곳
+   → 세 갈래가 상호배타이므로 **합계 = 실제 가입 건수**가 되고, 같은 곳을 두 번 세지 않는다.
+   ※ 사용자 확정(2026-09-09): 종전 개업성장패키지 행은 청구 파일의 「프로모션 시작월」로 세어
+     가입일 기준인 다른 행과 기간 귀속이 달랐다(2026-08에 플러스 3 < 패키지 5). 세 행 모두
+     가입일 기준으로 통일한다. 프로모션 시작월 기준 값이 필요하면 pkgJoinCountRange가 그대로 있다.
+   ※ 청구 파일이 없으면 개업세무사를 판정할 수 없다 — 그때는 개업세무사를 null(화면 「—」)로 두고
+     플러스·베이직은 인사이트 가입 여부만으로 가른다(없는 값을 지어내지 않는다). */
+window.pkgHasBilling=function(){
+  return !!(window.__xlBilling||window.__billAllByBiz||window.__billAllByName
+            ||window.__billByBiz||window.__billByName);
+};
+/* 그 사무소가 개업세무사(190만원) 패키지인가 — 사업자번호 우선, 없으면 사무소명(custPaid와 같은 순서).
+   판정 원천은 청구 파일 전체 원본(__billAllByBiz/Name, 상태 무관 — v08.247)이다.
+   청구 파일이 아예 없으면 null(판정 불가). */
+window.pkgPromoOf=function(x){
+  const B=window.__xlBilling||null;
+  const byBiz=window.__billAllByBiz||window.__billByBiz||(B&&B.byBiz)||null;
+  const byName=window.__billAllByName||window.__billByName||(B&&B.byName)||null;
+  if(!byBiz&&!byName)return null;
+  if(byBiz&&x&&x.bz&&typeof xlBizKey==='function'){
+    const k=xlBizKey(x.bz);
+    if(k&&byBiz[k])return (typeof isPromo190==='function')&&isPromo190(byBiz[k].promo);
+  }
+  if(byName){
+    const k2=String((x&&x.nm)||'').replace(/\s+/g,'').toLowerCase();
+    if(byName[k2])return (typeof isPromo190==='function')&&isPromo190(byName[k2].promo);
+  }
+  return false;                                  // 청구 파일에 없는 곳 — 패키지 아님
+};
+/* kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
+window.joinSplitCount=function(kind,s,e,onlyRejoin){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return (kind==='pkg'&&!window.pkgHasBilling())?null:0;
+  const inR=officeInRange(s,e);
+  const rows=R.filter(onlyRejoin?function(x){return inR(x.rj);}
+                                :function(x){return inR(x.jn)||inR(x.rj);});
+  if(kind==='total')return rows.length;
+  const known=window.pkgHasBilling();
+  const isPkg=known?function(x){return window.pkgPromoOf(x)===true;}:function(){return false;};
+  if(kind==='pkg')return known?rows.filter(isPkg).length:null;
+  if(kind==='plus')return rows.filter(function(x){return !isPkg(x)&&!!x.insJn;}).length;
+  if(kind==='basic')return rows.filter(function(x){return !isPkg(x)&&!x.insJn;}).length;
+  return 0;
+};
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
@@ -12482,10 +12535,15 @@ function monPerfTableHtml(){
        · 신규 가입 + 재가입 둘 다 포함(가입일 또는 재가입일이 그 달) — 종전 범위와 같다.
        · 「가입 목표」 숫자는 전체 가입 기준으로 입력해 둔 값이라 그대로 남아 있다 —
          사용자가 플러스 기준으로 다시 입력하기로 확정(그때까지 달성률은 낮게 보인다). */
-    rows.rejA[m]=future(m)?null:planRejoinCountByIns.apply(null,[true].concat(monRangeOf(y,m)));
-    rows.newA[m]=future(m)?null:planJoinCountRangeByIns.apply(null,[true].concat(monRangeOf(y,m)));
+    /* v08.288 개업세무사를 뺀 순수 플러스로 센다(세 갈래 상호배타 — joinSplitCount 주석 참고).
+       아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다. */
+    const _r=monRangeOf(y,m);
+    rows.rejA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1],true);
+    rows.newA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
-    rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
+    /* v08.288 개업세무사 실적도 **가입일 기준**으로 통일(사용자 확정) — 아래 표의 개업세무사
+       행과 같은 함수를 쓴다. 종전 프로모션 시작월 기준 값은 pkgJoinCountRange로 남아 있다. */
+    rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const newTSum=sum(rows.newT), newASum=sum(rows.newA), rejASum=sum(rows.rejA);
@@ -12539,8 +12597,9 @@ function monPerfTableHtml(){
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
-    +pkgTr('프로모션 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
-    +pkgTr('프로모션 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
+    /* v08.288 이름 변경(사용자 스펙) — 「프로모션」 → 「개업세무사」(= 개업세무사 성장지원 패키지) */
+    +pkgTr('개업세무사 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
+    +pkgTr('개업세무사 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
     +pkgTr('달성 실적',function(m){return deltaCell(rows.pkgA[m],rows.pkgT[m]);},
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
         false,false)
@@ -12555,7 +12614,7 @@ function monPerfTableHtml(){
     +'<div class="wk-kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">'
     +'<div class="wk-kpi"><div class="wk-kl">플러스 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
-    +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
+    +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div><div style="overflow:auto">'+table+'</div>';
 }
@@ -12590,15 +12649,17 @@ function planJoinTableHtml(){
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
+  /* ══ v08.288 사용자 스펙(플러스 / 개업세무사 / 베이직 / 합계) ══
+     세 행 모두 **가입일·재가입일 기준**이고 서로 겹치지 않는다(joinSplitCount 주석 참고).
+     그래서 합계 = 플러스 + 개업세무사 + 베이직 = 실제 가입 건수다.
+     v08.240에서 「베이직 → 리포트」로 바꿨던 이름은 이번 스펙에 따라 다시 「베이직」이다. */
   const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
-    rows.plus[m]=future(m)?null:planJoinCountRangeByIns(true,r[0],r[1]);
-    rows.pkg[m]=future(m)?null:pkgJoinCountRange(r[0],r[1]);
-    rows.report[m]=future(m)?null:planJoinCountRangeByIns(false,r[0],r[1]);
-    /* v08.248 요청("플러스+리포트 합계도 보여줘") — 개업성장패키지는 플러스 안에 이미 포함된
-       세부 항목이라(v08.238) 여기 더하면 중복 계산이 된다, 플러스+리포트만 더한다. */
-    rows.total[m]=(rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
+    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1]);
+    rows.pkg[m]   = future(m)?null:window.joinSplitCount('pkg',  r[0],r[1]);
+    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1]);
+    rows.total[m] = future(m)?null:window.joinSplitCount('total',r[0],r[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
@@ -12616,23 +12677,17 @@ function planJoinTableHtml(){
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
-    +tr('리포트',rows.report)
-    +tr('합계',rows.total,'font-weight:700')
-    /* ══ v08.287 요청("└개업성장패키지를 별도 행으로 분리(기준이 다르다는 표기 추가)") ══
-       종전에는 플러스 아래 「└ 개업성장패키지」로 붙여 하위 항목처럼 보였는데, 두 행은
-       **기간을 정하는 날짜가 아예 다르다** — 플러스·리포트는 고객 마스터의 가입일·재가입일,
-       개업성장패키지는 청구 파일의 「프로모션 시작월」이다. 그래서 포함 관계가 성립하지 않고,
-       실제로 2026-08은 플러스 3건 < 패키지 5건으로 하위가 상위보다 컸다.
-       합계(플러스+리포트) 아래로 내리고 기준을 라벨·설명에 적어 오해를 없앤다. */
-    /* 구분 칸 폭이 150px 고정(wkMonColgroup)이라 라벨이 길면 1월 칸으로 넘친다 —
-       라벨은 짧게 「(별도)」만 달고, 기준 설명은 표 아래 문구가 담당한다 */
-    +tr('개업성장패키지<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (별도)</span>',rows.pkg,'color:var(--link);border-top:1px dashed var(--border)')
+    +tr('개업세무사',rows.pkg,'color:var(--link)')
+    +tr('베이직',rows.report)
+    +tr('합계',rows.total,'font-weight:700;border-top:1px dashed var(--border)')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
-    +'플러스·리포트·합계는 고객 마스터의 <b>가입일·재가입일</b> 기준이고, 개업성장패키지는 청구 파일의 '
-    +'<b>프로모션 시작월</b> 기준입니다 — 기간을 정하는 날짜가 달라 합계에 포함되지 않으며, 달에 따라 '
-    +'플러스보다 많을 수 있습니다.</div>';
+    +'세 행 모두 고객 마스터의 <b>가입일·재가입일</b> 기준이며 서로 겹치지 않습니다 — '
+    +'<b>개업세무사</b>(청구 파일의 프로모션 구분값 = 개업세무사 성장지원 패키지) → '
+    +'그 외에서 <b>인사이트 가입</b>이 있으면 플러스, 없으면 베이직. 그래서 <b>합계 = 그 달 실제 가입 건수</b>입니다.'
+    +(window.pkgHasBilling()?'':' 청구대상 고객관리 파일이 없어 개업세무사는 판정할 수 없습니다(—).')
+    +'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -13828,6 +13883,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u21',d:'2026-09-09',tt:'전체 가입 현황을 「플러스 / 개업세무사 / 베이직 / 합계」로 재구성',
+  b:'가입을 서로 겹치지 않는 세 갈래로 나눕니다 — 개업세무사(청구 파일의 프로모션 구분값) → 그 외에서 인사이트 가입이 있으면 플러스, 없으면 베이직. 세 행 모두 가입일·재가입일 기준이라 합계가 그 달 실제 가입 건수와 같습니다. 「프로모션 가입」은 「개업세무사 가입」으로, 「리포트」는 「베이직」으로 이름이 바뀌었습니다.'},
  {id:'u20',d:'2026-09-09',tt:'「플러스 가입」 기준을 세 화면에서 하나로 통일 · 개업성장패키지 행 분리',
   b:'실적 분석(월별·일별·누적) 카드와 주간 실적 요약의 「플러스 가입」이 주간회의 표와 다른 기준이라 숫자가 달랐습니다(2026-08: 1건 vs 3건). 이제 세 화면 모두 같은 기준(인사이트 함께 가입 · 신규+재가입)으로 셉니다. 「전체 가입 현황」의 개업성장패키지는 날짜 기준이 달라(프로모션 시작월) 플러스 하위에서 빼내 별도 행으로 옮기고 기준을 표기했습니다.'},
  {id:'u19',d:'2026-09-09',tt:'「요금제 변경」 건수 기준을 화면 전체에서 하나로 통일',
@@ -15040,7 +15097,7 @@ function wkAutoPerf(wk){
           /* v08.287 「플러스 가입」 기준 통일 — 실적 분석 카드·주간회의 표와 같은 함수를 쓴다
              (인사이트 가입 여부 · 신규 가입 + 재가입). 종전에는 현재 요금제명이 플러스인
              신규 가입만 세어 세 화면이 서로 달랐다. */
-          '플러스 가입':(typeof planJoinCountRangeByIns==='function')?planJoinCountRangeByIns(true,s,e):0,
+          '플러스 가입':(typeof window.joinSplitCount==='function')?window.joinSplitCount('plus',s,e):0,   /* v08.288 개업세무사 제외 */
           '순증'       :_nj+_rj-_cn,
           '재가입'     :_rj,
           '요금제 변경':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&!(isPl(x.bf)&&!isPl(x.pl))).length,   /* v08.286 실적 아닌 변경 제외 + 플러스 해지는 따로 세므로 뺀다 */
@@ -15057,7 +15114,10 @@ function wkAutoPerf(wk){
           /* v08.234 요청("순증을 아래로 내리고 개업성장패키지 가입카드를 대표카드로 추가") —
              계산은 이미 있는 pkgJoinCountRange(청구 파일 「프로모션 시작월」 기준, v08.235
              수정 반영)를 그대로 재사용한다(새 계산 없음, 6번 항목 원칙). */
-          '개업성장패키지 가입':pkgJoinCountWeek(wk)};
+          /* v08.288 가입일 기준으로 통일(두 표·실적 분석 카드와 같은 함수).
+             저장 키는 그대로 둔다 — 직접 입력해 둔 값이 키로 보관돼 있어 이름을 바꾸면 사라진다.
+             화면에 보이는 이름만 WKKPI_LABEL로 「개업세무사 가입」으로 바꾼다. */
+          '개업성장패키지 가입':(typeof window.joinSplitCount==='function')?window.joinSplitCount('pkg',s,e):null};
 }
 /* ══ v06.84 주간회의 ①-2 기간별 발생 건 목록 ══
    ①의 5개 숫자가 어떤 건들로 이뤄졌는지 그 자리에서 확인할 수 있게, 같은 주 기간의 발생 건을
@@ -15466,7 +15526,7 @@ function kpiGridHtml(bucket,keys){
        직접 입력한 값만 색으로 구분되면 충분하고, 나머지는 읽을 필요 없는 설명이다.
        v08.130 v08.129에서 넣었던 칸 아래 기준 줄과 툴팁을 도로 뺀다(요청) — 위 규칙을 어긴 것이었다.
        「플러스 해지」와 「해지」의 차이 같은 산출 기준은 WKKPI_PERF 위 주석과 wkAutoPerf()에만 남긴다. */
-    return '<div class="wk-kpi'+(isHero?' hero':'')+'"><div class="wk-kl">'+esc(k)+'</div>'
+    return '<div class="wk-kpi'+(isHero?' hero':'')+'"><div class="wk-kl">'+esc((typeof WKKPI_LABEL!=='undefined'&&WKKPI_LABEL[k])||k)+'</div>'
      +'<input class="wk-kn'+(hasMan?' set':'')+'" type="number" value="'+esc(val)+'"'
      +' onchange="wkSetKPI(\''+bucket+'\',\''+k+'\',this.value)"></div>';
   };
