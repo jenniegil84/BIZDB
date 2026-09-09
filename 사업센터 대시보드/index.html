@@ -664,6 +664,13 @@ table.t .na{color:#B6BCC6}
    보이던 원인이라, #ixHost .tbl과 같은 값(padding 7px 8px)을 이 화면 전용 클래스로 새로 만들어
    두 표에 공통 적용한다. */
 .wk-mtbl{width:100%;border-collapse:collapse}
+/* ══ v08.284 요청("가운데 정렬" — 월별 목표 입력칸) ══
+   숫자 입력칸(type=number)은 브라우저가 오른쪽에 증감 화살표 자리를 잡아 둬서, 칸 안의 숫자가
+   왼쪽으로 밀려 보였다(칸 자체는 가운데 있었다). 화살표를 없애 숫자를 칸 정중앙에 둔다 —
+   값은 키보드로 입력하므로 화살표는 쓰지 않는다. */
+.wk-mtbl input[type=number]{text-align:center;-moz-appearance:textfield;appearance:textfield}
+.wk-mtbl input[type=number]::-webkit-outer-spin-button,
+.wk-mtbl input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;appearance:none;margin:0}
 .wk-mtbl th,.wk-mtbl td{padding:7px 8px;border-bottom:1px solid var(--border)}
 .wk-mtbl thead th{font-weight:700;color:var(--gray-md);white-space:nowrap}
 .wk-mtbl tbody tr:last-child td{border-bottom:none}
@@ -2056,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.283';
+window.__APP_VER='v08.284';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -2525,6 +2532,120 @@ window.refPanelHTML=function(){
     +'<span onclick="refPull()" style="cursor:pointer;font-size:10.5px;padding:4px 11px;border:1px dashed var(--navy);border-radius:14px;color:var(--navy)">파일에서 코드 불러오기</span>'
     +'</div></div></div>';
 };
+/* ══ v08.284 요청("실적확정 명단(위멤버스·로움) 관리 화면 만들자") ══
+   종전에는 두 명단(위멤버스 실적확정 = 빨간 테두리 / 로움 실적확정 = 파란 테두리)을 화면에서
+   넣고 뺄 방법이 없어, 사업자번호를 코드나 콘솔로 넣어야 했다. 실적 관리 화면에 「추천 정보 관리」
+   와 같은 방식의 패널을 하나 더 둬서, 엑셀에서 복사한 목록을 그대로 붙여넣어 관리한다.
+   · 판정 기준은 기존과 동일 — **사업자번호 완전일치**(상호명은 참고 표시용이며 판정에 쓰지 않는다).
+   · 두 명단에 같은 사업자번호가 있으면 위멤버스가 우선(기존 정책 유지) — 그 경우 화면에서 표시한다.
+   · 저장은 기존 kind 그대로(wemb_protect · sales_inside) — 파일에 박지 않는다.
+   · 붙여넣기 파싱은 한 줄에 한 곳. 줄에서 8자리 이상 숫자 덩어리를 사업자번호로 보고(하이픈·공백
+     표기 허용), 나머지 글자를 상호명으로 본다. 사업자번호를 못 찾은 줄은 건너뛴다(지어내지 않는다). */
+window.PROT_DEF={wemb:{kind:'wemb_protect',v:'__wembProtect',nm:'위멤버스 실적확정',c:'var(--red)',
+                       ch:'위멤버스 > 온라인 마케팅',id:'protInWemb'},
+                 inside:{kind:'sales_inside',v:'__salesInside',nm:'로움 실적확정',c:'#3B82F6',
+                       ch:'영업 > 내부영업',id:'protInInside'}};
+window.protList=function(which){
+  const D=window.PROT_DEF[which]; if(!D)return [];
+  if(!Array.isArray(window[D.v]))window[D.v]=[];
+  return window[D.v];
+};
+window.protNorm=function(v){ return String(v||'').replace(/[^0-9]/g,''); };
+window.protFmtBz=function(v){
+  const b=window.protNorm(v);
+  return b.length===10?(b.slice(0,3)+'-'+b.slice(3,5)+'-'+b.slice(5)):b;
+};
+window.protParse=function(txt){
+  const out=[];
+  String(txt||'').split(/[\r\n]+/).forEach(function(line){
+    const t=String(line||'').trim(); if(!t)return;
+    const m=t.match(/\d[\d\-\s]{6,}\d/);
+    const bz=m?window.protNorm(m[0]):'';
+    if(bz.length<8)return;                       // 사업자번호를 못 찾은 줄은 건너뛴다
+    const rest=m?(t.slice(0,m.index)+' '+t.slice(m.index+m[0].length)):'';
+    const nm=rest.replace(/[\t,;|]+/g,' ').replace(/\s+/g,' ').trim();
+    out.push({bz:bz,nm:nm});
+  });
+  return out;
+};
+window.protSave=function(which){
+  const D=window.PROT_DEF[which]; if(!D)return;
+  if(typeof IX_saveToSheet==='function')IX_saveToSheet(D.kind,window.protList(which));
+  /* 명단이 바뀌면 실적 관리 목록의 테두리·채널 확정도 함께 바뀐다 — 목록을 다시 그리고
+     패널은 열린 상태로 되돌린다(renderPerfMg가 패널까지 새로 그리므로 여기서 다시 연다). */
+  try{ if(typeof RENDER!=='undefined'&&RENDER['perfmg'])RENDER['perfmg'](); }catch(e){}
+  const p=document.getElementById('protPanel');
+  if(p){ p.style.display='block'; }
+  const b=document.getElementById('protBtn');
+  if(b)b.textContent='▲ 실적확정 명단';
+};
+window.protAdd=function(which){
+  const D=window.PROT_DEF[which]; if(!D)return;
+  const ta=document.getElementById(D.id);
+  const rows=window.protParse(ta?ta.value:'');
+  if(!rows.length){ alert('사업자번호를 찾지 못했습니다.\n한 줄에 한 곳씩, 사업자번호를 포함해 붙여넣어 주세요.\n예) 가나다세무회계  123-45-67890'); return; }
+  const L=window.protList(which);
+  const at={}; L.forEach(function(x,i){ at[window.protNorm(x.bz)]=i; });
+  let add=0,fill=0,dup=0;
+  rows.forEach(function(r){
+    const i=at[r.bz];
+    if(i!=null){ dup++; if(r.nm&&!L[i].nm){ L[i].nm=r.nm; fill++; } return; }
+    L.push({bz:r.bz,nm:r.nm}); at[r.bz]=L.length-1; add++;
+  });
+  window.protSave(which);
+  if(typeof IX_toast==='function')IX_toast(D.nm+' 명단: '+add+'곳 추가'+(dup?' · 이미 있던 '+dup+'곳'+(fill?'('+fill+'곳 상호명 보완)':''):''));
+};
+window.protDel=function(which,i){
+  const L=window.protList(which), r=L[i]; if(!r)return;
+  if(!confirm(window.PROT_DEF[which].nm+' 명단에서 「'+(r.nm||window.protFmtBz(r.bz))+'」 를 뺍니다.'))return;
+  L.splice(i,1); window.protSave(which);
+};
+window.protClear=function(which){
+  const D=window.PROT_DEF[which], L=window.protList(which);
+  if(!L.length)return;
+  if(!confirm(D.nm+' 명단 '+L.length+'곳을 전부 지웁니다. 되돌릴 수 없습니다.'))return;
+  window[D.v]=[]; window.protSave(which);
+};
+window.toggleProtPanel=function(){
+  const p=document.getElementById('protPanel'),b=document.getElementById('protBtn');
+  if(!p||!b)return; const sh=p.style.display==='none';
+  p.style.display=sh?'block':'none'; b.textContent=sh?'▲ 실적확정 명단':'실적확정 명단';
+};
+window.protBlockHTML=function(which){
+  const D=window.PROT_DEF[which], L=window.protList(which);
+  const other=(which==='wemb')?null:window.protList('wemb');
+  const dup={}; if(other)other.forEach(function(x){ dup[window.protNorm(x.bz)]=1; });
+  const rows=L.length?L.map(function(r,i){
+    const isDup=!!dup[window.protNorm(r.bz)];
+    return '<tr><td style="text-align:left;font-family:ui-monospace,Consolas,monospace">'+IX_esc(window.protFmtBz(r.bz))+'</td>'
+      +'<td style="text-align:left">'+(r.nm?IX_esc(r.nm):'<span class="na">—</span>')
+      +(isDup?' <span class="rtag tP0" style="font-size:8.5px">위멤버스 우선</span>':'')+'</td>'
+      +'<td><span onclick="protDel(\''+which+'\','+i+')" title="명단에서 빼기" style="cursor:pointer;color:var(--red);font-weight:700">×</span></td></tr>';
+  }).join('')
+   :'<tr><td colspan="3" class="na" style="text-align:center;padding:12px">등록된 업체가 없습니다 — 아래에 붙여넣고 [추가]를 누르세요.</td></tr>';
+  return '<div style="flex:1;min-width:300px;border:1px solid var(--border);border-left:3px solid '+D.c+';border-radius:8px;padding:11px">'
+    +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">'
+    +'<b style="font-size:11px;color:'+D.c+'">'+D.nm+'</b>'
+    +'<span style="font-size:10px;color:var(--gray-md)">'+L.length+'곳 · 적용 채널 '+IX_esc(D.ch)+'</span>'
+    +'<span style="flex:1"></span>'
+    +(L.length?'<span onclick="protClear(\''+which+'\')" style="cursor:pointer;font-size:9.5px;color:var(--gray-md)">전체 삭제</span>':'')
+    +'</div>'
+    +'<div style="max-height:230px;overflow:auto"><table class="tbl"><thead><tr>'
+    +'<th style="text-align:left;width:120px">사업자번호</th><th style="text-align:left">상호명(참고)</th><th style="width:34px"></th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<textarea id="'+D.id+'" rows="3" placeholder="엑셀에서 복사해 붙여넣기 — 한 줄에 한 곳&#10;예) 가나다세무회계  123-45-67890" '
+    +'style="width:100%;margin-top:8px;font-size:10.5px;padding:6px 7px;border:1px solid var(--border);border-radius:6px;resize:vertical"></textarea>'
+    +'<div style="margin-top:6px"><span onclick="protAdd(\''+which+'\')" style="cursor:pointer;font-size:10.5px;padding:4px 11px;border:1px dashed '+D.c+';border-radius:14px;color:'+D.c+'">＋ 붙여넣은 목록 추가</span></div>'
+    +'</div>';
+};
+window.protPanelHTML=function(){
+  return '<div class="panel" id="protPanel" style="margin-bottom:14px;display:none"><div class="panel-body">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px">실적확정 명단</div>'
+    +'<div style="font-size:10px;color:var(--gray-md);margin-bottom:9px">사업자번호가 명단에 있으면 유입경로·가입채널·최종실적을 그 채널로 확정하고, 목록에서 테두리로 표시합니다 — '
+    +'<b style="color:var(--red)">위멤버스는 빨간 테두리</b>, <b style="color:#3B82F6">로움은 파란 테두리</b>. 판정은 사업자번호 완전일치이며 상호명은 참고용입니다.</div>'
+    +'<div style="display:flex;gap:12px;flex-wrap:wrap">'+window.protBlockHTML('wemb')+window.protBlockHTML('inside')+'</div>'
+    +'</div></div>';
+};
 window.toggleInflowPanel=function(){
   const p=document.getElementById('inflowPanel'),b=document.getElementById('inflowBtn');
   if(!p||!b)return; const sh=p.style.display==='none';
@@ -2707,6 +2828,8 @@ function xlParseTasklist(rows,hdr){
   const iParNo=xlIdxLoose(hdr,['상위업무번호','상위 업무번호','상위업무 번호','부모업무번호']);
   window.__flowSubCol={col:(iPar>=0?String(hdr[iPar]).trim():''), noCol:(iParNo>=0?String(hdr[iParNo]).trim():''),
                        found:(iPar>=0||iParNo>=0), cands:hdr.map(function(h){return String(h||'').trim();}).filter(Boolean)};
+  /* v08.284 컬럼 인식 결과도 저장한다 — 저장하지 않으면 새로고침·재배포 후 「컬럼 없음」으로 보인다 */
+  if(typeof IX_saveToSheet==='function')IX_saveToSheet('flow_sub_col',window.__flowSubCol);
   const need=['제목','상태','담당자','작성자','등록일','수정일','업무번호'];
   const miss=need.filter(k=>idx[k]==null);
   if(miss.length)throw new Error('필수 컬럼 없음: '+miss.join(', '));
@@ -2837,7 +2960,10 @@ function refEnsureChannel(code){
   window.__refDirty=true;
   return ch;
 }
-function xlLinkSubTasks(rows){
+function xlLinkSubTasks(rows,linkOnly){
+  /* linkOnly=true → 부모-하위 연결(__inqSubs)만 다시 만든다. 가입채널 확정·추천 정보 관리
+     자동 생성·저장은 하지 않는다(복원 직후에 쓰는 모드 — 그 결과는 업로드 때 이미 저장됐고,
+     복원 직후 저장은 서버 데이터를 덮어쓸 위험이 있다: PROJECT_CONTEXT "13. 배운 점" 32번). */
   const norm=function(v){return String(v||'').replace(/\s+/g,'');};
   const full=function(r){return norm((r.tp&&r.tp!=='미분류'?'['+r.tp+'] ':'')+r.tt);};
   const byNo={}, byTitle={};
@@ -2849,6 +2975,7 @@ function xlLinkSubTasks(rows){
     if(!par)return;                                           // 부모를 못 찾음 — 연결만 못 한다
     (subs[par.fid]=subs[par.fid]||[]).push(r);
     /* 제목이 추천인코드 모양이면 부모의 가입채널을 그 코드로 확정 */
+    if(linkOnly)return;
     const code=String(r.tt||'').trim().toUpperCase();
     if(!window.SUB_REF_RE.test(code))return;
     const ch=refEnsureChannel(code);          // 매핑 우선 · 없으면 추천 정보 관리에 자동 생성
@@ -2859,9 +2986,33 @@ function xlLinkSubTasks(rows){
   });
   window.__inqSubs=subs;
   /* 자동 생성분이 있으면 여기서 한 번만 저장한다(행마다 저장하면 요청이 수십 번 나간다) */
-  if(window.__refDirty){ window.__refDirty=false; if(typeof window.refSave==='function')window.refSave(); }
+  if(!linkOnly&&window.__refDirty){ window.__refDirty=false; if(typeof window.refSave==='function')window.refSave(); }
   return subs;
 }
+/* ══ v08.284 버그 수정(요청: "배포할때마다 기존에 업로드된 파일이 왜 삭제되는거야") ══
+   증상: 새 버전을 배포하거나 화면을 새로고침하면 신청 관리 카드의 하위업무 표가 사라지고
+   「플로우 파일에 상위업무 컬럼이 없어 하위업무를 연결할 수 없습니다」라는 잘못된 안내가 떴다 —
+   업로드한 파일이 삭제된 것처럼 보인다.
+   원인: 저장되는 것은 **행(inq_rows)** 이고, 부모-하위 연결 결과(`__inqSubs`)는 업로드할 때
+   계산해서 메모리에만 두는 값이라 복원 대상이 아니었다(v08.262 청구 파일과 똑같은 함정 —
+   PROJECT_CONTEXT "13. 배운 점" 31번). 복원된 행에 `pt`(상위업무 제목)·`pno`(상위업무번호)는
+   그대로 들어 있으므로, 복원 직후 연결만 다시 계산하면 원상복구된다.
+   컬럼 인식 결과(`__flowSubCol`)는 계산으로 되살릴 수 없어(파일 헤더가 있어야 안다) 저장 대상에
+   추가했다(STATE_MAP의 flow_sub_col) — 옛 저장분에는 없으므로, 없을 때만 행에 pt/pno가 있는지로
+   최소한의 판정을 만든다. */
+window.xlRelinkSubsAfterRestore=function(){
+  const R=((typeof PAY==='object'&&PAY&&PAY.inq&&PAY.inq.rows)||window.__xlInqRows||[]);
+  if(!Array.isArray(R)||!R.length)return 0;
+  const has=R.some(function(r){ return !!(r&&(r.pt||r.pno)); });
+  const SC=window.__flowSubCol;
+  if(!SC||!SC.found){
+    /* 저장된 컬럼 인식 결과가 없을 때만 — 행에 상위업무 값이 남아 있으면 그 컬럼이 있었다는 뜻 */
+    window.__flowSubCol={col:'', noCol:'', found:has, cands:[], restored:true};
+  }
+  if(!has)return 0;
+  const subs=xlLinkSubTasks(R,true);
+  return Object.keys(subs||{}).length;
+};
 function xlAutoJoinChFromContent(rows){
   rows.forEach(function(r){
     if(!r.ct)return;
@@ -3285,7 +3436,14 @@ function xlIdxLoose(hdr,names){
 // 세무사무소목록 → 고객 현황 지표
 function xlParseOffice(rows,hdr){
   const iNm=xlIdx(hdr,'이용기관명'), iSt=xlIdx(hdr,'상태',0), iPl=xlIdx(hdr,'이용요금제'),
-        iBf=xlIdx(hdr,'변경 전 요금제'), iRs=xlIdx(hdr,'해지사유');
+        iRs=xlIdx(hdr,'해지사유');
+  /* ══ v08.284 요청("변경전 요금이 왜 표시안되는거야?") ══
+     이 값이 비면 실적 관리 요금제 칸이 「- → 베이직」처럼 보인다. 원인은 두 가지로 나뉘는데
+     화면에서는 똑같이 보여 구분이 안 됐다: ① 파일에 그 칸이 비어 있다(값 없음) ② 컬럼명이
+     조금 달라 아예 못 읽었다(컬럼 없음). ②를 없애기 위해 정확 일치(xlIdx) 대신 공백·표기
+     차이를 무시하는 느슨한 매칭으로 바꾸고 후보명을 함께 준다(v08.98 정지일시와 같은 조치).
+     인식 여부는 아래 __xlOfficeCols.bf에 남겨, 화면에서 ①과 ②를 구분해 안내할 수 있게 한다. */
+  const iBf=xlIdxLoose(hdr,['변경 전 요금제','변경전 요금제','변경전요금제','이전 요금제','직전 요금제','기존 요금제']);
   /* ══ v08.149 요청("정지 구분을 정지사유 기준으로") ══
      실제 파일(20260901 세무사무소목록)을 확인한 결과, 정지 191곳 중 정지일시가 없는 건 1곳뿐이라
      정지일시 유무로는 자발/비자발이 갈리지 않았다. 구분은 「정지사유」에 들어 있다:
@@ -3450,6 +3608,8 @@ function xlParseOffice(rows,hdr){
     srTot:iSrTot>=0, srJn:iSrJn>=0, srHj:iSrHj>=0,
     srTotCol:_colNm(iSrTot), srJnCol:_colNm(iSrJn), srHjCol:_colNm(iSrHj),
     srCands:_cands('거래처'),
+    /* v08.284 변경 전 요금제 컬럼 인식 여부 — 「값 없음」과 「컬럼 없음」을 구분하기 위해 남긴다 */
+    bf:iBf>=0, bfCol:_colNm(iBf),
     adCol:_colNm(iAd), ad:iAd>=0};
   IX_saveToSheet('office_cols',window.__xlOfficeCols);
   window.__xlOfficeRows=keep; IX_saveToSheet('office_rows',keep);
@@ -5179,6 +5339,8 @@ const STATE_MAP={
   // v08.262 버그 수정 — __billAllRows(청구 파일 원본, 상태 무관 전체)가 이 표에 없어
   // 저장은 됐어도(위 IX_saveToSheet 호출) 새로고침·재배포 때 복원되지 않았다.
   bill_all_rows:'__billAllRows',
+  // v08.284 플로우 상위업무 컬럼 인식 결과 — 저장하지 않으면 새로고침·재배포 후 하위업무가 사라진다
+  flow_sub_col:'__flowSubCol',
   xl_uploads:'__xlUploads',   // v07.70 파일별 최신 업로드 시각
   inq_manage:'IX___inqManage', ref_list:'__refList', inq_del:'IX___inqDel', mkt_tasks:'__mktTasks', mkt_budget:'__mktBudgetRows',
   /* v08.167 문의 없는 실적(마스터 사건)에 지정한 채널값 — 플로우 문의(inq_manage)와 섞으면
@@ -5227,6 +5389,11 @@ async function IX_loadFromSupabase(){
         PAY.inq.untyped=R.filter(x=>x.tp==='미분류').length;
       }
     }catch(e){ console.error('도입문의 복원 실패:',e); }
+    /* v08.284 하위업무 연결 복원 — 행은 복원됐어도 부모-하위 연결(__inqSubs)은 업로드 때만
+       계산되는 값이라, 이걸 부르지 않으면 카드 상세의 하위업무 표가 사라진다 */
+    try{
+      if(typeof window.xlRelinkSubsAfterRestore==='function')window.xlRelinkSubsAfterRestore();
+    }catch(e){ console.error('하위업무 연결 복원 실패:',e); }
     /* v08.04 복원 후처리 추가 — 아래 4종은 저장 시 여러 변수를 한 객체로 묶거나(inflow_paths)
        PAY 하위 필드에 넣는 값(monitor_rows·stat)이라, 일반 STATE_MAP 루프(window[v]=state)만으로는
        실제로 쓰이는 자리(window.__inflowAdd 등 개별 변수·PAY.monitor)에 도달하지 못한다. */
@@ -10094,6 +10261,8 @@ window.spPaint=function(){
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleInflowPanel()" id="inflowBtn">유입경로 관리</button>'
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleRefPanel()" id="refBtn">추천 정보 관리</button>'
+      /* v08.284 실적확정 명단(위멤버스·로움) 관리 — 위 두 패널과 같은 방식 */
+      +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleProtPanel()" id="protBtn">실적확정 명단</button>'
       /* v08.99 요청("실적 관리내용을 엑셀로 다운로드") — 지금 걸린 필터 그대로(기간·검색·열 필터),
          화면 표시는 300건까지지만 다운로드는 전체를 뽑는다. 목록 시트 + 채널별 집계(정산용) 시트 2개. */
       +'<button class="btn" style="padding:4px 11px;font-size:10.5px" onclick="pmExportXlsx()" title="현재 필터 기준 전체 · 목록+채널별 집계 2개 시트">⬇ 엑셀 다운로드</button>'
@@ -10103,6 +10272,7 @@ window.spPaint=function(){
          inflowSave·refSave가 같은 id(#inflowPanel·#refPanel)를 찾아 갈아 끼우므로 동작은 그대로다. */
       +((typeof window.inflowPanelHTML==='function')?window.inflowPanelHTML():'')
       +((typeof window.refPanelHTML==='function')?window.refPanelHTML():'')
+      +((typeof window.protPanelHTML==='function')?window.protPanelHTML():'')
       /* v08.98 일괄 지정 — 유입경로·가입채널·최종실적을 한 번에 지정한다(요청).
          비워 둔 항목은 건드리지 않으며, 항목별로 「아직 지정 안 된 건」만 대상이 된다. */
       +(function(){
@@ -13564,6 +13734,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u17',d:'2026-09-09',tt:'새로고침·배포 후 하위업무가 사라지던 문제 수정 · 실적확정 명단 관리 화면 추가',
+  b:'배포하거나 새로고침하면 신청 관리 카드의 하위업무가 사라지던 문제를 고쳤습니다. 실적 관리 화면에 [실적확정 명단] 버튼이 생겨, 위멤버스·로움 명단을 엑셀에서 복사해 붙여넣어 직접 관리할 수 있습니다. 월별 목표 입력칸 숫자도 가운데로 정렬했습니다.'},
  {id:'u16',d:'2026-09-09',tt:'주간 업무 현황을 「저번 주/이번 주」로 변경 · 월별 두 표 자리 정렬 · 추천인코드 자동 등록',
   b:'팀별 주간 업무 현황이 저번 주와 이번 주를 나란히 보여줍니다. 주간회의 「월별 실적 현황」과 「전체 가입 현황」의 월 칸이 위아래로 정확히 맞춰졌고, 하위업무에서 찾은 추천인코드는 추천 정보 관리에 등록된 채널을 먼저 쓰고 없으면 그 표에 자동으로 만들어 둡니다.'},
  {id:'u15',d:'2026-09-09',tt:'플로우 하위업무를 가져와 보여주고, 추천인코드는 가입채널로 자동 확정',
