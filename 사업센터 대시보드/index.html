@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.306';
+window.__APP_VER='v08.307';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12824,7 +12824,9 @@ function monPerfTableHtml(){
        원칙은 그대로 두되, 몇 건이 곧 떨어졌는지 이 줄로 함께 보여준다 — 실적에서 빼지 않으므로
        위 3줄의 합도 그대로다. 값이 아예 없는 연도에는 줄을 만들지 않는다(빈 줄로 표를 늘리지 않는다). */
     +(insOutSum>0
-      ? tr('&nbsp;&nbsp;└ 그중 당월 인사이트 해지<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (실적 유지)</span>',
+      /* v08.307 라벨이 구분 열(150px)을 넘어 1월 칸으로 밀렸다 — 「(실적 유지)」는 표 아래 문구에
+         이미 적혀 있으므로 라벨에서 뺀다(라벨 길이는 표 폭이 정한다). */
+      ? tr('&nbsp;&nbsp;└ 그중 당월 인사이트 해지',
            months.map(function(m){return td(actCell(rows.insOut[m]),m);}),insOutSum,'color:var(--red)')
       : '')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
@@ -12850,7 +12852,32 @@ function monPerfTableHtml(){
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
     +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
-    +'</div><div style="overflow:auto">'+table+'</div>'
+    +'</div>'
+    /* ══ v08.307 요청("개업세무사가 플러스 안에 있는 프로모션이라는걸 UI적으로 잘 표현할수 있는방법
+       없나?") — 사용자 확정: **포함 비율 바**. 표 행으로 같은 숫자를 두 번 쓰지 않고(v08.306에서
+       뺀 이유), 플러스 실적 전체 길이 안에 개업세무사 몫을 색으로 채워 「안에 들어 있다」를 그림으로
+       보여준다. 목표가 아니라 **실적끼리**의 포함 관계다(목표는 위 두 카드에서 본다).
+       ※ 개업세무사는 프로모션 시작월 기준이라 이론상 플러스 실적을 넘을 수 있어, 폭은 100%로 묶고
+         숫자는 실제 값을 그대로 적는다. 실적이 아직 0이면 바 자체를 만들지 않는다(빈 바를 두지 않는다). */
+    +(function(){
+        if(!(newASum>0))return '';
+        const pct=Math.min(100, Math.round(pkgASum/newASum*1000)/10);
+        const rest=Math.max(0, newASum-pkgASum);
+        const dot=function(c){return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+';margin-right:4px;vertical-align:-1px"></span>';};
+        return '<div style="border:1px solid #DBEAFE;background:#F8FBFF;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+          +'<div style="font-size:10.5px;margin-bottom:6px">'
+          +'<b>플러스 가입 실적 '+newASum+'건</b> <span style="color:var(--gray-md)">안에 '
+          +'<b style="color:'+pkgBorder+'">개업세무사 프로모션 '+pkgASum+'건</b>이 포함돼 있습니다'
+          +(newASum>0?(' <b>('+pct+'%)</b>'):'')+'</span></div>'
+          +'<div style="display:flex;height:13px;border-radius:7px;overflow:hidden;background:#E5E7EB">'
+          +'<div style="width:'+pct+'%;background:'+pkgBorder+'"></div>'
+          +'<div style="flex:1;background:#7FD8D2"></div></div>'
+          +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px">'
+          +dot(pkgBorder)+'개업세무사 프로모션 '+pkgASum+'건'
+          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 '+rest+'건</span></div>'
+          +'</div>';
+      })()
+    +'<div style="overflow:auto">'+table+'</div>'
     /* v08.303 두 표는 같은 모수를 쓴다 — 아래 「전체 가입 현황」의 「플러스」 행은 이 표의
        「플러스 가입 실적」과 항상 같은 값이다(사용자 확정). 그 사실을 문구로 밝힌다. */
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
@@ -14240,6 +14267,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u37',d:'2026-09-10',tt:'개업세무사가 플러스 안의 프로모션임을 비율 바로 표시',
+  b:'월별 실적 현황 위에 포함 비율 바를 넣었습니다 — 플러스 가입 실적 전체 길이 안에 개업세무사 프로모션 몫을 파란색으로 채워, 같은 숫자를 표에 두 번 쓰지 않고도 「플러스 안에 들어 있는 프로모션」이라는 관계가 한눈에 보입니다.'},
  {id:'u36',d:'2026-09-10',tt:'월별 실적 현황에서 「└ 그중 개업세무사」 줄 제거',
   b:'아래 파란 블록(개업세무사 가입 목표·실적)과 같은 숫자가 두 번 나와 지시에 따라 세부 줄을 뺐습니다. 개업세무사가 플러스 실적에 포함된다는 사실은 파란 블록 라벨의 「(플러스 내)」와 표 아래 설명으로 계속 확인할 수 있습니다.'},
  {id:'u35',d:'2026-09-10',tt:'해지 집계를 해지일 기준으로 통일 + 인사이트 가입·해지를 목록에 추가',
