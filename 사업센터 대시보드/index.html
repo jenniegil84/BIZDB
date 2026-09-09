@@ -2068,7 +2068,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.309';
+window.__APP_VER='v08.311';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9169,13 +9169,11 @@ window.spPaint=function(){
     const _pn=(typeof window.joinSplitCount==='function'&&S.range)
       ? { n:window.joinSplitCount('plus_new',   S.range[0],S.range[1]),
           r:window.joinSplitCount('plus_rejoin',S.range[0],S.range[1]),
-          u:window.joinSplitCount('plus_upsell',S.range[0],S.range[1]),
-          o:window.joinSplitCount('plus_insout',S.range[0],S.range[1]) } : null;   /* v08.305 당월 인사이트 해지 */
+          u:window.joinSplitCount('plus_upsell',S.range[0],S.range[1]) } : null;
     const plusNote=(S.plusInsN==null)
       ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
       : (_pn
          ? ('신규 플러스 '+_pn.n+' · 재가입 '+_pn.r+' · 업셀(인사이트·전환) '+_pn.u
-            + (_pn.o>0?(' · <span style="color:var(--red)">그중 당월 인사이트 해지 '+_pn.o+'</span>'):'')   /* v08.305 */
             + ' · 가입 후보 '+_plusBase+'건 중 · 개업세무사 포함 · 주간회의 표와 같은 기준')
          : ('가입 '+_plusBase+'건 중 인사이트 보유 · 개업세무사 포함 · 주간회의 표와 같은 기준'));
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
@@ -12741,12 +12739,9 @@ window.joinSplitCount=function(kind,s,e,onlyRejoin,scope){
   if(kind==='plus_rejoin')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&inR(x.rj);}).length;
   if(kind==='plus_upsell')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&!inR(x.rj);}).length;
   if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
-  /* ══ v08.305 사용자 확정("포함 + 별도 표기") ══
-     그중 당월 인사이트 해지 — 플러스 실적으로 센 곳 가운데 그 기간에 인사이트를 해지한 곳.
-     실적에서 빼지 않는다(가입일 기준 원칙 유지) — 몇 건이 곧바로 떨어졌는지만 함께 보여준다.
-     ※ 모수 안에서만 세므로 「이전에 가입해 두고 이번 달에 해지한 곳」은 여기 들어오지 않는다
-       (그건 실적이 아니라 이탈이며, 발생 건 목록의 「인사이트 해지」 행에서 본다). */
-  if(kind==='plus_insout')return rows.filter(function(x){return !!x.insJn&&inR(x.insCn);}).length;
+  /* ※ v08.305의 'plus_insout'(그중 당월 인사이트 해지)은 v08.311에서 지웠다 — 주간회의 표
+     (v08.309)와 실적 분석 카드 밑줄(v08.311)에서 모두 빼기로 확정돼 부르는 곳이 없어졌다.
+     인사이트 해지 자체는 발생 건 목록의 「인사이트 해지」 행에서 원건으로 확인한다. */
   return 0;
 };
 
@@ -12903,8 +12898,8 @@ function monPerfTableHtml(){
        계속 밝힌다. 값(rows.pkgA)은 파란 블록이 그대로 쓰므로 계산은 남겨 둔다. */
     /* ══ v08.309 지시("제거하자" — 「└ 그중 당월 인사이트 해지」 줄에 표시) ══
        v08.305에서 「포함 + 별도 표기」로 넣은 줄인데, 표에 줄이 하나 더 늘어 실적 3줄이 묻혔다.
-       사용자 지시로 이 줄만 뺀다 — 같은 값은 실적 분석 카드 밑줄에 한 줄로 남아 있고(perfStat의
-       plus_insout), 발생 건 목록의 「인사이트 해지」 행에서 원건도 확인할 수 있다. */
+       사용자 지시로 이 줄을 뺀다(v08.311에서 실적 분석 카드 밑줄에서도 함께 뺐다) —
+       인사이트 해지 건은 발생 건 목록의 「인사이트 해지」 행에서 원건으로 확인한다. */
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
@@ -12956,8 +12951,11 @@ function monPerfTableHtml(){
     +'<div style="overflow:auto">'+table+'</div>'
     /* v08.303 두 표는 같은 모수를 쓴다 — 아래 「전체 가입 현황」의 「플러스」 행은 이 표의
        「플러스 가입 실적」과 항상 같은 값이다(사용자 확정). 그 사실을 문구로 밝힌다. */
-    +wkNoteBox('monPerfNote',
-     ''
+    ;
+}
+/* v08.310 표 아래에 있던 기준 설명 — 제목 옆 (!) 로 옮겼다(본문은 paintWeek이 제목 밑에 그린다) */
+function monPerfNoteHtml(){
+  return ''
     +'<b>플러스 가입 실적</b> = 그 달에 <b>플러스가 된 모든 경로</b>를 셉니다 — 신규가입 · 재가입 · '
     +'플러스 전환(요금제변경) · 인사이트 추가 가입 중 인사이트를 보유한 곳(개업세무사 포함). '
     +'세부 3줄은 그 실적이 어디서 왔는지 나눈 것입니다 — <b>신규 플러스</b>(새 고객) · '
@@ -12966,7 +12964,7 @@ function monPerfTableHtml(){
     +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
     +'아래 파란 블록이 그 프로모션만 목표 대비로 관리하는 자리입니다(프로모션 시작월이 그 달인 곳). '
     +'※ 아래 「전체 가입 현황」의 <b>플러스</b> 행과 실적 분석 카드의 <b>플러스 가입</b>은 이 실적과 <b>같은 값</b>입니다'
-    );
+  ;
 }
 /* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에 해당 표도 추가" — 참고 이미지의
    「전체 가입 현황」, 요금제별 월별 가입 현황·목표 입력은 없음, 위 표와 같은 연도(년) 기준을
@@ -12992,16 +12990,27 @@ window.wkNoteToggle=function(id,btn){
   const e=document.getElementById(id); if(!e)return;
   const open=(e.style.display==='none'||!e.style.display);
   e.style.display=open?'block':'none';
-  if(btn)btn.setAttribute('title',open?'기준 설명 접기':'기준 설명 보기');
+  if(btn){
+    btn.setAttribute('title',open?'기준 설명 접기':'기준 설명 보기');
+    /* v08.310 열려 있는 동안은 버튼도 강조 — 지금 설명이 펼쳐진 표가 어디인지 보이게 */
+    btn.style.borderColor=open?'var(--teal-dk)':'var(--gray-md)';
+    btn.style.color=open?'var(--teal-dk)':'var(--gray-md)';
+  }
 };
-/* 표 아래 설명을 💡 버튼 + 접힌 본문으로 감싼다(두 표가 같은 함수를 쓴다) */
-function wkNoteBox(id,html){
-  return '<div style="margin-top:5px">'
-    +'<span class="wk-note-btn" onclick="wkNoteToggle(\''+id+'\',this)" title="기준 설명 보기" '
-    +'style="cursor:pointer;font-size:13px;user-select:none;display:inline-block;padding:1px 4px;'
-    +'border:1px solid var(--border);border-radius:6px;line-height:1.2">💡</span>'
-    +'<div id="'+id+'" class="wk-note" style="display:none;font-size:9.5px;color:var(--gray-md);'
-    +'margin-top:5px;line-height:1.5">'+html+'</div></div>';
+/* ══ v08.310 요청("이걸 (!) 이런 모양으로 바꾸고 제목 옆에 붙여줘") ══
+   버튼은 **표 제목 옆**(월별 실적 현황 / 전체 가입 현황)에 동그란 (!) 모양으로 두고,
+   설명 본문은 제목 바로 아래에 접어 둔다 — 눌린 자리와 펼쳐지는 자리가 붙어 있어야 읽힌다.
+   버튼(wkNoteBtn)과 본문(wkNoteBody)을 나눠, 제목은 paintWeek이 그리고 본문 문구는
+   각 표의 노트 함수(monPerfNoteHtml·planJoinNoteHtml)가 만든다. */
+function wkNoteBtn(id){
+  return '<span class="wk-note-btn" onclick="wkNoteToggle(\''+id+'\',this)" title="기준 설명 보기" '
+    +'style="display:inline-block;width:16px;height:16px;line-height:15px;text-align:center;'
+    +'border:1.5px solid var(--gray-md);color:var(--gray-md);border-radius:50%;'
+    +'font-size:11px;font-weight:800;cursor:pointer;user-select:none;margin-left:7px;vertical-align:2px">!</span>';
+}
+function wkNoteBody(id,html){
+  return '<div id="'+id+'" class="wk-note" style="display:none;font-size:9.5px;color:var(--gray-md);'
+    +'margin:5px 0 2px;line-height:1.5">'+html+'</div>';
 }
 function wkMonHl(y,m,strong){
   let ty=null, tm=null;
@@ -13087,8 +13096,10 @@ function planJoinTableHtml(){
     +tr('합계',rows.total,'font-weight:700')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
-    +wkNoteBox('planJoinNote',
-     ''
+    ;
+}
+function planJoinNoteHtml(){
+  return ''
     +'<b>플러스</b> = 위 「월별 실적 현황」의 <b>플러스 가입 실적과 같은 값</b>입니다(같은 모수·같은 함수) · '
     +'<b>리포트</b> = 플러스를 제외한 모든 요금제로 가입한 곳(인사이트 미가입 — 베이직·PREMIUM·구간 등) · '
     +'<b>합계</b> = 플러스 + 리포트. '
@@ -13100,7 +13111,7 @@ function planJoinTableHtml(){
         :((Array.isArray(window.__billAllRows)&&window.__billAllRows.length)
             ?' — 세무사무소목록에 프로모션 컬럼이 없어 청구대상 고객관리 파일로 판정합니다.'
             :' — 프로모션 정보가 없어 판정할 수 없습니다(—).'))
-    );
+  ;
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -14361,6 +14372,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u41',d:'2026-09-10',tt:'실적 분석 카드 밑줄에서도 「그중 당월 인사이트 해지」 제거',
+  b:'주간회의 표에서 뺀 것과 같은 기준으로 실적 분석 카드 밑줄에서도 지웠습니다. 이제 밑줄은 「신규 플러스 · 재가입 · 업셀 · 가입 후보 N건 중」으로 표시됩니다. 인사이트 해지 건은 당월 발생 건 목록의 「인사이트 해지」 행에서 원건으로 확인할 수 있습니다.'},
+ {id:'u40',d:'2026-09-10',tt:'기준 설명 버튼을 (!) 모양으로 바꿔 표 제목 옆에 배치',
+  b:'표 아래에 있던 💡 버튼을 동그란 (!) 모양으로 바꾸고 「월별 실적 현황」·「전체 가입 현황」 제목 옆으로 옮겼습니다. 누르면 제목 바로 아래에 설명이 펼쳐지고, 열려 있는 동안 버튼이 청록색으로 강조됩니다. PDF로 저장하면 설명은 그대로 찍힙니다.'},
  {id:'u39',d:'2026-09-10',tt:'표 아래 기준 설명을 💡 안으로 접고, 「그중 당월 인사이트 해지」 줄 제거',
   b:'월별 표 두 개 아래의 긴 기준 설명은 이제 💡 버튼을 누를 때만 펼쳐집니다(PDF로 저장하면 항상 함께 찍힙니다). 「└ 그중 당월 인사이트 해지」 줄은 지시에 따라 표에서 뺐습니다 — 같은 값은 실적 분석 카드 밑줄과 발생 건 목록의 「인사이트 해지」 행에서 볼 수 있습니다.'},
  {id:'u38',d:'2026-09-10',tt:'인사이트 사용건수 3종에 추이 그래프 추가',
@@ -16411,9 +16426,12 @@ function paintWeek(){
   b.innerHTML=
    /* v08.232 요청("제목글을 더 크게해서 플러스 가입이라는 걸 명확하게 인지할수 있도록") —
       기본 .kt-h(13px)보다 크게 인라인으로 키우고, "플러스 가입" 부분을 따로 강조한다. */
-   '<div class="keytask" style="position:static;border-left-color:var(--teal)"><div class="kt-h" style="font-size:17px"><b style="color:var(--teal-dk)">플러스 가입</b> 및 프로모션 가입 — 월별 실적 현황</div>'
+   /* v08.310 기준 설명은 제목 옆 (!) 로 연다 — 본문은 제목 바로 아래(표 위)에 접혀 있다 */
+   '<div class="keytask" style="position:static;border-left-color:var(--teal)"><div class="kt-h" style="font-size:17px"><b style="color:var(--teal-dk)">플러스 가입</b> 및 프로모션 가입 — 월별 실적 현황'+wkNoteBtn('monPerfNote')+'</div>'
+   +wkNoteBody('monPerfNote',monPerfNoteHtml())
    +'<div id="wkMonTgtBox">'+monPerfTableHtml()+'</div>'
-   +'<div class="kt-h" style="font-size:15px;margin-top:14px">전체 가입 현황</div>'
+   +'<div class="kt-h" style="font-size:15px;margin-top:14px">전체 가입 현황'+wkNoteBtn('planJoinNote')+'</div>'
+   +wkNoteBody('planJoinNote',planJoinNoteHtml())
    +'<div id="wkPlanTblBox">'+planJoinTableHtml()+'</div></div>'
    +'<div class="keytask" style="position:static"><div class="kt-h">① 주간 실적 요약</div>'
    +kpiGridHtml('perf',WKKPI_PERF)+'</div>'
