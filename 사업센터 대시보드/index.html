@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.293';
+window.__APP_VER='v08.294';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9073,11 +9073,12 @@ window.spPaint=function(){
        주간회의 두 표와 같은 함수(joinSplitCount('pkg'))를 쓴다. 프로모션 시작월 기준 값(pkgHero)은
        참고로 밑줄에 함께 적어 둔다 — 두 숫자가 다른 이유를 화면에서 알 수 있게 한다. */
     /* v08.290 판정 원천이 마스터 파일의 프로모션 구분명으로 바뀌었고, 날짜는 가입 기준이다 */
+    /* v08.294 개업세무사는 프로모션 시작월 기준(그 달에 패키지가 시작된 곳) */
     const pkgHeroNote=(S.pkgJoinN==null)
-      ? '프로모션 정보 없음 — 세무사무소목록(프로모션 구분명) 또는 청구대상 고객관리 파일 필요'
-      : ('가입일·재가입일·요금제변경일 기준 · '
-         +((typeof window.pkgHasMaster==='function'&&window.pkgHasMaster())
-            ?'세무사무소목록의 프로모션 구분명으로 판정':'청구 파일의 프로모션 구분값으로 판정'));
+      ? '프로모션 정보 없음 — 세무사무소목록(프로모션 구분명·시작 연월) 또는 청구대상 고객관리 파일 필요'
+      : ('프로모션 시작월 기준 · '
+         +(((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS)
+            ?'세무사무소목록 기준':'청구대상 고객관리 파일 기준'));
     return '<div class="kpi-head four">'
       + hero('도입 문의', z(S.inq.length), 'tc', d('inq',1), '')
       + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
@@ -12476,16 +12477,16 @@ function planRejoinCountByIns(hasIns,s,e){
    v08.288의 스펙이 사용자에 의해 아래와 같이 갱신됐다 — **정의 3줄이 바뀌었다.**
      가입     = 신규가입 + 재가입 + **요금제변경**            ← 요금제변경이 새로 들어왔다
      플러스   = 인사이트 가입일자 유무 (**개업세무사 포함**)   ← 개업세무사를 빼지 않는다
-     개업세무사 = 프로모션 구분명이 개업세무사 성장지원 패키지  ← v08.290: 판정은 **마스터 파일**의
-                  (날짜는 가입 모수와 동일)                       프로모션 구분명, 날짜는 가입 모수 기준
+     개업세무사 = 프로모션 구분명이 개업세무사 성장지원 패키지이고 **프로모션 시작월이 그 달**인 곳
+                  (v08.294 — 판정·날짜 모두 마스터 파일, 없으면 청구 파일. 가입 모수와는 별개)
      베이직   = 인사이트 가입일자 없음
      합계     = **플러스 + 베이직**                            ← 개업세무사는 플러스에 이미 포함
    그래서 v08.288의 「세 갈래 상호배타」는 폐기다. 지금 구조는:
      · 모수(가입) = 그 기간에 가입일·재가입일·요금제변경일이 찍힌 사무소(행 단위 1건)
        요금제변경은 **실적으로 보는 변경만**(v08.286 공통 규칙 planChgReal) 센다.
      · 플러스 / 베이직 = 그 모수를 인사이트 가입일자 유무로 둘로 나눈 것 → 합계 = 모수 전체
-     · 개업세무사 = 같은 모수 안에서 프로모션 구분명으로 가려내는 값이라 **플러스의 부분집합**이다
-       (v08.290 — 종전 프로모션 시작월 기준은 기간 귀속이 달라 하위가 상위보다 커질 수 있었다)
+     · 개업세무사 = **프로모션 시작월**이 그 달인 곳(v08.294) — 플러스(가입일 기준)와 날짜 기준이
+       달라 부분집합이 아니다. 그래서 하위(└)가 아니라 별도 행으로 보여주고 합계에 더하지 않는다.
    ※ 청구 파일이 없으면 개업세무사는 null(화면 「—」) — 없는 값을 지어내지 않는다. */
 window.pkgHasBilling=function(){
   return !!(window.__xlBilling||window.__billAllByBiz||window.__billAllByName
@@ -12519,11 +12520,42 @@ window.pkgPromoOf=function(x){
   }
   return false;                                  // 청구 파일에 없는 곳 — 패키지 아님
 };
+/* ══ v08.294 사용자 지적("개업세무사가 어떻게 1월부터 존재하는거야") ══
+   v08.290에서 개업세무사를 「가입 모수(가입일·재가입일·요금제변경일) 중 프로모션 구분명이
+   개업세무사인 곳」으로 셌다. 그런데 프로모션 구분명에는 **시점 정보가 없다** — 1월에 가입한
+   사무소가 7월에 개업세무사 프로모션을 붙여도 그 건이 1월로 잡혔다(프로모션이 없던 1~6월에
+   숫자가 생긴 원인).
+   사용자 확정: **프로모션 시작월** 기준으로 센다 — 「그 달에 개업세무사 패키지가 시작된 곳」.
+     · 원천 1순위: 세무사무소목록(마스터)의 프로모션 구분명 + 프로모션 시작 연월(v08.290에서 추가)
+     · 원천 2순위: 청구대상 고객관리 파일(promo·promoS) — 마스터에 컬럼이 없는 예전 파일
+     · 둘 다 없으면 null(화면 「—」)
+   상태(정상·정지·해지)는 보지 않는다 — 그 달에 프로모션이 시작된 사실 자체가 실적이다
+   (청구 파일 기준(pkgJoinCountRange)도 파일 전체를 세던 것과 같은 방식).
+   ※ 이 값은 플러스(가입일 기준)와 날짜 기준이 달라 **하위 항목(└)이 아니라 별도 행**으로 보여주고,
+     합계에는 더하지 않는다. */
+window.pkgStartCount=function(s,e){
+  const ym=function(v){ return String(v||'').replace(/[^0-9]/g,'').slice(0,6); };
+  const sYM=ym(s), eYM=ym(e);
+  if(sYM.length<6||eYM.length<6)return null;
+  const OC=window.__xlOfficeCols||{};
+  if(OC.pmNm&&OC.pmS){
+    const R=window.__xlOfficeRows||[];
+    return R.filter(function(x){
+      if(!((typeof isPromo190==='function')&&isPromo190(x.pmNm)))return false;
+      const p=ym(x.pmS);
+      return !!p&&p>=sYM&&p<=eYM;
+    }).length;
+  }
+  const AB=window.__billAllRows;
+  if(Array.isArray(AB)&&AB.length&&typeof pkgJoinCountRange==='function')return pkgJoinCountRange(s,e);
+  return null;
+};
 /* kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
 window.joinSplitCount=function(kind,s,e,onlyRejoin){
   const R=window.__xlOfficeRows||[];
-  if(kind==='pkg'&&!window.pkgPromoKnown())return null;   // 판정 불가 → 화면 「—」
-  if(!Array.isArray(R)||!R.length)return (kind==='pkg')?null:0;
+  /* v08.294 개업세무사는 **프로모션 시작월** 기준이라 가입 모수와 별개로 센다 */
+  if(kind==='pkg')return window.pkgStartCount(s,e);
+  if(!Array.isArray(R)||!R.length)return 0;
   const inR=officeInRange(s,e);
   /* 요금제변경은 **실적으로 보는 변경만** 센다 — 재등록·구간요금제 폐지 전환 제외(v08.286 공통 규칙).
      그래서 이 모수는 실적 분석의 「요금제 변경」 카드와 같은 집합을 쓴다. */
@@ -12537,10 +12569,6 @@ window.joinSplitCount=function(kind,s,e,onlyRejoin){
   if(kind==='total')return rows.length;
   if(kind==='plus') return rows.filter(function(x){return !!x.insJn;}).length;
   if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
-  /* v08.290 개업세무사도 **가입 모수와 같은 날짜 기준**으로 센다(사용자 확정) —
-     그래서 「└ 개업세무사」가 플러스의 진짜 부분집합이 되고 하위가 상위보다 커질 수 없다.
-     판정은 마스터 파일의 프로모션 구분명(없으면 청구 파일) — window.pkgPromoOf. */
-  if(kind==='pkg')  return rows.filter(function(x){return window.pkgPromoOf(x)===true;}).length;
   return 0;
 };
 
@@ -12738,6 +12766,7 @@ function planJoinTableHtml(){
      · 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**
      · └ 개업세무사 = 프로모션 시작일 기준(플러스의 세부 항목으로 표시)
      · 리포트 = 가입 중 인사이트 미가입 · 합계 = **플러스 + 리포트**
+     · 개업세무사 = 프로모션 시작월이 그 달인 곳(v08.294) — 별도 행, 합계에 더하지 않는다
      v08.290 이름 확정: 「베이직」 → 「리포트」 — 이 행에는 플러스·베이직 외 과거 요금제
      (PREMIUM·STANDARD·구간·기본)까지 들어오므로 특정 요금제 이름(베이직)은 오해를 부른다.
      「리포트」 = 세모리포트만 쓰는 곳(인사이트 병행 아님)이라는 뜻이다(2026-09-06과 같은 결론). */
@@ -12767,18 +12796,24 @@ function planJoinTableHtml(){
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
-    +tr('&nbsp;&nbsp;└ 개업세무사',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
-    +tr('합계',rows.total,'font-weight:700;border-top:1px dashed var(--border)')
+    +tr('합계',rows.total,'font-weight:700')
+    /* v08.294 개업세무사는 프로모션 시작월 기준이라 가입일 기준인 위 세 행의 하위 항목이 아니다 —
+       합계 아래 별도 행으로 내리고 기준은 표 아래 문구가 밝힌다(구분 칸이 150px 고정이라 라벨은 짧게) */
+    +tr('개업세무사<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (별도)</span>',rows.pkg,'color:var(--link);border-top:1px dashed var(--border)')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
     +'<b>가입</b> = 신규가입 + 재가입 + 요금제변경(실적으로 보는 변경만) · '
-    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳(개업세무사 포함) · '
+    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳 · '
     +'<b>리포트</b> = 인사이트 미가입(베이직·PREMIUM·구간 등 그 외 요금제 모두) · <b>합계</b> = 플러스 + 리포트. '
-    +'<b>└ 개업세무사</b>는 같은 가입 건 중 프로모션 구분명이 개업세무사 성장지원 패키지인 곳(플러스에 포함되어 합계에는 더하지 않음).'
-    +(window.pkgPromoKnown()?(window.pkgHasMaster()?'':' 프로모션 구분명 컬럼이 없어 청구대상 고객관리 파일로 판정합니다.')
-                            :' 프로모션 정보가 없어 개업세무사는 판정할 수 없습니다(—).')
+    +'<b>개업세무사</b>는 <b>프로모션 시작월</b>이 그 달인 곳이라 위 세 행(가입일·재가입일·요금제변경일 기준)과 '
+    +'세는 날짜가 달라 별도 행이며 합계에 더하지 않습니다'
+    +((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS
+        ?' (세무사무소목록의 프로모션 구분명·시작 연월 기준).'
+        :((Array.isArray(window.__billAllRows)&&window.__billAllRows.length)
+            ?' — 세무사무소목록에 프로모션 컬럼이 없어 청구대상 고객관리 파일로 판정합니다.'
+            :' — 프로모션 정보가 없어 판정할 수 없습니다(—).'))
     +'</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
@@ -14040,6 +14075,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u26',d:'2026-09-09',tt:'개업세무사를 「프로모션 시작월」 기준으로 수정 (1~6월에 숫자가 생기던 문제)',
+  b:'개업세무사가 프로모션이 없던 1~6월에도 잡히던 문제를 고쳤습니다. 원인은 프로모션 구분명에 시점 정보가 없어 「1월에 가입한 뒤 7월에 프로모션을 붙인 곳」이 1월로 잡힌 것입니다. 이제 프로모션 시작월이 그 달인 곳만 셉니다. 세는 날짜가 다른 값이라 플러스 하위(└)가 아니라 별도 행으로 옮겼습니다.'},
  {id:'u25',d:'2026-09-09',tt:'새 버전이 배포되면 화면 위에 알림 띠 표시',
   b:'새 버전이 올라오면 열어 둔 화면 위에 「새 버전이 배포되었습니다 · 새로고침」 띠가 뜹니다. 강제로 새로고침하지 않으니 입력 중인 내용은 안전하고, 새로고침 전에 입력 칸 밖을 한 번 클릭하라는 안내도 함께 보여줍니다.'},
  {id:'u24',d:'2026-09-09',tt:'프로모션 종료 관리도 세무사무소목록 기준으로 이전',
