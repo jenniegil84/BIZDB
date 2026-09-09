@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.288';
+window.__APP_VER='v08.289';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8834,16 +8834,17 @@ window.spPaint=function(){
        ※ 이 변경으로 v08.182의 근거("월 목표가 신규 기준이니 카드도 신규만")는 무효가 된다 —
          월 목표 카드(신규 가입 + 플러스 전환, 정책 v01.34)는 그대로 두고, 카드 밑줄에 기준을
          적어 둔다. 종전 값(plusNew·plusJoinN)도 계산은 그대로 남겨 둔다(다른 화면 호환). */
-    /* v08.288 세 갈래(플러스 / 개업세무사 / 베이직)로 통일 — 주간회의 두 표와 같은 함수를 쓴다.
-       플러스는 **개업세무사를 뺀** 인사이트 가입 건이다(상호배타). */
+    /* v08.289 스펙 v2 — 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입(개업세무사 포함),
+       개업세무사 = 프로모션 시작월 기준. 주간회의 두 표와 같은 함수를 쓴다. */
     const plusInsN = (typeof window.joinSplitCount==='function')
       ? window.joinSplitCount('plus',s,e)
       : ((typeof planJoinCountRangeByIns==='function')?planJoinCountRangeByIns(true,s,e):null);
     const pkgJoinN = (typeof window.joinSplitCount==='function')
       ? window.joinSplitCount('pkg',s,e) : null;
     return { inq, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
-             plusInsN: plusInsN,          /* v08.287·v08.288 플러스(개업세무사 제외 · 인사이트 가입) */
-             pkgJoinN: pkgJoinN,          /* v08.288 개업세무사 가입 — 가입일·재가입일 기준 */
+             range: [s,e],                /* v08.289 카드 밑줄에서 모수를 다시 세는 데 쓴다 */
+             plusInsN: plusInsN,          /* v08.289 플러스(인사이트 가입 · 개업세무사 포함) */
+             pkgJoinN: pkgJoinN,          /* v08.289 개업세무사 — 프로모션 시작월 기준 */
              /* v08.286 요금제 변경 — plan은 실적 기준(제외 적용), planAll은 제외 전 전량,
                 planSkip은 제외 사유별 건수({total, 재등록, 구간 폐지}) */
              planAll: (hasPc?planAll:[]), planSkip: (hasPc?planSkip:{total:0}),
@@ -8983,12 +8984,15 @@ window.spPaint=function(){
        plusAll(합계)은 계산해 두므로 합계가 필요해지면 그 값을 쓰면 된다. */
     /* v08.287 기준이 「인사이트 가입 여부」로 바뀌었으므로 밑줄도 그 기준으로 다시 쓴다 —
        모수는 신규 가입 + 재가입이고, 요금제명·개업성장패키지 포함 여부는 이제 판정에 쓰지 않는다. */
-    const _plusBase=S.join.length+S.rejoin.length;
+    /* v08.289 모수에 요금제변경이 들어왔다(스펙 v2) — 밑줄에 세 갈래 내역을 그대로 적는다 */
+    const _plusBase=(typeof window.joinSplitCount==='function')
+      ? window.joinSplitCount('total',S.range?S.range[0]:'',S.range?S.range[1]:'')
+      : (S.join.length+S.rejoin.length);
     const plusNote=(S.plusInsN==null)
       ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
-      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+') 중 인사이트 함께 가입'
+      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+' · 요금제변경 '+S.plan.length+') 중 인사이트 함께 가입'
          + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
-         + ' · 개업세무사 제외 · 주간회의 표와 같은 기준');   /* v08.288 세 갈래 상호배타 */
+         + ' · 개업세무사 포함 · 주간회의 표와 같은 기준');   /* v08.289 스펙 v2 */
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -9017,8 +9021,7 @@ window.spPaint=function(){
        참고로 밑줄에 함께 적어 둔다 — 두 숫자가 다른 이유를 화면에서 알 수 있게 한다. */
     const pkgHeroNote=(S.pkgJoinN==null)
       ? '청구대상 고객관리 파일 업로드 필요'
-      : ('가입일·재가입일 기준 · 청구 파일의 프로모션 구분값으로 판정'
-         + ((S.pkgHero!=null)?(' · 프로모션 시작월 기준 '+S.pkgHero+'건'):''));
+      : '청구대상 고객관리 파일의 프로모션 시작월 기준';   /* v08.289 스펙 v2 */
     return '<div class="kpi-head four">'
       + hero('도입 문의', z(S.inq.length), 'tc', d('inq',1), '')
       + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
@@ -12413,18 +12416,20 @@ function planRejoinCountByIns(hasIns,s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return !!x.insJn===hasIns&&inR(x.rj);}).length;
 }
-/* ══ v08.288 요청(스펙 이미지: 플러스 / 개업세무사 / 베이직 / 합계) ══
-   사용자가 적어 준 정의 그대로 「가입」을 **서로 겹치지 않는 세 갈래**로 나눈다.
-     가입     = 신규가입 + 재가입 (가입일 또는 재가입일이 그 기간)
-     개업세무사 = 청구 파일의 **프로모션 구분값** = 개업세무사 성장지원 패키지(=개업성장패키지)
-     플러스   = 개업세무사가 아니면서 **인사이트 가입일자**가 있는 곳
-     베이직   = 개업세무사가 아니면서 인사이트 가입일자가 없는 곳
-   → 세 갈래가 상호배타이므로 **합계 = 실제 가입 건수**가 되고, 같은 곳을 두 번 세지 않는다.
-   ※ 사용자 확정(2026-09-09): 종전 개업성장패키지 행은 청구 파일의 「프로모션 시작월」로 세어
-     가입일 기준인 다른 행과 기간 귀속이 달랐다(2026-08에 플러스 3 < 패키지 5). 세 행 모두
-     가입일 기준으로 통일한다. 프로모션 시작월 기준 값이 필요하면 pkgJoinCountRange가 그대로 있다.
-   ※ 청구 파일이 없으면 개업세무사를 판정할 수 없다 — 그때는 개업세무사를 null(화면 「—」)로 두고
-     플러스·베이직은 인사이트 가입 여부만으로 가른다(없는 값을 지어내지 않는다). */
+/* ══ v08.289 사용자 스펙 v2(엑셀 이미지 · 「기준」 칸 포함) ══
+   v08.288의 스펙이 사용자에 의해 아래와 같이 갱신됐다 — **정의 3줄이 바뀌었다.**
+     가입     = 신규가입 + 재가입 + **요금제변경**            ← 요금제변경이 새로 들어왔다
+     플러스   = 인사이트 가입일자 유무 (**개업세무사 포함**)   ← 개업세무사를 빼지 않는다
+     개업세무사 = **프로모션 시작일** 기준                     ← 프로모션 구분값+가입일 → 시작일로 환원
+     베이직   = 인사이트 가입일자 없음
+     합계     = **플러스 + 베이직**                            ← 개업세무사는 플러스에 이미 포함
+   그래서 v08.288의 「세 갈래 상호배타」는 폐기다. 지금 구조는:
+     · 모수(가입) = 그 기간에 가입일·재가입일·요금제변경일이 찍힌 사무소(행 단위 1건)
+       요금제변경은 **실적으로 보는 변경만**(v08.286 공통 규칙 planChgReal) 센다.
+     · 플러스 / 베이직 = 그 모수를 인사이트 가입일자 유무로 둘로 나눈 것 → 합계 = 모수 전체
+     · 개업세무사 = 청구 파일의 프로모션 시작월로 따로 세는 값이라 **모수와 기간 기준이 다르다**
+       (플러스의 하위 항목으로 표시하지만 산술적 포함 관계가 보장되는 값은 아니다 — 화면에 기준 표기)
+   ※ 청구 파일이 없으면 개업세무사는 null(화면 「—」) — 없는 값을 지어내지 않는다. */
 window.pkgHasBilling=function(){
   return !!(window.__xlBilling||window.__billAllByBiz||window.__billAllByName
             ||window.__billByBiz||window.__billByName);
@@ -12450,18 +12455,30 @@ window.pkgPromoOf=function(x){
 /* kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
 window.joinSplitCount=function(kind,s,e,onlyRejoin){
   const R=window.__xlOfficeRows||[];
-  if(!Array.isArray(R)||!R.length)return (kind==='pkg'&&!window.pkgHasBilling())?null:0;
+  if(kind==='pkg'){
+    /* 개업세무사 = 청구 파일의 **프로모션 시작일(월)** 기준 — 사용자 스펙 v2.
+       파일이 없으면 판정 불가(null → 화면 「—」). */
+    const AB=window.__billAllRows;
+    if(!Array.isArray(AB)||!AB.length)return null;
+    return (typeof pkgJoinCountRange==='function')?pkgJoinCountRange(s,e):null;
+  }
+  if(!Array.isArray(R)||!R.length)return 0;
   const inR=officeInRange(s,e);
-  const rows=R.filter(onlyRejoin?function(x){return inR(x.rj);}
-                                :function(x){return inR(x.jn)||inR(x.rj);});
+  /* 요금제변경은 **실적으로 보는 변경만** 센다 — 재등록·구간요금제 폐지 전환 제외(v08.286 공통 규칙).
+     그래서 이 모수는 실적 분석의 「요금제 변경」 카드와 같은 집합을 쓴다. */
+  const chg=function(x){
+    if(!inR(x.pc))return false;
+    return (typeof window.planChgReal!=='function')||window.planChgReal(x);
+  };
+  const hit=onlyRejoin?function(x){return inR(x.rj);}
+                      :function(x){return inR(x.jn)||inR(x.rj)||chg(x);};
+  const rows=R.filter(hit);        // 같은 사무소가 가입·요금제변경을 함께 했어도 행 하나라 1건
   if(kind==='total')return rows.length;
-  const known=window.pkgHasBilling();
-  const isPkg=known?function(x){return window.pkgPromoOf(x)===true;}:function(){return false;};
-  if(kind==='pkg')return known?rows.filter(isPkg).length:null;
-  if(kind==='plus')return rows.filter(function(x){return !isPkg(x)&&!!x.insJn;}).length;
-  if(kind==='basic')return rows.filter(function(x){return !isPkg(x)&&!x.insJn;}).length;
+  if(kind==='plus') return rows.filter(function(x){return !!x.insJn;}).length;
+  if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
   return 0;
 };
+
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
@@ -12535,14 +12552,14 @@ function monPerfTableHtml(){
        · 신규 가입 + 재가입 둘 다 포함(가입일 또는 재가입일이 그 달) — 종전 범위와 같다.
        · 「가입 목표」 숫자는 전체 가입 기준으로 입력해 둔 값이라 그대로 남아 있다 —
          사용자가 플러스 기준으로 다시 입력하기로 확정(그때까지 달성률은 낮게 보인다). */
-    /* v08.288 개업세무사를 뺀 순수 플러스로 센다(세 갈래 상호배타 — joinSplitCount 주석 참고).
+    /* v08.289 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**.
        아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다. */
     const _r=monRangeOf(y,m);
     rows.rejA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1],true);
     rows.newA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
-    /* v08.288 개업세무사 실적도 **가입일 기준**으로 통일(사용자 확정) — 아래 표의 개업세무사
-       행과 같은 함수를 쓴다. 종전 프로모션 시작월 기준 값은 pkgJoinCountRange로 남아 있다. */
+    /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
+       행과 같은 함수를 쓴다(joinSplitCount('pkg') → pkgJoinCountRange). */
     rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
@@ -12649,17 +12666,20 @@ function planJoinTableHtml(){
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
-  /* ══ v08.288 사용자 스펙(플러스 / 개업세무사 / 베이직 / 합계) ══
-     세 행 모두 **가입일·재가입일 기준**이고 서로 겹치지 않는다(joinSplitCount 주석 참고).
-     그래서 합계 = 플러스 + 개업세무사 + 베이직 = 실제 가입 건수다.
-     v08.240에서 「베이직 → 리포트」로 바꿨던 이름은 이번 스펙에 따라 다시 「베이직」이다. */
+  /* ══ v08.289 사용자 스펙 v2 ══
+     · 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**
+     · └ 개업세무사 = 프로모션 시작일 기준(플러스의 세부 항목으로 표시)
+     · 베이직 = 가입 중 인사이트 미가입 · 합계 = **플러스 + 베이직**
+     이름은 v08.288과 같다(리포트 → 베이직). */
   const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
     rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1]);
     rows.pkg[m]   = future(m)?null:window.joinSplitCount('pkg',  r[0],r[1]);
     rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1]);
-    rows.total[m] = future(m)?null:window.joinSplitCount('total',r[0],r[1]);
+    /* v08.289 합계 = 플러스 + 베이직(스펙 v2) — 개업세무사는 플러스에 이미 포함돼 더하지 않는다.
+       모수 전체('total')와 같은 값이지만, 스펙의 산식을 그대로 드러내려고 두 행을 더한다. */
+    rows.total[m] = (rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
@@ -12677,15 +12697,16 @@ function planJoinTableHtml(){
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
-    +tr('개업세무사',rows.pkg,'color:var(--link)')
+    +tr('&nbsp;&nbsp;└ 개업세무사',rows.pkg,'color:var(--link)')
     +tr('베이직',rows.report)
     +tr('합계',rows.total,'font-weight:700;border-top:1px dashed var(--border)')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
-    +'세 행 모두 고객 마스터의 <b>가입일·재가입일</b> 기준이며 서로 겹치지 않습니다 — '
-    +'<b>개업세무사</b>(청구 파일의 프로모션 구분값 = 개업세무사 성장지원 패키지) → '
-    +'그 외에서 <b>인사이트 가입</b>이 있으면 플러스, 없으면 베이직. 그래서 <b>합계 = 그 달 실제 가입 건수</b>입니다.'
+    +'<b>가입</b> = 신규가입 + 재가입 + 요금제변경(실적으로 보는 변경만) · '
+    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳(개업세무사 포함) · <b>베이직</b> = 인사이트 미가입 · '
+    +'<b>합계</b> = 플러스 + 베이직. '
+    +'<b>└ 개업세무사</b>만 청구 파일의 <b>프로모션 시작월</b> 기준이라 기간을 정하는 날짜가 다릅니다(합계에는 더하지 않음).'
     +(window.pkgHasBilling()?'':' 청구대상 고객관리 파일이 없어 개업세무사는 판정할 수 없습니다(—).')
     +'</div>';
 }
@@ -13883,6 +13904,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u22',d:'2026-09-09',tt:'가입 집계 기준 갱신 — 요금제변경 포함 · 플러스에 개업세무사 포함',
+  b:'「가입」을 신규가입 + 재가입 + 요금제변경(실적으로 보는 변경만)으로 셉니다. 플러스는 그중 인사이트 가입이 있는 곳(개업세무사 포함), 베이직은 인사이트 미가입, 합계는 플러스 + 베이직입니다. 개업세무사는 청구 파일의 프로모션 시작월 기준으로 플러스 아래 세부 항목으로 표시됩니다.'},
  {id:'u21',d:'2026-09-09',tt:'전체 가입 현황을 「플러스 / 개업세무사 / 베이직 / 합계」로 재구성',
   b:'가입을 서로 겹치지 않는 세 갈래로 나눕니다 — 개업세무사(청구 파일의 프로모션 구분값) → 그 외에서 인사이트 가입이 있으면 플러스, 없으면 베이직. 세 행 모두 가입일·재가입일 기준이라 합계가 그 달 실제 가입 건수와 같습니다. 「프로모션 가입」은 「개업세무사 가입」으로, 「리포트」는 「베이직」으로 이름이 바뀌었습니다.'},
  {id:'u20',d:'2026-09-09',tt:'「플러스 가입」 기준을 세 화면에서 하나로 통일 · 개업성장패키지 행 분리',
