@@ -2054,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.276';
+window.__APP_VER='v08.277';
 window.__wembProtect=[];
 
 
@@ -4874,6 +4874,75 @@ window.stepFilter=function(pid,idx,el){
   if(RENDER[pid])RENDER[pid]();
 }
 const RENDER={};
+/* ══════════════════════════════════════════════════════════════════════
+   v08.277 요청("날짜 지정하는 기능이 잘 안돼 — 2026 09 30을 입력하려고 시도하면 2026 09 03으로
+   입력이 돼. 이런게 한두개가 아니거든? 날짜 입력하는 곳들 전부 점검해봐")
+
+   원인은 v08.164(카드 상세 기간 칸)와 완전히 같다 — `type=date`/`type=month` 칸은 연·월·일이
+   따로 나뉘어 있어서, 「30」을 치려고 「3」을 누른 순간 이미 값이 유효해지고(2026-09-03)
+   브라우저가 change를 낸다. 그때 화면을 통째로 다시 그리면 입력 중이던 칸이 새로 만들어져
+   커서가 사라지고, 뒤이어 친 「0」이 갈 곳을 잃는다 → 「30」이 「03」으로 굳는다.
+
+   v08.164에서는 카드 상세만 고쳤고, 화면마다 흩어져 있는 날짜 필터 칸들(실적 관리·신청 관리·
+   해지·재가입·일별·월별 등)은 그대로 남아 있었다. 화면별로 "연도 4자리 검사 + 0.4초 디바운스"
+   같은 임시 방어를 덧대 뒀지만, 사람이 0.4초보다 느리게 치면(달력 칸을 눈으로 확인하며 치면
+   흔하다) 그 사이에 다시 그려져 똑같이 깨졌다.
+
+   그래서 방어 방식을 하나로 통일한다.
+     · 손으로 치는 중(직전 1.5초 안에 그 칸에서 키를 눌렀다)이면 **다시 그리지 않고 미룬다** —
+       칸에서 커서가 빠지는 순간(blur) 그린다. 커서를 계속 두고 있어도 2초 뒤에는 그린다(안전망).
+     · 달력에서 골랐거나 코드가 값을 바꾼 경우(키 입력 없이 change)는 지금처럼 즉시 그린다.
+   화면별 임시 방어(연도 검사·짧은 디바운스)는 이 규칙이 대신하므로 함께 걷어낸다.
+
+   쓰는 법: 날짜 칸의 onchange 처리 함수에서 "다시 그리는 부분"만 dtRedraw(그릴함수)로 감싼다.
+   어느 칸인지 넘길 필요는 없다 — change 시점에 그 칸이 곧 document.activeElement다. */
+(function(){
+  /* 날짜 칸에서 키를 누른 시각을 그 칸에 적어 둔다(캡처 단계라 화면 어디서든 한 번에 잡힌다).
+     칸마다 onkeydown을 달지 않아도 되고, 나중에 새로 만드는 날짜 칸에도 자동으로 적용된다. */
+  document.addEventListener('keydown', function(e){
+    const t=e.target;
+    if(t&&(t.type==='date'||t.type==='month'))t.__dtKey=Date.now();
+  }, true);
+  let T=null;
+  const isDt=el=>!!el&&(el.type==='date'||el.type==='month');
+  function waitBlur(el,fn){
+    if(el.__dtBound)return;          // 칸은 다시 그릴 때마다 새로 만들어지므로 중복 등록될 일이 없다
+    el.__dtBound=1;
+    el.addEventListener('blur', function(){
+      clearTimeout(T);
+      /* blur를 처리하는 도중에 화면을 다시 그리면 브라우저가 "옮겨진 노드" 오류를 낸다
+         (innerHTML 실패 — 실제로 겪었다). 한 틱 뒤에 그린다.
+         그 사이 커서가 옆 날짜 칸으로 옮겨갔다면(시작~끝을 Tab으로 이동) 그 칸까지 다 치고
+         나서 그린다 — 안 그러면 방금 옮겨간 칸이 지워져 다시 같은 문제가 난다. */
+      T=setTimeout(function(){
+        const a=document.activeElement;
+        if(a&&a!==el&&isDt(a)){ waitBlur(a,fn); T=setTimeout(fn,2000); return; }
+        fn();
+      },0);
+    });
+  }
+  window.dtRedraw=function(fn){
+    if(typeof fn!=='function')return;
+    clearTimeout(T);
+    const el=document.activeElement;
+    /* 키를 누른 흔적이 없으면 달력에서 고른 것(또는 코드가 값을 바꾼 것) — 기다릴 이유가 없다 */
+    if(!isDt(el)||(Date.now()-(el.__dtKey||0))>=1500){ fn(); return; }
+    waitBlur(el,fn);
+    T=setTimeout(fn, 2000);          // 커서를 계속 두고 있어도 결국은 그린다(안전망)
+  };
+  /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 기간 필터(시작~끝)를 한 달씩 통째로
+     옮긴다. 기준은 현재 시작일의 달(비어 있으면 데이터 기준월)이고, 결과는 그 달 1일~말일이다.
+     일별(dayShift)·월별(monShift)·기준월(moShift)에는 이미 ◀▶가 있었고, 기간 필터 쪽에만
+     없었다 — 같은 조작감을 맞춘다. */
+  window.dtMonthRange=function(cur,n){
+    let ym=/^\d{4}-\d{2}/.test(String(cur||''))?String(cur).slice(0,7)
+          :((typeof baseMonth==='function')?baseMonth():'');
+    if(!/^\d{4}-\d{2}$/.test(ym||''))return null;
+    const t=new Date(+ym.slice(0,4), +ym.slice(5,7)-1+n, 1);
+    const y=t.getFullYear(), m=t.getMonth()+1, p=x=>String(x).padStart(2,'0');
+    return [y+'-'+p(m)+'-01', y+'-'+p(m)+'-'+p(new Date(y,m,0).getDate())];
+  };
+})();
 // ── 여정 자동 생성 저장소 (도입문의 수동입력 → 컨설팅 → 온보딩) ──
 window.__manualInq=window.__manualInq||[];   // 수동 입력 도입 문의
 window.__autoCons=window.__autoCons||[];      // 도입문의에서 자동 생성된 컨설팅
@@ -5548,14 +5617,12 @@ function custToMg(c,step,status,problem,action,dmn){
   const el=document.getElementById('s-daily'); if(!el)return;
   window.__dayD=window.__dayD||null;
   /* v08.189 일별 날짜 칸도 같은 문제 — 연도를 치는 중간에 다시 그리면 나머지 자리가 날아간다.
-     연도가 4자리로 완성되기 전에는 그리지 않고, 완성된 뒤에도 잠깐 기다렸다 그린다. */
-  let __dayT=null;
+     v08.277 그때 넣은 "연도 4자리 검사 + 0.4초 디바운스"는 0.4초보다 느리게 치면 여전히
+     깨졌다(일 칸 「30」이 「03」으로 굳는 문제). 공통 규칙(dtRedraw)으로 대체한다 — 커서가
+     그 칸에 있는 동안은 아예 다시 그리지 않는다. */
   window.daySet=function(v){
     window.__dayD=v||null;
-    const y=+String(v||'').slice(0,4);
-    if(v&&!(y>=1900))return;
-    clearTimeout(__dayT);
-    __dayT=setTimeout(function(){ if(RENDER['daily'])RENDER['daily'](); }, 400);
+    dtRedraw(function(){ if(RENDER['daily'])RENDER['daily'](); });
   };
   window.dayShift=function(n){
     const b=window.__dayD||baseDate(); const dt=new Date(b); dt.setDate(dt.getDate()+n);
@@ -5617,7 +5684,9 @@ function custToMg(c,step,status,problem,action,dmn){
 (function(){
   const el=document.getElementById('s-monthly'); if(!el)return;
   window.__monM=window.__monM||null;
-  window.monSet=function(v){window.__monM=v||null;if(RENDER['monthly'])RENDER['monthly']();};
+  /* v08.277 — type=month도 연도 칸을 치는 중에 값이 유효해져(예: 「0002-09」) 즉시 다시 그려
+     나머지 자리가 날아갔다. 공통 규칙(dtRedraw)으로 커서가 빠질 때까지 미룬다. */
+  window.monSet=function(v){window.__monM=v||null;dtRedraw(function(){if(RENDER['monthly'])RENDER['monthly']();});};
   window.monShift=function(n){
     const b=(window.__monM||baseMonth())+'-01'; const dt=new Date(b); dt.setMonth(dt.getMonth()+n);
     window.__monM=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
@@ -6119,7 +6188,8 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
     window.__mtMonth=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
     render();
   };
-  window.mtMonthSet=function(v){if(!v)return;window.__mtMonth=v;render();if(typeof IX_toast==='function')IX_toast('기준 월 '+v+' 진행상황 표시');};
+  /* v08.277 — 기준 월(type=month) 칸도 치는 중에 즉시 다시 그려 입력이 끊겼다(공통 규칙 적용) */
+  window.mtMonthSet=function(v){if(!v)return;window.__mtMonth=v;dtRedraw(function(){render();if(typeof IX_toast==='function')IX_toast('기준 월 '+v+' 진행상황 표시');});};
   window.setMtStatus=function(id,v){(window.__mtMonthly[window.__mtMonth]=window.__mtMonthly[window.__mtMonth]||{})[id]=v;
     IX_saveToSheet('mkt_task_monthly',window.__mtMonthly);render();};
   window.mtMonthStat=function(mo){ // 해당 월 완료율 (미기록 월은 null)
@@ -7044,13 +7114,15 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
   window.__ofF=window.__ofF||{d1:'',d2:'',kind:'',q:'',open:false};
   window.ofSet=function(k,v){
     window.__ofF[k]=v;
-    if(k==='d1'||k==='d2'){
-      const y=+String(v||'').slice(0,4);
-      if(v&&!(y>=1900))return;                    /* v08.189와 같은 이유 — 연도 치는 중엔 안 그린다 */
-      clearTimeout(window.__ofT);
-      window.__ofT=setTimeout(function(){ window.__renderOfficeEvents(); },400);
-      return;
-    }
+    /* v08.277 — 기간 칸(d1·d2)은 치는 중에 다시 그리면 입력이 끊긴다. v08.189식 임시 방어
+       (연도 검사+0.4초 디바운스)를 공통 규칙(dtRedraw)으로 대체 — 커서가 빠질 때 그린다. */
+    if(k==='d1'||k==='d2'){ dtRedraw(function(){ window.__renderOfficeEvents(); }); return; }
+    window.__renderOfficeEvents();
+  };
+  /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 기간을 한 달씩 통째로 옮긴다 */
+  window.ofMonthShift=function(n){
+    const r=(typeof dtMonthRange==='function')?dtMonthRange(window.__ofF.d1,n):null; if(!r)return;
+    window.__ofF.d1=r[0]; window.__ofF.d2=r[1];
     window.__renderOfficeEvents();
   };
   window.ofToggle=function(){ window.__ofF.open=!window.__ofF.open; window.__renderOfficeEvents(); };
@@ -7138,9 +7210,12 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       +'<span style="font-size:10px;color:var(--gray-md)">기간</span>'
+      /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") */
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="ofMonthShift(-1)" title="전월(1일~말일)로 이동">◀ 전월</button>'
       +'<input type="date" value="'+IX_esc(F.d1||'')+'" onchange="ofSet(\'d1\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<span style="color:var(--gray-md)">~</span>'
       +'<input type="date" value="'+IX_esc(F.d2||'')+'" onchange="ofSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="ofMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="ofSet(\'d1\',\'\');ofSet(\'d2\',\'\')">전체 기간</button>'
       +'<input value="'+IX_esc(F.q||'')+'" oninput="ofSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:190px">'
@@ -7208,7 +7283,10 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
   // v04.68 유입경로: 대분류 4종 + 상세. 마케팅 상세는 정기 업무 목록에서 자동 생성
   RENDER['inq']=render;
   window.__inqAll=I.rows.concat(TASKN);   // v04.68 발송 이력 자동 귀속용
-  window.inqSetVal=function(id,v){const e=document.getElementById(id);if(e){e.value=v;render();}};
+  /* v08.277 — 등록일(iD1·iD2) 칸은 디바운스조차 없이 change마다 즉시 표를 다시 그려서,
+     날짜를 손으로 치면 거의 항상 첫 자리만 들어갔다. 공통 규칙(dtRedraw)을 적용한다 —
+     제목 검색(iq) 같은 일반 칸은 종전처럼 즉시 그린다(dtRedraw가 날짜 칸일 때만 미룬다). */
+  window.inqSetVal=function(id,v){const e=document.getElementById(id);if(e){e.value=v;dtRedraw(render);}};
   window.inqJCat=function(c){window.__inqJC=(window.__inqJC===c?'':c);window.__inqLongF=false;render();
     const a=document.getElementById('inqListAnchor');if(a)a.scrollIntoView({behavior:'smooth',block:'start'});
     if(typeof IX_toast==='function')IX_toast(window.__inqJC?('문의 관리 목록: '+c+' 필터'):'문의 관리 목록: 목적 필터 해제');}
@@ -9242,25 +9320,30 @@ window.spPaint=function(){
     if(typeof IX_saveToSheet==='function')IX_saveToSheet('perf_master',window.__pmMaster);
     renderPerfMg();
   };
-  /* ══ v08.189 버그 수정("날짜입력이 잘안돼") ══
+  /* ══ v08.189 버그 수정("날짜입력이 잘안돼") → v08.277 방식 교체 ══
      기간 칸에 「2026」을 치면 연도 한 자를 칠 때마다(2 → 20 → 202) 값이 유효해져 change가 난다.
      그때마다 목록을 다시 그려 입력칸이 새로 만들어지고, 뒤이어 친 자리가 갈 곳을 잃어
-     「0002-08-01」처럼 들어갔다. CLAUDE.md 10번과 같은 문제다.
-     날짜 칸은 ① 연도가 4자리로 완성되기 전에는 다시 그리지 않고 ② 완성된 뒤에도 잠깐 기다렸다
-     그린다(그 사이에 이어 치면 타이머가 다시 잡힌다). 값 저장은 매번 한다 — 저장이 늦으면 안 된다. */
-  let __pmDateT=null;
+     「0002-08-01」처럼 들어갔다.
+     v08.189에서는 "연도 4자리 검사 + 0.4초 디바운스"로 막았는데, 일(日) 칸에서 「30」의 「3」만
+     쳐도 값이 유효해지는 것은 못 막았고 0.4초보다 느리게 치면 그대로 깨졌다(v08.277 신고 내용).
+     이제 공통 규칙 dtRedraw(RENDER 선언 옆)로 통일한다 — 커서가 그 칸에 있는 동안은 다시 그리지
+     않는다. 값 저장(window.__pmF)은 종전처럼 change마다 즉시 한다 — 저장이 늦으면 안 된다. */
   window.pmSet=function(k,v){
     window.__pmF[k]=v;
-    if(k==='d1'||k==='d2'){
-      const y=+String(v||'').slice(0,4);
-      if(v&&!(y>=1900))return;                 // 아직 연도를 치는 중 — 그리지 않는다
-      clearTimeout(__pmDateT);
-      __pmDateT=setTimeout(function(){ renderPerfMg(); }, 400);
-      return;
-    }
+    /* v08.277 버그 수정(요청: "2026 09 30을 입력하려고 시도하면 2026 09 03으로 입력이 돼") —
+       여기 있던 "연도 4자리 검사 + 0.4초 디바운스"는 0.4초보다 느리게 치면 그 사이에 화면을
+       다시 그려 커서가 날아갔다. 공통 규칙(dtRedraw)으로 대체 — 커서가 그 칸에 있는 동안은
+       다시 그리지 않고, 칸을 벗어날 때(또는 달력에서 고를 때) 그린다. */
+    if(k==='d1'||k==='d2'){ dtRedraw(function(){ renderPerfMg(); }); return; }
     renderPerfMg();
   };
   window.pmClearPeriod=function(){ window.__pmF.d1=''; window.__pmF.d2=''; renderPerfMg(); };
+  /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 발생일 기간을 한 달씩 통째로 옮긴다 */
+  window.pmMonthShift=function(n){
+    const r=(typeof dtMonthRange==='function')?dtMonthRange(window.__pmF.d1,n):null; if(!r)return;
+    window.__pmF.d1=r[0]; window.__pmF.d2=r[1];
+    renderPerfMg();
+  };
   /* v08.98 요청("업무를 삭제할수 있어야 함") — 실적 관리 목록에서 업무를 제외한다.
      원본은 지우지 않고 제외 목록(IX___inqDel)에 넣는 방식이라 되돌릴 수 있다(Supabase inq_del).
      IX_inqDel은 신청 관리 화면을 다시 그리므로, 여기서는 제외 처리만 하고 이 화면을 갱신한다. */
@@ -9588,9 +9671,12 @@ window.spPaint=function(){
       +'<input value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">발생일</span>'
+      /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 일별·월별 화면의 ◀▶와 같은 조작감 */
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(-1)" title="전월(1일~말일)로 이동">◀ 전월</button>'
       +'<input type="date" value="'+(F.d1||'')+'" onchange="pmSet(\'d1\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<span style="color:var(--gray-md)">~</span>'
       +'<input type="date" value="'+(F.d2||'')+'" onchange="pmSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건'
       +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')+'</span>'
@@ -9769,9 +9855,12 @@ window.spPaint=function(){
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       /* v08.98 등록일 기간 필터 — 「7월까지」처럼 기간을 끊어 일괄 지정할 때 쓴다 */
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">등록일</span>'
+      /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") */
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(-1)" title="전월(1일~말일)로 이동">◀ 전월</button>'
       +'<input type="date" value="'+(window.__pmF.d1||'')+'" onchange="pmSet(\'d1\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<span style="color:var(--gray-md)">~</span>'
       +'<input type="date" value="'+(window.__pmF.d2||'')+'" onchange="pmSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
+      +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       /* v08.98 기간을 한 번에 지우고 전체를 보는 버튼 — 진입 시 기준월로 좁혀 두므로 필요하다 */
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleInflowPanel()" id="inflowBtn">유입경로 관리</button>'
