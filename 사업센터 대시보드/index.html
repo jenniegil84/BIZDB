@@ -848,6 +848,8 @@ table.t .na{color:#B6BCC6}
 .ww-col-h span{font-weight:500;opacity:.8;margin-left:7px;font-family:ui-monospace,Consolas,monospace;font-size:10px}
 .ww-col-h.now{background:#0F766E}
 .ww-col-h.next{background:#1F2937}
+/* v08.283 저번 주 칸 머리 — 이번 주(청록 강조)와 구분되는 진한 회색(옛 .next와 같은 톤) */
+.ww-col-h.prev{background:#1F2937}
 .ww-col-b{padding:12px 13px 16px}
 /* ══ v08.147 요청("글이 위아래로 너무 붙어있는데 주제별로 사이 여백이 추가되어서 구분이 되면 좋을듯") ══
    종전에는 과제 사이 간격이 4px뿐이라, 앞 과제의 실행기록 마지막 줄과 다음 과제 제목이 거의
@@ -2054,8 +2056,19 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.277';
+window.__APP_VER='v08.283';
 window.__wembProtect=[];
+/* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
+   유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
+   로움 실적확정은 파란테두리") ══
+   위멤버스 실적보호 명단(__wembProtect)과 완전히 같은 구조의 두 번째 명단 = **로움 실적확정**
+   명단이다. 사업자번호가 이 명단에 있으면 유입경로·가입채널·최종실적을 「영업 > 내부영업」으로
+   확정한다(명단 이름은 「로움 실적확정」, 적용되는 채널값은 「영업 > 내부영업」 — 둘을 혼동하지 말 것).
+   · 판정은 사업자번호 완전일치만 — 상호명 판정은 쓰지 않는다(v08.98에서 위멤버스 쪽이 겪은
+     문제: 짧은 상호가 다른 사무소 문의에 우연히 들어가면 실적이 통째로 잘못 귀속된다).
+   · 두 명단에 같은 사업자번호가 있으면 위멤버스가 우선한다(기존 정책 유지).
+   · 저장은 STATE_MAP의 sales_inside — 위멤버스 명단과 같은 방식(파일에 박지 않는다). */
+window.__salesInside=[];
 
 
 const PAY = {"cust": [], "agg": {"P0": 18, "종료임박": 26, "종료경과": 49, "면제플러스": 25, "플러스전환": {"n": 86, "rate": 21.4}, "요금제": {"FREE": {"n": 33, "mrr": 0}, "PREMIUM": {"n": 137, "mrr": 11365000}, "STANDARD": {"n": 18, "mrr": 435000}, "구간": {"n": 54, "mrr": 6150000}, "기본": {"n": 52, "mrr": 2766500}, "베이직": {"n": 22, "mrr": 2400000}, "플러스": {"n": 86, "mrr": 20550000}}, "퍼널": [["누적 가입", 900], ["정상", 392], ["온보딩 완료", 259], ["활성 이용", 206], ["해지", 315], ["재가입", 35]], "상태": {"정지": 185, "해지": 308, "재가입": 34, "재가입정상": 14, "재해지": 16, "과금중": 329}, "월별": [{"m": "2025-08", "j": 13, "c": 13}, {"m": "2025-09", "j": 32, "c": 20}, {"m": "2025-10", "j": 16, "c": 12}, {"m": "2025-11", "j": 10, "c": 8}, {"m": "2025-12", "j": 17, "c": 14}, {"m": "2026-01", "j": 18, "c": 14}, {"m": "2026-02", "j": 20, "c": 19}, {"m": "2026-03", "j": 9, "c": 12}, {"m": "2026-04", "j": 8, "c": 18}, {"m": "2026-05", "j": 4, "c": 6}, {"m": "2026-06", "j": 6, "c": 13}, {"m": "2026-07", "j": 4, "c": 17}, {"m": "2026-08", "j": 1, "c": 1}], "해지사유": [["이용 요금이 부담돼요", 44], ["사용 방법이 어려워요", 36], ["사업자 변경", 10], ["데이터가 맞지 않아요", 6], ["이용 요금이 비싸요", 6], ["위멤버스 해지로 세모리포트 해지처리", 2], ["손익등의 정보가 정확하지 않아 혼선이 더 많음", 1], ["거래처수가 변동이 되서요 ", 1]], "해지": {"총": 308, "조기6개월": 126, "평균일": 302.5, "사유기재": 163}, "snap": {"ym": "2026-08", "join": [], "churn": [], "cur": {"ym": "2026-08", "join": 1, "churn": 1}}, "churn_rows": [], "task_steps": {"요청": 23, "진행": 48, "피드백": 83, "완료": 1557, "보류": 55}, "task_rows": [], "task_incomplete": 209, "task_over80": 196, "promo_rows": [], "월별전체": [{"m": "2025-08", "j": 13, "c": 13, "net": 0}, {"m": "2025-09", "j": 32, "c": 20, "net": 12}, {"m": "2025-10", "j": 16, "c": 12, "net": 4}, {"m": "2025-11", "j": 10, "c": 8, "net": 2}, {"m": "2025-12", "j": 17, "c": 14, "net": 3}, {"m": "2026-01", "j": 18, "c": 14, "net": 4}, {"m": "2026-02", "j": 20, "c": 19, "net": 1}, {"m": "2026-03", "j": 9, "c": 12, "net": -3}, {"m": "2026-04", "j": 8, "c": 18, "net": -10}, {"m": "2026-05", "j": 4, "c": 6, "net": -2}, {"m": "2026-06", "j": 6, "c": 13, "net": -7}, {"m": "2026-07", "j": 4, "c": 17, "net": -13}, {"m": "2026-08", "j": 1, "c": 1, "net": 0}], "월별전체_합": {"가입": 900, "해지": 327}, "위험": 123}, "ver": "v03.31", "date": "2026-07-17", "base": "통합데이터 v00.02 · 설계서 v00.05", "inq": {"rows": [], "total": 1804, "types": {"세모리포트 제안": 1, "미분류": 81, "신규가입": 764, "세모리포트 신청": 467, "재가입": 51, "세모리포트신청": 1, "세모R 신청": 165, "세모R 플러스 재신청": 6, "세모R 플러스 신청": 33, "개업성장패키지_요금변경": 8, "공지": 4, "개업성장패키지_신규가입": 1, "개업성장패키지_신규문의": 2, "가입고민": 1, "개업성장패키지_기존문의": 2, "인사이트 재가입": 1, "링크패스 도입문의": 16, "인사이트 신청": 9, "세모R & 인사이트 신청": 55, "한청세 이벤트": 9, "세모인사이트 상담 요청": 1, "통합 도입문의": 24, "세모R & 인사이트 재신청": 3, "인사이트 재신청": 1, "세모R": 1, "세모R 재신청": 27, "위멤버스+세모리포트": 1, "링크패스 도입문의 재신청": 3, "정보수집 미완료": 3, "재사용 문의": 1, "정보수집 완료": 1, "방문": 1, "Link Path 도입문의": 53, "세모R_부가세": 1, "견적요청/신규방문": 1, "방문요청": 1, "절세컨설팅": 1, "정책": 2, "요청": 1}, "untyped": 81}, "onbData": [], "consData": [], "funnelStat": {"inq_total": 1788, "inq_month": 14, "cons_total": 52, "cons_from_inq": 45, "cons_toOnb": 10, "onb_total": 21, "onb_from_cons": 9, "cust_total": 392, "cust_from_onb": 14, "churn_total": 315, "rejoin_total": 35}, "monitor": [], "monStat": {"total": 392, "sr_reg0": 5, "sr_cnt0": 10, "sr_send0": 68, "sr_cert": 25, "sr_risk_total": 89, "si_active": 87, "si_hp0": 19, "hp_apply": 77}, "mktHandover": {"tasks": [{"gubun": "주간", "cycle": "매주 화", "owner": "엠버", "cat": "컨텐츠", "content": "금주 컨텐츠 내용 작성", "prog": "컨텐츠 내용 수립 및 정리 (W. 제니)", "note": ""}, {"gubun": "주간", "cycle": "매주 수", "owner": "엠버", "cat": "블로그(세무사용)", "content": "매주 수요일 블로그 컨텐츠 업로드", "prog": "블로그 발행 컨텐츠 발행", "note": ""}, {"gubun": "주간", "cycle": "매주 수", "owner": "엠버", "cat": "인스타", "content": "매주 수요일 블로그 컨텐츠와 동일내용 업로드", "prog": "블로그 발행 컨텐츠 토대로, 인스타까지 업로드", "note": ""}, {"gubun": "주간", "cycle": "매주 수", "owner": "엠버", "cat": "UXM", "content": "매주 수요일 UXM 발송", "prog": "목요일 주간회의에 전주 UXM 발송률 모니터링", "note": "주간회의 준비"}, {"gubun": "월간", "cycle": "매월 2ND 수", "owner": "엠버", "cat": "정기세미나", "content": "매월 둘째주 수요일에 정기 세미나 진행", "prog": "진행 3주전 컨텐츠 회의 / 2주전 팝업 게시 및 진행내용 기획및 정리", "note": "3주전 컨텐츠 회의"}, {"gubun": "월간", "cycle": "매월 1일", "owner": "엠버", "cat": "월간세무", "content": "매월 1일, 블로그 예약 발행 3건, 해당건 어드민 세무지식 3건 발행", "prog": "현재는, 블로그 업로드 후, 모바일 화면기준 캡쳐 후 썸네일 및 통이미지로 어드민 업로드 중", "note": ""}, {"gubun": "이벤트", "cycle": "비정기", "owner": "엠버", "cat": "플러스 카카오 채널", "content": "이벤트 진행 및 세미나 이후 변동 확인 등", "prog": "플러스 카카오 채널 친구수 모니터링", "note": "완료 / 지속적인 유입 모니터링 필요"}, {"gubun": "이벤트", "cycle": "비정기", "owner": "엠버", "cat": "인터뷰", "content": "세모리포트 플러스 잘 사용하는, 우수세무사", "prog": "향후 진행방향 논의 필요", "note": "예정 / 진행여부, 일정 등의 내용 수립 필요"}, {"gubun": "이벤트", "cycle": "비정기", "owner": "엠버", "cat": "이벤트1", "content": "소상공인 대상 자금일보 무료체험 홍보 안내", "prog": "당근, 세모장부, 경리나라카페, 블로그 등에 노출", "note": "완료 / 지속적인 유입 모니터링 필요"}, {"gubun": "이벤트", "cycle": "비정기", "owner": "엠버", "cat": "협업", "content": "위멤버스 채널 세모리포트 가입대상자 문자 / 메일 UXM 안내 프로세스", "prog": "블로그 초안 완성, 해당 내용 황팀장님 전달 필요", "note": "전달 / 황팀장님 전달 및 협업사항 공유 필요"}, {"gubun": "이벤트", "cycle": "비정기", "owner": "엠버", "cat": "이벤트2", "content": "190만원 요금제 홍보 블로그 게시", "prog": "블로그 게시완료, SNS 업로드 및 카카오톡 업로드", "note": "완료 / 지속적인 유입 모니터링 필요"}, {"gubun": "광고", "cycle": "비정기", "owner": "엠버", "cat": "광고1", "content": "네이버 검색 광고 / 월간 결제", "prog": "네이버 광고 진행중", "note": "완료 / 지속적인 유입 모니터링 필요", "cost": "700000"}, {"gubun": "광고", "cycle": "비정기", "owner": "엠버", "cat": "광고2", "content": "외부매체 제휴 통한 스폰서드 콘텐츠 진행", "prog": "리뷰노트 진행", "note": "진행중 / 진행상황 팔로우업 필요"}, {"gubun": "관리", "cycle": "비정기", "owner": "제니", "cat": "유입코드", "content": "경로별 패스코드 붙여서 확인 필요", "prog": "해당내용 완료 및 전달", "note": "완료 / 지속적인 유지관리 필요"}, {"gubun": "관리", "cycle": "수시", "owner": "엠버", "cat": "DM발송", "target": "세무사", "content": "세무사 대상 DM 발송", "prog": "", "note": ""}], "channels": [{"cat": "블로그(세무사용)", "link": "https://blog.naver.com/tax_semoreport", "cycle": "주간", "run": "", "target": "세무사", "ex": "ex) 월간세무일정 / 정부지원금 사업 / 세무사 후기 등", "note": ""}, {"cat": "블로그(사장님용)", "link": "https://blog.naver.com/semoreport", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "네이버 검색광고", "link": "https://ads.naver.com/", "cycle": "선택", "run": "", "target": "세무사 / 대표님 / 그외", "ex": "", "note": ""}, {"cat": "UXM", "link": "https://www.ppurio.com/", "cycle": "주간", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "인스타", "link": "https://www.instagram.com/", "cycle": "주간", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "유튜브", "link": "https://www.youtube.com/", "cycle": "선택", "run": "", "target": "세무사 / 대표님", "ex": "", "note": ""}, {"cat": "페이스북", "link": "", "cycle": "선택", "run": "X", "target": "세무사", "ex": "", "note": "채널에 문제가 있음(?) 연동이 안됨. 새로 판 페이지를 해야하는데 관리가 아직 안된 상태,"}, {"cat": "정기세미나", "link": "", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "플러스 카카오 채널", "link": "https://business.kakao.com/", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "뉴스레터", "link": "", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "메일 제안서", "link": "", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": ""}, {"cat": "도움말", "link": "", "cycle": "선택", "run": "", "target": "세무사", "ex": "", "note": "카카오비즈니스 채널"}], "inflowSheets": [{"nm": "로움용 유입경로 시트", "who": "로움 직원만 접속 가능", "url": "https://docs.google.com/spreadsheets/d/17GQf8XqmLSQCXia_Efl3lfNGiKAtDaFvOryEkrmzS9Q/edit?gid=373141471#gid=373141471", "notes": ["구글시트 1page에 사용법 및 매뉴얼 구축", "템플릿 제공", "기존 1개 통합되어 채널별 확인이 어려운 점 → 하단 탭으로 구분"]}, {"nm": "위멤버스 유입경로 공유시트", "who": "info 및 생성자 외 위멤버스 초대만 가능", "url": "https://docs.google.com/spreadsheets/d/1Os6zrAa7PC--QuxBKgF_y3AFLlmrzt15tbJSmx5BelI/edit?gid=373141471#gid=373141471", "notes": ["도입문의 공통 1개, 개별 3개 제공", "개별의 경우 성을 따서 LEE 등으로 코드화", "도입문의·개업세무사 190랜딩페이지 2개 탭으로 나눔"]}]}};
@@ -2307,6 +2320,17 @@ window.wembProtectHit=function(r){
   const L=window.__wembProtect||[]; if(!L.length||!r)return false;
   const bz=String(r.bz||'').replace(/[^0-9]/g,'');
   if(!bz)return false;
+  return L.some(function(x){return x.bz&&String(x.bz).replace(/[^0-9]/g,'')===bz;});
+};
+/* v08.279 로움 실적확정 명단 판정 — 위 위멤버스 판정과 같은 방식(사업자번호 완전일치).
+   위멤버스 명단에도 있으면 그쪽이 우선이므로 여기서 먼저 걸러 준다(호출부마다 순서를
+   신경 쓰지 않아도 되게). */
+window.SALES_INSIDE_CH='영업 > 내부영업';
+window.salesInsideHit=function(r){
+  const L=window.__salesInside||[]; if(!L.length||!r)return false;
+  const bz=String(r.bz||'').replace(/[^0-9]/g,'');
+  if(!bz)return false;
+  if(typeof window.wembProtectHit==='function'&&window.wembProtectHit(r))return false;
   return L.some(function(x){return x.bz&&String(x.bz).replace(/[^0-9]/g,'')===bz;});
 };
 // v06.97 판정 규칙이 만들어내는 「대분류 > 소분류」를 모아 대분류별 소분류 목록으로 돌려준다.
@@ -2670,6 +2694,19 @@ function xlDate(v){
 // Tasklist → 도입문의 rows
 function xlParseTasklist(rows,hdr){
   const idx={}; hdr.forEach((h,i)=>idx[String(h||'').trim()]=i);
+  /* ══ v08.282 요청("플로우에서 데이터 가져올때 하위업무부분도 가져와서 보여주고, 하위업무에
+     추천인코드가 있는경우 가입채널을 해당 추천인으로 확정해") ══
+     플로우 엑셀에서 하위업무는 '내용' 컬럼 속 텍스트가 아니라 **자기 업무번호를 가진 별도의 행**
+     으로 내려온다(사용자가 보낸 엑셀 캡처에서 확인 — 제목 칸이 「WE_MOON」인 행이 따로 있고,
+     상위업무 칸에 부모 업무 제목이 들어 있다). 종전에는 이 컬럼을 읽지 않아 ① 부모와의 연결이
+     버려지고 ② 그 행이 제목에 대괄호가 없다는 이유로 「도입 문의」로 집계돼 문의 건수를
+     부풀리고 있었다.
+     컬럼명 표기가 파일마다 다를 수 있어 느슨하게 찾고, 못 찾으면 기능만 조용히 비활성화한다
+     (없는 값을 지어내지 않는다 — 화면에서 「컬럼 없음」으로 알린다). */
+  const iPar=xlIdxLoose(hdr,['상위업무','상위 업무','상위업무명','상위업무제목','상위작업','부모업무','상위']);
+  const iParNo=xlIdxLoose(hdr,['상위업무번호','상위 업무번호','상위업무 번호','부모업무번호']);
+  window.__flowSubCol={col:(iPar>=0?String(hdr[iPar]).trim():''), noCol:(iParNo>=0?String(hdr[iParNo]).trim():''),
+                       found:(iPar>=0||iParNo>=0), cands:hdr.map(function(h){return String(h||'').trim();}).filter(Boolean)};
   const need=['제목','상태','담당자','작성자','등록일','수정일','업무번호'];
   const miss=need.filter(k=>idx[k]==null);
   if(miss.length)throw new Error('필수 컬럼 없음: '+miss.join(', '));
@@ -2717,9 +2754,14 @@ function xlParseTasklist(rows,hdr){
       }
       return '';
     })();
+    /* v08.282 하위업무 표시 — 상위업무 제목(pt)·번호(pno)를 그대로 담아 둔다.
+       값이 있으면 그 행은 문의가 아니라 어떤 업무의 하위업무다. */
+    const pt=iPar>=0?String(r[iPar]||'').trim():'';
+    const pno=iParNo>=0?xlFid(r[iParNo]):'';
     out.push({fid:xlFid(no), tp:T.tp, tt:T.tt,
       wr:String(r[idx['작성자']]||''), dt:dt, md:xlDate(r[idx['수정일']]).slice(0,10),
-      st:String(r[idx['상태']]||''), ow:String(r[idx['담당자']]||''), el:el, tg:[], ct:ct, ci:ci, bz:bz});
+      st:String(r[idx['상태']]||''), ow:String(r[idx['담당자']]||''), el:el, tg:[], ct:ct, ci:ci, bz:bz,
+      pt:pt, pno:pno});
   });
   return out;
 }
@@ -2760,6 +2802,66 @@ function refChannelOf(code){
    플로우 '내용' 컬럼의 "■ 하위업무" 섹션도 같은 방식으로 확인한다(parseInqContent는 어느
    섹션명이든 "■ 이름" 표시만 있으면 자동으로 사전을 만들어 두므로 파싱 자체는 이미 지원됨).
    신청내용에 없을 때만 하위업무를 보되, 매핑·미확정(수기 지정분 보존) 규칙은 그대로다. */
+/* ══ v08.282 하위업무를 부모 업무에 연결하고, 추천인코드면 가입채널을 확정한다 ══
+   · 연결 기준: ① 상위업무번호(있으면 가장 정확) ② 상위업무 제목 문자열(공백 무시 비교).
+     제목은 파서가 「[유형] 제목」으로 쪼개 두므로 비교할 때 다시 붙여 맞춘다.
+   · 추천인코드 판정: 하위업무 제목이 영문 대문자·숫자·밑줄만으로 된 코드 모양이면 코드로 본다
+     (예: WE_MOON, TAX_SEMO_UXM). 한글이 섞인 일반 하위업무 제목은 코드로 보지 않는다.
+   · 가입채널 값은 ① 추천 정보 관리에 그 코드로 매핑해 둔 추천채널이 있으면 그 값,
+     ② 없으면 「영업 > 코드」를 쓰고 그 내용을 추천 정보 관리에 자동으로 만들어 둔다
+     (v08.283 요청 — refEnsureChannel 참고).
+   · 사람이 수기로 지정해 둔 가입채널은 덮어쓰지 않는다(기존 규칙과 동일). */
+window.__inqSubs={};
+window.SUB_REF_RE=/^[A-Z][A-Z0-9]*(?:[_-][A-Z0-9]+)+$/;
+/* ══ v08.283 요청("하위업무에서 찾으면 추천 정보 관리에 매핑된 채널을 먼저 반영하고
+   없으면 추천 정보 관리에 자동 생성") ══
+   하위업무 제목이 추천인코드 모양일 때 쓸 가입채널 값을 이 함수 하나로 정한다.
+     ① 추천 정보 관리(__refList)에 그 코드로 적어 둔 추천채널이 있으면 → 그 값을 그대로 쓴다
+        (사람이 정해 둔 채널 이름이 항상 우선. 예: WE_MOON → 「위멤버스 > 온라인 마케팅」)
+     ② 매핑이 없으면 → 「영업 > 코드」를 쓰고, 같은 내용을 추천 정보 관리에 자동으로 만들어 둔다
+        · 행이 아예 없으면 새 행 추가({코드, 영업 > 코드, 추천인 빈칸})
+        · 행은 있는데 추천채널 칸만 비어 있으면 그 칸만 채운다(추천인 등 다른 칸은 건드리지 않음)
+        → 이후 사용자가 그 표에서 채널 이름만 고치면 ①로 넘어가 계속 그 이름이 쓰인다.
+   저장은 여기서 매번 하지 않는다 — 여러 건이 한꺼번에 생기므로 __refDirty만 켜 두고
+   xlLinkSubTasks가 끝날 때 refSave()를 한 번만 부른다(저장 요청·화면 재렌더 폭주 방지). */
+function refEnsureChannel(code){
+  const raw=String(code||'').trim();
+  const c=raw.replace(/\s+/g,'').toUpperCase();
+  if(!c)return '';
+  const mapped=refChannelOf(c);
+  if(mapped)return mapped;
+  const ch='영업 > '+c;
+  const L=window.__refList=window.__refList||[];
+  const hit=L.filter(function(r){ return String(r&&r.cd||'').replace(/\s+/g,'').toUpperCase()===c; })[0];
+  if(hit)hit.ch=ch; else L.push({cd:raw, ch:ch, nm:''});
+  window.__refDirty=true;
+  return ch;
+}
+function xlLinkSubTasks(rows){
+  const norm=function(v){return String(v||'').replace(/\s+/g,'');};
+  const full=function(r){return norm((r.tp&&r.tp!=='미분류'?'['+r.tp+'] ':'')+r.tt);};
+  const byNo={}, byTitle={};
+  rows.forEach(function(r){ byNo[String(r.fid)]=r; const k=full(r); if(k&&!byTitle[k])byTitle[k]=r; });
+  const subs={};
+  rows.forEach(function(r){
+    if(!r.pt&&!r.pno)return;                                  // 하위업무가 아니다
+    const par=(r.pno&&byNo[String(r.pno)])||byTitle[norm(r.pt)]||null;
+    if(!par)return;                                           // 부모를 못 찾음 — 연결만 못 한다
+    (subs[par.fid]=subs[par.fid]||[]).push(r);
+    /* 제목이 추천인코드 모양이면 부모의 가입채널을 그 코드로 확정 */
+    const code=String(r.tt||'').trim().toUpperCase();
+    if(!window.SUB_REF_RE.test(code))return;
+    const ch=refEnsureChannel(code);          // 매핑 우선 · 없으면 추천 정보 관리에 자동 생성
+    if(!ch)return;
+    window.IX___inqManage=window.IX___inqManage||{};
+    const M=window.IX___inqManage[par.fid]=window.IX___inqManage[par.fid]||{};
+    if(!M.joinCh)M.joinCh=ch;
+  });
+  window.__inqSubs=subs;
+  /* 자동 생성분이 있으면 여기서 한 번만 저장한다(행마다 저장하면 요청이 수십 번 나간다) */
+  if(window.__refDirty){ window.__refDirty=false; if(typeof window.refSave==='function')window.refSave(); }
+  return subs;
+}
 function xlAutoJoinChFromContent(rows){
   rows.forEach(function(r){
     if(!r.ct)return;
@@ -2801,6 +2903,8 @@ function xlApplyInq(rows){
   // v08.98 요청("추천인코드가 있다면 가입채널을 영업채널1로 자동설정함") — 새로 올라온 문의 중
   // 내용에 추천인코드가 있는 건 가입채널을 자동 지정한다(수기 지정분은 덮어쓰지 않음).
   try{ xlAutoJoinChFromContent(rows); }catch(e){ console.error('추천인코드 자동반영 실패:',e); }
+  /* v08.282 하위업무 연결은 전체 행이 모인 뒤에 해야 부모를 찾을 수 있다 */
+  try{ xlLinkSubTasks(PAY.inq.rows||[]); }catch(e){ console.error('하위업무 연결 실패:',e); }
   try{ orphanSync(rows, prevRows); }catch(e){ console.error('보관 동기화 실패:',e); }
   IX_saveToSheet('inq_rows',rows); if(typeof window.markUpload==='function')window.markUpload('task');;
   // v08.98 요청("새로운 패스코드나 내용 유입경로가 확인되면 자동 업데이트") — PATH_CD·내용 유입경로
@@ -3699,10 +3803,19 @@ window.contentInflowPath=function(ct){
   return k? M[k] : '';
 };
 window.__inqIdx=null;
+/* ══ v08.279 버그 수정 ══
+   fid로 플로우 원본 행을 찾는 색인이다. 종전에는 한 번 만들면 다시 만들지 않았는데(널 체크만),
+   이 색인은 화면을 처음 그릴 때(=업로드·복원 전, PAY.inq.rows가 아직 빈 상태) 만들어진다.
+   그래서 업로드·복원이 끝난 뒤에도 색인은 계속 비어 있었고, 이 색인으로 사업자번호를 찾는
+   유입경로 자동 판정(inflowBase의 위멤버스·로움 명단 판정)이 조용히 실패했다
+   — 「최종실적·가입채널은 위멤버스로 확정되는데 유입경로만 미분류」로 갈리던 원인.
+   행 수가 달라지면 다시 만든다(업로드·복원·수기 추가·제외 모두 행 수가 바뀐다). */
+window.__inqIdxN=-1;
 window.inqRowOf=function(fid){
-  if(!window.__inqIdx){
-    window.__inqIdx={};
-    ((PAY.inq&&PAY.inq.rows)||[]).forEach(function(x){ window.__inqIdx[String(x.fid)]=x; });
+  const src=(PAY.inq&&PAY.inq.rows)||[];
+  if(!window.__inqIdx||window.__inqIdxN!==src.length){
+    window.__inqIdx={}; window.__inqIdxN=src.length;
+    src.forEach(function(x){ window.__inqIdx[String(x.fid)]=x; });
   }
   return window.__inqIdx[String(fid)]||null;
 };
@@ -3717,6 +3830,11 @@ window.inflowBase=function(fid,title,ci){
   if(typeof wembProtectHit==='function'){
     const _wr=(typeof inqRowOf==='function'?inqRowOf(fid):null)||{tt:title};
     if(wembProtectHit({bz:_wr.bz,tt:_wr.tt||title}))return '위멤버스 > 온라인 마케팅';
+  }
+  /* v08.279 로움 실적확정 명단 — 위멤버스와 같은 자리(자동 태그보다 앞, 수동 지정보다 뒤) */
+  if(typeof window.salesInsideHit==='function'){
+    const _sr=(typeof inqRowOf==='function'?inqRowOf(fid):null)||{tt:title};
+    if(window.salesInsideHit({bz:_sr.bz}))return window.SALES_INSIDE_CH;
   }
   const p=IX_passInflowOf(title);
   if(p)return p;                                     // ② PATH_CD
@@ -4054,6 +4172,10 @@ window.IX_creditChannel=function(r){
      같은 건인데 유입경로는 위멤버스인데 최종실적은 마케팅으로 갈리는 문제가 있었다. 같은 함수로 통일한다. */
   if(typeof window.wembProtectHit==='function'&&window.wembProtectHit(r)){
     return '위멤버스 > 온라인 마케팅';
+  }
+  /* ②-2 v08.279 로움 실적확정 명단 = 기간 무관 확정(위멤버스와 같은 취급) */
+  if(typeof window.salesInsideHit==='function'&&window.salesInsideHit(r)){
+    return window.SALES_INSIDE_CH;
   }
   // ③ 유입일 기준 3개월 실적보호기간
   const inflow=(typeof IX_inflowResolve==='function')?(IX_inflowResolve(r&&r.fid,r&&r.tt,r&&r.ci)||''):'';
@@ -4930,6 +5052,43 @@ const RENDER={};
     waitBlur(el,fn);
     T=setTimeout(fn, 2000);          // 커서를 계속 두고 있어도 결국은 그린다(안전망)
   };
+  /* ══════════════════════════════════════════════════════════════════
+     v08.278 요청("검색기능안됨" — 실적 관리 검색창에 「ㅁ」 한 자만 들어간 스크린샷)
+
+     검색 칸은 oninput(글자 하나마다)으로 화면을 통째로 다시 그리고 있었다. 그러면 그 칸이
+     새로 만들어져 커서가 사라지고, 한글은 조합 중이던 글자까지 끊겨 첫 자모만 남는다
+     — 「무선」을 치면 「ㅁ」만 들어가던 증상이 이것이다(날짜 칸 v08.277과 같은 원인,
+     CLAUDE.md 8번 섹션 5번 항목을 검색 칸에서 어기고 있었다).
+
+     검색은 "치는 대로 걸러 보이는 것"이 목적이라 아예 안 그릴 수는 없으므로 이렇게 한다.
+       ① 마지막 입력 뒤 0.3초 기다렸다 한 번만 그린다(글자마다 그리지 않는다).
+       ② 한글처럼 글자를 조합하는 중(composition)이면 조합이 끝날 때까지 미룬다.
+       ③ 그린 뒤에는 그 칸을 다시 찾아 커서를 원래 자리로 되돌린다 — 그래야 이어서 칠 수 있다.
+     ③ 때문에 그 칸에는 id가 있어야 한다. 쓰는 법: txRedraw(그릴함수, '그 칸의 id'). */
+  document.addEventListener('compositionstart', function(e){ if(e.target)e.target.__txIme=1; }, true);
+  document.addEventListener('compositionend', function(e){
+    const t=e.target; if(!t)return; t.__txIme=0;
+    if(t.__txRun){ const r=t.__txRun; t.__txRun=null; clearTimeout(TT); TT=setTimeout(r,300); }
+  }, true);
+  let TT=null;
+  window.txRedraw=function(fn,keepId){
+    if(typeof fn!=='function')return;
+    const el=keepId?document.getElementById(keepId):null;
+    if(!el||el!==document.activeElement){ fn(); return; }   // 그 칸에 커서가 없으면 바로 그린다
+    let pos=null; try{ pos=el.selectionStart; }catch(e){}
+    const run=function(){
+      fn();
+      const n=document.getElementById(keepId); if(!n)return;
+      try{ n.focus(); if(pos!=null&&n.setSelectionRange)n.setSelectionRange(pos,pos); }catch(e){}
+    };
+    clearTimeout(TT);
+    TT=setTimeout(function(){
+      /* 0.3초가 지났어도 아직 조합 중이면(자모 하나 치고 멈춘 경우) 조합이 끝난 뒤에 그린다 */
+      const cur=document.getElementById(keepId);
+      if(cur&&cur.__txIme){ cur.__txRun=run; return; }
+      run();
+    },300);
+  };
   /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 기간 필터(시작~끝)를 한 달씩 통째로
      옮긴다. 기준은 현재 시작일의 달(비어 있으면 데이터 기준월)이고, 결과는 그 달 1일~말일이다.
      일별(dayShift)·월별(monShift)·기준월(moShift)에는 이미 ◀▶가 있었고, 기간 필터 쪽에만
@@ -5011,6 +5170,7 @@ function IX_sbReady(){
 // 저장 키 → 화면 상태 변수 매핑 (복원 시 사용)
 const STATE_MAP={
   wemb_protect:'__wembProtect',   // v07.92 위멤버스 실적보호(사업자번호 포함 — 파일에 두지 않는다)
+  sales_inside:'__salesInside',   // v08.279 로움 실적확정 명단(위멤버스와 같은 방식 — 파일에 두지 않는다)
   /* v07.78 업로드 데이터 — 파일에 박지 않고 여기서 내려받는다 */
   office_rows:'__xlOfficeRows', office_stats:'__xlOffice',
   // v08.98 어떤 날짜 컬럼이 파일에 있었는지 — '컬럼 없음' vs '값 없음' 구분용
@@ -5380,7 +5540,7 @@ function custToMg(c,step,status,problem,action,dmn){
     return _src.filter(function(r){
       if(!String(r.dt||'').startsWith(ym))return false;
       if(typeof inqCls!=='function')return true;
-      const k=inqCls(r); return k!=='test' && k!=='notice';
+      const k=inqCls(r); return k!=='test' && k!=='notice' && k!=='sub';   /* v08.282 하위업무 제외 */
     }).length;
   };
   /* ══ v08.98 요청("실적분석의 일별 월별 누적은 실적관리 기준이며, 해당 데이터는 통합현황과 일치해야 함") ══
@@ -6969,6 +7129,33 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
        <div><div style="font-size:9.5px;color:var(--gray-md);margin-bottom:4px">담당자</div>
          <div style="font-size:13px;font-weight:700">${_txt(M.own||r.ow)}</div></div>
      </div>
+     ${(function(){
+       /* v08.282 요청("하위업무부분도 가져와서 보여주고") — 이 업무에 딸린 하위업무를 보여준다.
+          플로우 엑셀에 상위업무 컬럼이 없으면 연결이 불가하므로 그 사실을 그대로 알린다. */
+       const SC=window.__flowSubCol||{};
+       const L=(window.__inqSubs||{})[r.fid]||[];
+       if(!L.length&&SC.found)return '';
+       if(!L.length){
+         return '<div class="sec-label">하위업무</div>'
+           +'<div class="notebox gray">플로우 파일에 상위업무 컬럼이 없어 하위업무를 연결할 수 없습니다'
+           +(SC.cands&&SC.cands.length?(' — 파일의 「'+SC.cands.slice(0,6).map(IX_esc).join('」·「')+'」 확인 필요'):'')
+           +'</div>';
+       }
+       return '<div class="sec-label">하위업무 <span class="sec-tag t">'+L.length+'건</span></div>'
+         +'<div class="panel"><div style="overflow:auto"><table class="tbl"><thead><tr>'
+         +'<th style="text-align:left">업무명</th><th style="width:90px">상태</th>'
+         +'<th style="width:110px">담당자</th><th style="width:110px">등록일</th><th style="width:96px">업무번호</th>'
+         +'</tr></thead><tbody>'
+         +L.map(function(x){
+            const code=String(x.tt||'').trim().toUpperCase();
+            const isRef=window.SUB_REF_RE.test(code);
+            return '<tr><td style="text-align:left"><b>'+IX_esc(x.tt||'')+'</b>'
+              +(isRef?' <span class="rtag t정상" style="font-size:8px" title="추천인코드로 인식 · 가입채널을 「영업 > '+IX_esc(code)+'」로 확정">추천인코드</span>':'')
+              +'</td><td>'+IX_esc(STMAP[x.st]||x.st||'—')+'</td><td>'+IX_esc(x.ow||'—')+'</td>'
+              +'<td>'+IX_esc(String(x.dt||'').slice(0,10))+'</td><td>'+IX_esc(x.fid||'')+'</td></tr>';
+          }).join('')
+         +'</tbody></table></div></div>';
+     })()}
      <div class="sec-label">신청내용</div>
      <table class="tbl"><tbody>
       <tr><td style="text-align:left;width:150px"><b>유입경로</b></td><td style="text-align:left">${_txt(M.inflow||eff)}${eff&&!M.inflow?' <span class="rtag tP3" style="font-size:8px">자동판정</span>':''}</td></tr>
@@ -7112,8 +7299,10 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
      · 조회 전용이다. 지정·수정은 실적 관리에서 한다(신청 관리는 조회 전용이라는 원칙 유지).
      ══════════════════════════════════════════════════════════════════ */
   window.__ofF=window.__ofF||{d1:'',d2:'',kind:'',q:'',open:false};
-  window.ofSet=function(k,v){
+  window.ofSet=function(k,v,keepId){
     window.__ofF[k]=v;
+    /* v08.278 — 검색 칸은 글자마다 다시 그리면 커서·한글 조합이 끊긴다(공통 규칙 txRedraw) */
+    if(k==='q'&&keepId){ txRedraw(function(){ window.__renderOfficeEvents(); }, keepId); return; }
     /* v08.277 — 기간 칸(d1·d2)은 치는 중에 다시 그리면 입력이 끊긴다. v08.189식 임시 방어
        (연도 검사+0.4초 디바운스)를 공통 규칙(dtRedraw)으로 대체 — 커서가 빠질 때 그린다. */
     if(k==='d1'||k==='d2'){ dtRedraw(function(){ window.__renderOfficeEvents(); }); return; }
@@ -7217,7 +7406,7 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       +'<input type="date" value="'+IX_esc(F.d2||'')+'" onchange="ofSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="ofMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="ofSet(\'d1\',\'\');ofSet(\'d2\',\'\')">전체 기간</button>'
-      +'<input value="'+IX_esc(F.q||'')+'" oninput="ofSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
+      +'<input id="ofQ" value="'+IX_esc(F.q||'')+'" oninput="ofSet(\'q\',this.value,this.id)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:190px">'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건</span>'
       +'</div>'
@@ -7286,7 +7475,12 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
   /* v08.277 — 등록일(iD1·iD2) 칸은 디바운스조차 없이 change마다 즉시 표를 다시 그려서,
      날짜를 손으로 치면 거의 항상 첫 자리만 들어갔다. 공통 규칙(dtRedraw)을 적용한다 —
      제목 검색(iq) 같은 일반 칸은 종전처럼 즉시 그린다(dtRedraw가 날짜 칸일 때만 미룬다). */
-  window.inqSetVal=function(id,v){const e=document.getElementById(id);if(e){e.value=v;dtRedraw(render);}};
+  window.inqSetVal=function(id,v,keepId){
+    const e=document.getElementById(id); if(!e)return;
+    e.value=v;
+    /* v08.278 — 글자 칸(제목 검색)은 txRedraw, 날짜 칸(등록일)은 dtRedraw가 맡는다 */
+    if(keepId)txRedraw(render,keepId); else dtRedraw(render);
+  };
   window.inqJCat=function(c){window.__inqJC=(window.__inqJC===c?'':c);window.__inqLongF=false;render();
     const a=document.getElementById('inqListAnchor');if(a)a.scrollIntoView({behavior:'smooth',block:'start'});
     if(typeof IX_toast==='function')IX_toast(window.__inqJC?('문의 관리 목록: '+c+' 필터'):'문의 관리 목록: 목적 필터 해제');}
@@ -7362,7 +7556,7 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       {l:'실적보호',f:`<select onchange="protectFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option><option value="보호" ${window.__inqProtF==='보호'?'selected':''}>보호</option><option value="만료" ${window.__inqProtF==='만료'?'selected':''}>만료</option></select>`},
       {l:'최종실적',f:`<select onchange="creditFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option>${window.inflowGroups().map(([g])=>`<option value="${g}" ${window.__inqCreditF===g?'selected':''}>${g}</option>`).join('')}</select>`},
       {l:'가입채널',f:`<select onchange="joinChFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option>${window.inflowGroups().map(([g])=>`<option value="${g}" ${window.__inqJoinChF===g?'selected':''}>${g}</option>`).join('')}</select>`},
-      {l:'제목',flow:1,f:`<input value="${gv2('iq')}" oninput="inqSetVal('iq',this.value)" placeholder="제목·작성자 검색" style="display:block;width:100%;font-size:8px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;margin-top:2px">`},
+      {l:'제목',flow:1,f:`<input value="${gv2('iq')}" id="inqHdrQ" oninput="inqSetVal('iq',this.value,this.id)" placeholder="제목·작성자 검색" style="display:block;width:100%;font-size:8px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;margin-top:2px">`},
       {l:'작성자',flow:1},
       {l:'등록일',flow:1,f:`<div style="display:flex;gap:2px;margin-top:2px"><input type="date" value="${gv2('iD1')}" onchange="inqSetVal('iD1',this.value)" style="width:50%;font-size:7px;padding:1px;border:1px solid var(--border);border-radius:4px"><input type="date" value="${gv2('iD2')}" onchange="inqSetVal('iD2',this.value)" style="width:50%;font-size:7px;padding:1px;border:1px solid var(--border);border-radius:4px"></div>`},
       {l:'수정일',flow:1},
@@ -8305,7 +8499,7 @@ window.spPaint=function(){
      지금 규칙: 테스트·공지는 실적 대상이 아니다. 앞으로 제외 조건이 늘면 여기만 고치면 된다. */
   window.isPerfTarget=function(r){
     const k=(typeof window.inqCls==='function')?window.inqCls(r):'inq';
-    return k!=='test' && k!=='notice';
+    return k!=='test' && k!=='notice' && k!=='sub';   /* v08.282 하위업무는 실적 대상이 아니다 */
   };
 
   /* 기간(s~e) 하나로 일별·월별·누적을 모두 집계 — 세 탭이 같은 산식을 쓰게 하는 핵심 */
@@ -9328,8 +9522,10 @@ window.spPaint=function(){
      쳐도 값이 유효해지는 것은 못 막았고 0.4초보다 느리게 치면 그대로 깨졌다(v08.277 신고 내용).
      이제 공통 규칙 dtRedraw(RENDER 선언 옆)로 통일한다 — 커서가 그 칸에 있는 동안은 다시 그리지
      않는다. 값 저장(window.__pmF)은 종전처럼 change마다 즉시 한다 — 저장이 늦으면 안 된다. */
-  window.pmSet=function(k,v){
+  window.pmSet=function(k,v,keepId){
     window.__pmF[k]=v;
+    /* v08.278 — 검색 칸(q)은 글자마다 다시 그리면 커서·한글 조합이 끊긴다(공통 규칙 txRedraw) */
+    if(k==='q'&&keepId){ txRedraw(function(){ renderPerfMg(); }, keepId); return; }
     /* v08.277 버그 수정(요청: "2026 09 30을 입력하려고 시도하면 2026 09 03으로 입력이 돼") —
        여기 있던 "연도 4자리 검사 + 0.4초 디바운스"는 0.4초보다 느리게 치면 그 사이에 화면을
        다시 그려 커서가 날아갔다. 공통 규칙(dtRedraw)으로 대체 — 커서가 그 칸에 있는 동안은
@@ -9438,8 +9634,11 @@ window.spPaint=function(){
       inflow: L.filter(function(x){ return un(x.inflow); }).map(function(x){return x.r;}),
       // v08.98 가입채널·최종실적은 가입 문의만 대상
       // v08.98 가입채널·최종실적은 가입 문의만 대상 — 가입해야 실적이다
-      joinCh: L.filter(function(x){ return x.isJoin && !(M[x.r.fid]||{}).joinCh; }).map(function(x){return x.r;}),
-      finalCh:L.filter(function(x){ return x.isJoin && !x.wemb && un(x.finalV); }).map(function(x){return x.r;})
+      /* v08.279 — 가입채널도 실적보호업체는 위멤버스 확정이라 일괄 지정 대상에서 뺀다
+         (아래 최종실적과 같은 처리). */
+      joinCh: L.filter(function(x){ return x.isJoin && !x.wemb && !x.inside && !(M[x.r.fid]||{}).joinCh; }).map(function(x){return x.r;}),
+      /* v08.279 — 로움 실적확정 명단도 확정값이라 일괄 지정에서 뺀다(위멤버스와 같은 처리) */
+      finalCh:L.filter(function(x){ return x.isJoin && !x.wemb && !x.inside && un(x.finalV); }).map(function(x){return x.r;})
     };
   };
   // 표시용 — 일괄 지정 바의 「미정 N건」에 쓴다(종전 최종실적 기준 유지)
@@ -9477,9 +9676,18 @@ window.spPaint=function(){
     return rows.map(function(r){
       const m=M[r.fid]||{};
       const inflow=(typeof IX_inflowResolve==='function')?(IX_inflowResolve(r.fid,r.tt,r.ci)||''):'';
-      const joinCh=m.joinCh||'';
-      const finalV=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
       const wemb=(typeof window.wembProtectHit==='function')&&window.wembProtectHit(r);
+      /* v08.279 로움 실적확정 명단 — 위멤버스와 같은 취급(위멤버스가 우선) */
+      const inside=(typeof window.salesInsideHit==='function')&&window.salesInsideHit(r);
+      /* ══ v08.279 요청("실적인정업체 사업자번호가 발견될 경우 … 유입경로, 가입채널, 최종실적을
+         위멤버스로 적용해줘") ══
+         유입경로(inflowBase)·최종실적(IX_creditChannel)은 이미 실적보호 명단이면 위멤버스로
+         확정하는데, 가입채널만 빠져 있어 같은 건인데 칸마다 값이 달라 보였다(「문의 없는 실적」
+         탭은 v08.196부터 세 칸 모두 위멤버스로 채우고 있었다 — 두 탭을 같은 기준으로 맞춘다).
+         수동으로 고른 값이 있으면 그것을 우선한다 — 유입경로·최종실적의 「수동 지정 우선」
+         규칙과 같게 둔다(잠그지 않으므로 사람이 바꿀 수 있어야 한다). */
+      const joinCh=m.joinCh||(wemb?'위멤버스 > 온라인 마케팅':(inside?window.SALES_INSIDE_CH:''));
+      const finalV=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
       /* v08.98 요청("가입채널·최종실적은 가입을 해야 의미가 있으므로") — 가입 문의가 아니면
          가입채널·최종실적은 지정 대상이 아니다. 미정으로 세지도 않고, 드롭다운도 잠근다.
          ══ v08.169 요청("요금제변경도 실적지정필요") ══
@@ -9494,7 +9702,7 @@ window.spPaint=function(){
          정지해제 영업 건처럼 마스터에 재가입일이 안 찍히는 케이스가 있어 문의 유형만으로는
          실적 대상 여부를 판단할 수 없다. 판단은 사람이 하고 화면은 지정만 열어 둔다. */
       const todo=un(inflow)||un(finalV);
-      return {r:r, inflow:inflow, joinCh:joinCh, finalV:finalV, wemb:wemb, todo:todo, manualF:!!m.finalCh, isJoin:isJoin};
+      return {r:r, inflow:inflow, joinCh:joinCh, finalV:finalV, wemb:wemb, inside:inside, todo:todo, manualF:!!m.finalCh, isJoin:isJoin};
     }).filter(function(x){
       /* v08.98 「지정 필요」를 유입경로/최종실적으로 나눠 볼 수 있게 한다 — 무엇이 남았는지
          한 번에 알 수 있어야 지정 작업이 끝났는지 판단할 수 있다. */
@@ -9604,10 +9812,13 @@ window.spPaint=function(){
        요금제 변경도 실적이고(v01.26), 그 실적이 어느 채널 몫인지 최종실적으로 정해야 한다.
        잠가 두면 지정할 방법이 없어 실적 분석 채널 표에 못 들어간다. */
     const isJoin=function(x){return true;};
-    const val=function(x){ const m=PMM[x.key]||{}; return {
-      inflow: x.wemb?'위멤버스 > 온라인 마케팅':(m.inflow||''),
-      joinCh: x.wemb?'위멤버스 > 온라인 마케팅':(m.joinCh||''),
-      final : x.wemb?'위멤버스 > 온라인 마케팅':(m.final||'') }; };
+    /* v08.279 — 로움 실적확정 명단도 위멤버스와 같은 방식으로 세 칸을 확정한다 */
+    const ins=function(x){return (typeof window.salesInsideHit==='function')&&window.salesInsideHit({bz:x.bz});};
+    const val=function(x){ const m=PMM[x.key]||{}; const S=ins(x)?window.SALES_INSIDE_CH:'';
+      return {
+      inflow: x.wemb?'위멤버스 > 온라인 마케팅':(S||m.inflow||''),
+      joinCh: x.wemb?'위멤버스 > 온라인 마케팅':(S||m.joinCh||''),
+      final : x.wemb?'위멤버스 > 온라인 마케팅':(S||m.final||'') }; };
     const q=String(F.q||'').trim();
     const rows=all.filter(function(x){
       const v=val(x);
@@ -9636,8 +9847,13 @@ window.spPaint=function(){
     };
     const opt=function(cur){return (typeof window.inflowOptions==='function')?window.inflowOptions(cur||''):'';};
     /* 문의 쪽 sel()과 같은 모양 — 미지정은 청록 테두리, 지정 대상이 아니면 잠근다 */
-    const sel=function(key,f,cur,hl,off,lock){
-      if(lock)return '<td><span class="rtag" style="background:#E7F7EE;color:#1B9E5A">위멤버스 확정</span></td>';
+    const sel=function(key,f,cur,hl,off,lock,lockIn){
+      /* v08.279 요청("빨간테두리로 표시해주고"·"파란테두리로 표시해주고") — 문의 있는 건 탭의
+         테두리 색 신호와 통일한다(위멤버스=빨강, 내부영업=파랑). */
+      if(lock)return '<td><span class="rtag" title="실적보호업체(위멤버스 실적인정) · 사업자번호 일치 · 기간 무관"'
+        +' style="background:#fff;color:var(--red);border:2px solid var(--red)">위멤버스 확정</span></td>';
+      if(lockIn)return '<td><span class="rtag" title="로움 실적확정 명단 · 사업자번호 일치 · 채널값 = 영업 > 내부영업"'
+        +' style="background:#fff;color:#1D4ED8;border:2px solid #3B82F6">로움 확정</span></td>';
       if(off)return '<td><select disabled title="가입 사건이 아니라 지정 대상이 아닙니다"'
         +' style="width:100%;font-size:10px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;'
         +'background:var(--gray-lt);color:var(--gray-md);cursor:not-allowed"><option>—</option></select></td>';
@@ -9654,9 +9870,9 @@ window.spPaint=function(){
             +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(x.nm)+'</div>'
             +'<div style="font-size:9px;color:var(--gray-md)">'+IX_esc(x.bz||'사업자번호 없음')+' · '+IX_esc(x.d)+' · '+IX_esc(x.kind)+'</div></td>'
             +'<td style="text-align:left;font-size:10px">'+IX_esc(x.detail)+'</td>'
-            + sel(x.key,'inflow',v.inflow, un(v.inflow), false, x.wemb)
-            + sel(x.key,'joinCh',v.joinCh, false, !j, x.wemb)
-            + sel(x.key,'final', v.final,  j&&un(v.final), !j, x.wemb)
+            + sel(x.key,'inflow',v.inflow, un(v.inflow), false, x.wemb, ins(x))
+            + sel(x.key,'joinCh',v.joinCh, false, !j, x.wemb, ins(x))
+            + sel(x.key,'final', v.final,  j&&un(v.final), !j, x.wemb, ins(x))
             +'</tr>';
         }).join('')
       : '<tr><td colspan="5" class="na" style="text-align:center;padding:22px">해당하는 건이 없습니다</td></tr>';
@@ -9668,7 +9884,8 @@ window.spPaint=function(){
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')
       +seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
-      +'<input value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
+      /* v08.278 — id는 다시 그린 뒤 커서를 되돌리는 데 쓴다(txRedraw). 두 하위 탭이 각각 자기 칸을 갖는다. */
+      +'<input id="pmQorp" value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">발생일</span>'
       /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 일별·월별 화면의 ◀▶와 같은 조작감 */
@@ -9741,7 +9958,9 @@ window.spPaint=function(){
       const m=M[r.fid]||{};
       const inflow=(typeof IX_inflowResolve==='function')?(IX_inflowResolve(r.fid,r.tt,r.ci)||''):'';
       const finalV=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
-      pick('inflow',inflow); pick('joinCh',m.joinCh||''); pick('finalV',finalV);
+      /* v08.279 — 가입채널 선택지도 실적보호업체 자동값(위멤버스)을 포함해야 그 값으로 걸러볼 수 있다 */
+      const _wemb=(typeof window.wembProtectHit==='function')&&window.wembProtectHit(r);
+      pick('inflow',inflow); pick('joinCh',m.joinCh||(_wemb?'위멤버스 > 온라인 마케팅':'')); pick('finalV',finalV);
       pick('tp',String(r.tp||'').trim());
     });
     const optVals=function(k){ return (OPTNA[k]?['(미지정)']:[]).concat(Object.keys(OPT[k]).sort()); };
@@ -9749,7 +9968,10 @@ window.spPaint=function(){
     /* v08.98 요청("수동지정 때문에 칸이 올라가는데 다른 방법 없어?") — 배지를 별도 줄로 두면
        그 행만 높아져 표가 들쭉날쭉해진다. 공간을 차지하지 않는 표시로 바꾼다.
        · mark='manual' : 왼쪽에 주황 굵은 선 + 툴팁 「수동 지정」
-       · mark='wemb'   : 왼쪽에 초록 굵은 선 + 툴팁 「실적보호업체 · 기간 무관」
+       · mark='wemb'   : v08.279 요청("실적인정업체 사업자번호가 발견될 경우 실적관리에
+                         빨간테두리로 표시해주고") — 종전 초록 왼쪽 선에서 **빨간 테두리**로 바꾼다.
+                         유입경로·가입채널·최종실적 세 칸에 모두 붙여, 그 건이 위멤버스 확정임을
+                         한눈에 알게 한다(종전에는 최종실적 한 칸에만 표시됐다).
        · hl(미정)      : 테두리를 청록으로 — 종전과 동일 */
     const sel=function(fid,f,cur,hl,mark,off){
       /* v08.98 요청("가입채널·최종실적은 가입이 아니면 토글X") — 가입 문의가 아니면 잠근다.
@@ -9758,17 +9980,23 @@ window.spPaint=function(){
       if(off)return '<select disabled title="가입·요금제 변경 문의가 아니라 지정 대상이 아닙니다" style="width:100%;font-size:10px;padding:3px 5px;'
         +'border:1px solid var(--border);border-radius:5px;background:var(--gray-lt);color:var(--gray-md);cursor:not-allowed">'
         +'<option>—</option></select>';
-      const bar = mark==='wemb' ? 'border-left:3px solid #1B9E5A;'
-                : mark==='manual'? 'border-left:3px solid var(--orange);' : '';
-      const tip = mark==='wemb' ? ' title="실적보호업체 · 기간 무관 위멤버스 확정"'
+      const bar = mark==='manual'? 'border-left:3px solid var(--orange);' : '';
+      const tip = mark==='wemb' ? ' title="실적보호업체(위멤버스 실적인정) · 사업자번호 일치 · 기간 무관 위멤버스 확정"'
+                : mark==='inside'? ' title="로움 실적확정 명단 · 사업자번호 일치 · 유입경로·가입채널·최종실적 = 영업 > 내부영업"'
                 : mark==='manual'? ' title="수동 지정"' : '';
+      /* v08.279 명단에 잡힌 건은 테두리 색으로 구분한다(사용자 확정) — 위멤버스 실적확정=빨강,
+         로움 실적확정=파랑.
+         미정(청록)·수동지정(주황 왼쪽선)보다 우선해 보이게 한다. */
+      const bd = mark==='wemb' ? '2px solid var(--red)'
+               : mark==='inside'? '2px solid #3B82F6'
+               : ('1px solid '+(hl?'var(--teal)':'var(--border)'));
       return '<select onchange="IX_inqSet(\''+fid+'\',\''+f+'\',this.value)"'+tip+' style="width:100%;font-size:10px;padding:3px 5px;'
-        +'border:1px solid '+(hl?'var(--teal)':'var(--border)')+';'+bar+'border-radius:5px;background:#fff">'
+        +'border:'+bd+';'+bar+'border-radius:5px;background:#fff">'
         +'<option value="">—</option>'+opt(cur)+'</select>';
     };
     const body=all.length? all.slice(0,300).map(function(x){
       const r=x.r;
-      const mark=x.wemb?'wemb':(x.manualF?'manual':'');
+      const mark=x.wemb?'wemb':(x.inside?'inside':(x.manualF?'manual':''));
       return '<tr'+(x.todo?' style="background:#FFFBEB"':'')+'>'
         +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(r.tt)+'</div>'
         +'<div style="font-size:9px;color:var(--gray-md)">'+IX_esc(r.wr)+' · '+String(r.dt||'').slice(0,10)+' · '+IX_esc(r.tp||'')+'</div></td>'
@@ -9782,9 +10010,10 @@ window.spPaint=function(){
            return '<td style="text-align:left;font-size:10px">'
              +(pi.pl?IX_esc(pi.pl):'<span class="na">—</span>')+'</td>';
          })()
-        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow))+'</td>'
+        /* v08.279 — 실적보호업체(mark='wemb')는 세 칸 모두 빨간 테두리로 표시한다 */
+        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mark)+'</td>'
         /* v08.98 가입 문의가 아니면 잠근다(요청) — 신청만 들어온 건은 아직 실적이 아니다. */
-        +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, '', !x.isJoin)+'</td>'
+        +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, mark, !x.isJoin)+'</td>'
         +'<td>'+sel(r.fid,'finalCh',(M[r.fid]||{}).finalCh||x.finalV, x.isJoin&&un(x.finalV), mark, !x.isJoin)+'</td>'
         +'<td style="white-space:nowrap"><span class="mgmt-badge" onclick="inqDetail(\''+r.fid+'\')">상세</span>'
         +' <span class="mgmt-badge" style="background:var(--red-lt);color:var(--red);border-color:transparent" onclick="pmDel(\''+r.fid+'\')" title="실적 관리·집계에서 제외">제외</span></td>'
@@ -9851,7 +10080,7 @@ window.spPaint=function(){
        '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')+seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
-      +'<input value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value)" placeholder="제목·작성자 검색"'
+      +'<input id="pmQ" value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="제목·작성자 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       /* v08.98 등록일 기간 필터 — 「7월까지」처럼 기간을 끊어 일괄 지정할 때 쓴다 */
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">등록일</span>'
@@ -9930,7 +10159,10 @@ window.spPaint=function(){
       +'</tr></thead><tbody>'+body+'</tbody></table></div>'
       +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:7px">노란 배경 = 지정 필요 · 지정하면 일별·월별·누적 집계에 바로 반영됩니다'
       +' <span style="margin-left:10px;border-left:3px solid var(--orange);padding-left:5px">수동 지정</span>'
-      +' <span style="margin-left:8px;border-left:3px solid #1B9E5A;padding-left:5px">실적보호업체</span></div>'
+      /* v08.279 범례도 테두리 색 신호로 바꾼다 — 위멤버스 실적확정=빨강, 로움 실적확정=파랑 */
+      +' <span style="margin-left:8px;border:2px solid var(--red);border-radius:4px;padding:1px 5px">위멤버스 실적확정</span>'
+      +' <span style="margin-left:6px;border:2px solid #3B82F6;border-radius:4px;padding:1px 5px">로움 실적확정</span>'
+      +'<div style="margin-top:3px">두 명단은 사업자번호가 일치할 때만 잡히며, 유입경로·가입채널·최종실적이 자동 확정됩니다(직접 바꿀 수도 있습니다)</div></div>'
       /* v08.197 요청("문의없는실적을 따로 탭으로 구분했으니 문의있는건 아래 문의없는 실적은 제거해도
          되지 않아?") — 여기 있던 「문의 없는 실적」 목록을 뺀다. v08.167에서 탭이 없던 시절 아래에
          덧붙였던 것인데, 지금은 상단 하위 탭(문의 있는 건 / 문의 없는 실적)으로 나뉘어 있어
@@ -10161,20 +10393,24 @@ window.spPaint=function(){
   //   inq   : 나머지 신청·문의 계열 (세모R/플러스/인사이트 신청, 통합·링크패스 도입문의 등)
   window.inqCls=function(r){
     const tp=String(r.tp||''), tt=String(r.tt||'');
+    /* v08.282 — 하위업무 행(상위업무가 있는 행)은 고객이 낸 문의가 아니라 어떤 업무에 딸린
+       작업이다. 종전에는 제목에 대괄호가 없다는 이유로 「도입 문의」로 세어 건수를 부풀렸다.
+       테스트·공지와 같이 실적 집계에서 제외한다(카드 상세에서는 부모 업무에 붙여 보여준다). */
+    if(r&&(r.pt||r.pno))return 'sub';
     if(/테스트|test/i.test(tt))return 'test';
     if(tp==='공지')return 'notice';
     if(/요금변경|요금제/.test(tp))return 'plan';
     if(/신규가입/.test(tp)||/재가입/.test(tp))return 'join';   // v06.62 접두어가 붙어도 가입으로 인식
     return 'inq';
   };
-  const CLSNM={inq:'도입 문의',join:'신규 가입',plan:'요금제 변경',notice:'공지(제외)',test:'테스트(제외)'};
+  const CLSNM={inq:'도입 문의',join:'신규 가입',plan:'요금제 변경',notice:'공지(제외)',test:'테스트(제외)',sub:'하위업무(제외)'};
   window.wkClsNm=CLSNM;
 
   // ── 주간 집계 (요청 2항 KPI) ──
   function stat(w){
     const R=window.__xlOfficeRows||[], s=w.s, e=w.e;
     const flow=((PAY.inq&&PAY.inq.rows)||[]).filter(function(r){return inR(r.dt,s,e);});
-    const by={inq:[],join:[],plan:[],notice:[],test:[]};
+    const by={inq:[],join:[],plan:[],notice:[],test:[],sub:[]};   /* v08.282 sub 키가 없으면 push에서 오류 난다 */
     flow.forEach(function(r){by[window.inqCls(r)].push(r);});
     const real=by.inq.concat(by.join,by.plan);          // 실적 대상(테스트·공지 제외)
     const inq=by.inq;
@@ -10203,7 +10439,7 @@ window.spPaint=function(){
     if(k==='inq')return openM({title:'도입 문의 '+S.inq.length+'건',sub:sub+' · 출처: 도입 문의 탭(플로우) · 신규가입·요금제변경·공지·테스트 제외',
       hdrs:FH,rows:fRows(S.inq)});
     if(k==='flow')return openM({title:'주간 플로우 등록 전체 '+S.flow.length+'건',sub:sub+' · 유형 분류 전 원본',
-      hdrs:['구분'].concat(FH),rows:S.flow.map(function(r){return ['<span class="rtag '+(window.inqCls(r)==='test'||window.inqCls(r)==='notice'?'tP3':'tP2')+'">'+window.wkClsNm[window.inqCls(r)]+'</span>'].concat(fRows([r])[0]);})});
+      hdrs:['구분'].concat(FH),rows:S.flow.map(function(r){return ['<span class="rtag '+(['test','notice','sub'].indexOf(window.inqCls(r))>=0?'tP3':'tP2')+'">'+window.wkClsNm[window.inqCls(r)]+'</span>'].concat(fRows([r])[0]);})});
     if(k==='join')return openM({title:'신규 가입 '+S.joinF.length+'건',
       sub:sub+' · 출처: 도입 문의 유형 「신규가입·재가입」 · 고객 원본(가입일시) 교차 검증 '+S.join.length+'곳',
       hdrs:FH,rows:fRows(S.joinF)});
@@ -12016,7 +12252,7 @@ function monPerfTableHtml(){
   const rateCell=function(a,t){ if(a==null||t==null)return '<span class="na">—</span>'; const p=t>0?(a/t*100):null; return '<span style="color:'+(p!=null&&p<100?'var(--red)':'var(--teal-dk)')+'">'+rate(a,t)+'</span>'; };
   /* v08.226 요청("숫자 가운데 정렬") — 이 표는 #ixHost 밖(주간회의)에 있어 .tbl의 가운데 정렬
      기본값이 안 먹힌다(그 규칙도 #ixHost 스코프). td마다 직접 text-align:center를 준다. */
-  const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
+  const td=function(v,m){return '<td style="text-align:center'+wkMonHl(y,m)+'">'+v+'</td>';};
   const tr=function(label,cells,sumTxt,style,rowStyle){
     return '<tr'+(rowStyle?' style="'+rowStyle+'"':'')+'><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'+cells.join('')+'<td style="text-align:center;font-weight:700">'+sumTxt+'</td></tr>';
   };
@@ -12027,8 +12263,8 @@ function monPerfTableHtml(){
      이미 완성된 <td> 문자열로 넘어오던 기존 td()/tr()로는 위·아래·좌·우 중 필요한 변만 골라
      칠할 수 없어(문자열이라 나중에 끼워 넣을 수 없음), 이 네 행 전용 pkgTd/pkgTr을 새로 둔다. */
   const pkgBorder='#3B82F6';
-  const pkgTd=function(v,isTop,isBottom){
-    let s='text-align:center';
+  const pkgTd=function(v,isTop,isBottom,m){
+    let s='text-align:center'+wkMonHl(y,m);
     if(isTop)s+=';border-top:2px solid '+pkgBorder;
     if(isBottom)s+=';border-bottom:2px solid '+pkgBorder;
     return '<td style="'+s+'">'+v+'</td>';
@@ -12039,17 +12275,17 @@ function monPerfTableHtml(){
     if(isTop){lblStyle+=';border-top:2px solid '+pkgBorder;sumStyle+=';border-top:2px solid '+pkgBorder;}
     if(isBottom){lblStyle+=';border-bottom:2px solid '+pkgBorder;sumStyle+=';border-bottom:2px solid '+pkgBorder;}
     return '<tr><td style="'+lblStyle+'">'+label+'</td>'
-      +months.map(function(m){return pkgTd(cellsFn(m),isTop,isBottom);}).join('')
+      +months.map(function(m){return pkgTd(cellsFn(m),isTop,isBottom,m);}).join('')
       +'<td style="'+sumStyle+'">'+sumTxt+'</td></tr>';
   };
-  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
-    +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
-    +tr('가입 목표',months.map(function(m){return td(targetCell('new',m));}),newTSum)
-    +tr('가입 실적',months.map(function(m){return td(actCell(rows.newA[m]));}),newASum)
-    +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]));}),rejASum,'color:var(--link)')
-    +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]));}),
+  const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
+    +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
+    +tr('가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
+    +tr('가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
+    +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
+    +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
-    +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]));}),
+    +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
     +pkgTr('프로모션 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
     +pkgTr('프로모션 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
@@ -12074,6 +12310,29 @@ function monPerfTableHtml(){
 /* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에 해당 표도 추가" — 참고 이미지의
    「전체 가입 현황」, 요금제별 월별 가입 현황·목표 입력은 없음, 위 표와 같은 연도(년) 기준을
    그대로 쓴다(monTgtShift가 두 표를 함께 넘긴다)). */
+/* ══ v08.281 요청("이렇게 해당월에 형광펜 표시해줘" — 9월 열에 형광펜을 그은 스크린샷) ══
+   월별 표에서 "이번 달" 열만 노란 배경으로 깔아 준다. 기준은 오늘 날짜의 달이고, ◀▶로 다른
+   연도를 보고 있으면 표시하지 않는다(그 연도에는 "이번 달"이 없다).
+   머리글은 진하게(#FDE68A), 숫자 칸은 옅게(#FEF9C3) — 숫자 가독성을 지키면서 열이 드러난다.
+   인쇄(PDF)에도 그대로 나온다 — @media print에서 배경색 인쇄를 강제해 뒀다(v08.269). */
+function wkMonHl(y,m,strong){
+  const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
+  if(!(y===curY&&m===curM))return '';
+  return ';background:'+(strong?'#FDE68A':'#FEF9C3');
+}
+/* ══ v08.283 요청("월별 실적 현황과 전체 가입 현황 위아래 월별 자리를 맞춰봐") ══
+   두 표(월별 실적 현황 / 전체 가입 현황)는 열 구성이 같은데(구분 + 1~12월 + 합계),
+   구분 칸의 글자 길이가 달라(「프로모션 가입 목표」 vs 「└ 개업성장패키지」) 브라우저가
+   표마다 다른 폭을 계산했다 — 그래서 위아래로 놓았을 때 9월 열이 서로 어긋나 보였다.
+   두 표에 똑같은 colgroup(구분 150px · 12개월 균등 · 합계 56px)과 table-layout:fixed를
+   주면 폭 계산이 내용과 무관해져 항상 같은 자리에 온다.
+   .wk-mtbl을 쓰는 다른 표(주간 인사이트 등)에는 영향이 없도록, 클래스가 아니라
+   이 두 표의 인라인 style·colgroup으로만 적용한다. */
+function wkMonColgroup(){
+  return '<colgroup><col style="width:150px">'
+    +[1,2,3,4,5,6,7,8,9,10,11,12].map(function(){return '<col>';}).join('')
+    +'<col style="width:56px"></colgroup>';
+}
 function planJoinTableHtml(){
   const y=window.__monTgtYear;
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
@@ -12091,10 +12350,10 @@ function planJoinTableHtml(){
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
-  const td=function(v){return '<td style="text-align:center">'+v+'</td>';};
+  const td=function(v,m){return '<td style="text-align:center'+wkMonHl(y,m)+'">'+v+'</td>';};
   const tr=function(label,obj,style){
     return '<tr><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'
-      +months.map(function(m){return td(actCell(obj[m]));}).join('')
+      +months.map(function(m){return td(actCell(obj[m]),m);}).join('')
       +'<td style="text-align:center;font-weight:700">'+sum(obj)+'</td></tr>';
   };
   /* v08.238 요청(참고 이미지) — 개업성장패키지는 플러스 요금제 위에 얹히는 프로모션이라
@@ -12102,8 +12361,8 @@ function planJoinTableHtml(){
      --link 재사용). 집계 자체(pkgJoinCountRange)는 그대로라 두 행 숫자가 겹칠 수 있음은
      이전과 같다 — 표시만 이 관계를 드러내도록 바꾼 것.
      v08.240 요청("베이직이 아니라 리포트로") — 인사이트 미가입 쪽 행 이름을 리포트로 변경. */
-  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
-    +months.map(function(m){return '<th style="text-align:center">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
+  const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
+    +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
     +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
@@ -13305,6 +13564,14 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u16',d:'2026-09-09',tt:'주간 업무 현황을 「저번 주/이번 주」로 변경 · 월별 두 표 자리 정렬 · 추천인코드 자동 등록',
+  b:'팀별 주간 업무 현황이 저번 주와 이번 주를 나란히 보여줍니다. 주간회의 「월별 실적 현황」과 「전체 가입 현황」의 월 칸이 위아래로 정확히 맞춰졌고, 하위업무에서 찾은 추천인코드는 추천 정보 관리에 등록된 채널을 먼저 쓰고 없으면 그 표에 자동으로 만들어 둡니다.'},
+ {id:'u15',d:'2026-09-09',tt:'플로우 하위업무를 가져와 보여주고, 추천인코드는 가입채널로 자동 확정',
+  b:'신청 관리에서 업무를 열면 그 업무의 하위업무 목록이 함께 보입니다. 하위업무 이름이 추천인코드(예: WE_MOON)면 가입채널이 「영업 > WE_MOON」으로 자동 지정되고, 하위업무는 도입문의 건수에서 제외됩니다.'},
+ {id:'u14',d:'2026-09-09',tt:'월별 실적 표에 이번 달 형광펜 표시 · 성과 지표 그래프 크기 정상화',
+  b:'주간회의 월별 표에서 이번 달 칸이 노랗게 표시돼 눈에 바로 들어옵니다(PDF에도 그대로 나옵니다). 팀탭 성과 지표 막대가 지나치게 크게 나오던 것도 고쳤습니다.'},
+ {id:'u13',d:'2026-09-09',tt:'날짜 입력·검색창이 제대로 안 되던 문제 수정',
+  b:'날짜를 천천히 쳐도 30일이 그대로 들어가고, 검색창에 한글을 쳐도 글자가 끊기지 않습니다. 기간 필터에 「전월/다음월」 버튼도 추가했습니다.'},
  {id:'u12',d:'2026-09-07',tt:'"활동 타임라인"을 "안내" 메뉴로 이동, 업데이트 내역 안 읽으면 NEW 배지 표시',
   b:'활동 타임라인이 업데이트 내역과 같은 자리로 옮겨졌고, 새 업데이트를 안 읽으면 사이드바에 NEW가 뜹니다.'},
  {id:'u11',d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
@@ -13728,7 +13995,12 @@ function metricChartSvg(rows){
       +'<text x="'+(X+w/2)+'" y="'+(ZERO+15)+'" font-size="8.5" fill="#7E8299" text-anchor="middle">'+esc(String(r.d).slice(5))+'</text>'
       +'<text x="'+(X+w/2)+'" y="'+(ZERO-h-4).toFixed(1)+'" font-size="8.5" fill="#13918B" text-anchor="middle">'+r.val+'</text>';
   }).join('');
-  return '<svg viewBox="0 0 '+cw+' '+chH+'" style="width:100%;max-width:640px;display:block">'
+  /* ══ v08.280 버그 수정(요청: "막대크기를 좀 정상적으로 줄여봐 너무 비대하잖아") ══
+     viewBox만 주고 style에 width:100%를 걸어 뒀더니, 막대가 몇 개 없을 때 그림이 통째로
+     확대됐다 — 값 2개면 viewBox 폭이 120인데 그걸 640px로 늘려 5배가 넘게 커진다(막대·글씨가
+     전부 같이 커져 화면을 다 잡아먹었다). 실제 크기(cw×chH)를 그대로 쓰고, 막대가 많아 폭이
+     넘칠 때만 줄어들게 max-width:100%만 남긴다. */
+  return '<svg viewBox="0 0 '+cw+' '+chH+'" width="'+cw+'" height="'+chH+'" style="max-width:100%;display:block">'
     +'<line x1="8" y1="'+ZERO+'" x2="'+(cw-4)+'" y2="'+ZERO+'" stroke="#E4E6EF" stroke-width="1"/>'
     +bars+'</svg>';
 }
@@ -14489,7 +14761,7 @@ function wkAutoPerf(wk){
   const _nj=R.filter(x=>inR(x.jn)).length,
         _rj=R.filter(x=>inR(x.rj)).length,
         _cn=R.filter(x=>inR(x.cn)&&String(x.st||'').trim()==='해지').length;
-  return {'도입문의'   :P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice').length,
+  return {'도입문의'   :P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice'&&cls(r)!=='sub').length,
     '플러스 해지':R.filter(x=>inR(x.pc)&&isPl(x.bf)&&!isPl(x.pl)).length,
           '신규가입'   :_nj,
           '플러스 가입':R.filter(x=>inR(x.jn)&&isPl(x.pl)).length,
@@ -14566,7 +14838,7 @@ function wkEventRows(wk){
        섞이면 안 된다(정지해제인데 플로우에 재가입으로 찍힌 건이 재가입 실적으로 보이던 원인).
      · 가입·재가입·정지·해지·요금제변경은 아래에서 마스터파일로만 판정한다.
      문의 유형은 「유형·요금제」 칸에 그대로 남으므로 무슨 신청인지는 계속 확인할 수 있다. */
-  P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice')
+  P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice'&&cls(r)!=='sub')
    .forEach(r=>out.push({d:String(r.dt).slice(0,10),k:'문의',
                          src:'inq',
                          nm:r.tt||'',dt:r.tp||'—',ex:flow(r)||'—',ow:r.ow||'—'}));
@@ -15077,7 +15349,12 @@ function byLabel(v){
   return s.split('@')[0];                             // 없으면 계정 앞부분만
 }
 function teamWeekTableHtml(team){
-  const nextWk=addD(CURWK,7);
+  /* ══ v08.283 요청("주간업무현황은 저번 주와 이번 주를 보여줘") ══
+     종전에는 「이번 주 / 다음 주」 2단이었는데, 이 표는 그 주 구간에 실제로 찍힌 실행기록만
+     세므로(아래 v06.26 주석) 다음 주 칸은 사실상 늘 비어 있었다. 회의에서 실제로 보는 것은
+     「지난주에 무엇을 했고 이번 주에 무엇을 하고 있는지」라, 저번 주 → 이번 주 순서로 바꿨다.
+     색은 이번 주가 강조(청록)로 남고, 저번 주는 진한 회색(.prev)이다. */
+  const prevWk=addD(CURWK,-7);
   const dot=d=>String(d).replace(/-/g,'.').slice(0,10);
   const rowsFor=wk=>{
     const items=wkCardsFor(team.id,wk);
@@ -15100,10 +15377,10 @@ function teamWeekTableHtml(team){
     }).join('');
   };
   return '<div class="ww-cols">'
+   +'<div class="ww-col"><div class="ww-col-h prev">저번 주 <span>'+dot(prevWk)+' – '+dot(wkEndOf(prevWk)).slice(5)+'</span></div>'
+   +'<div class="ww-col-b">'+rowsFor(prevWk)+'</div></div>'
    +'<div class="ww-col"><div class="ww-col-h now">이번 주 <span>'+dot(CURWK)+' – '+dot(wkEndOf(CURWK)).slice(5)+'</span></div>'
    +'<div class="ww-col-b">'+rowsFor(CURWK)+'</div></div>'
-   +'<div class="ww-col"><div class="ww-col-h next">다음 주 <span>'+dot(nextWk)+' – '+dot(wkEndOf(nextWk)).slice(5)+'</span></div>'
-   +'<div class="ww-col-b">'+rowsFor(nextWk)+'</div></div>'
    +'</div>';
 }
 function issueBlockHtml(){
