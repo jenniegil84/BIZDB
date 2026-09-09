@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.297';
+window.__APP_VER='v08.298';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12777,7 +12777,7 @@ function planJoinTableHtml(){
      · 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**
      · └ 개업세무사 = 프로모션 시작일 기준(플러스의 세부 항목으로 표시)
      · 리포트 = 가입 중 인사이트 미가입 · 합계 = **플러스 + 리포트**
-     · 개업세무사 = 프로모션 시작월이 그 달인 곳(v08.294) — 별도 행, 합계에 더하지 않는다
+     · └ 개업세무사 = 프로모션 시작월이 그 달인 곳 — 플러스 아래 하위 표기(스펙), 합계에는 더하지 않는다
      v08.290 이름 확정: 「베이직」 → 「리포트」 — 이 행에는 플러스·베이직 외 과거 요금제
      (PREMIUM·STANDARD·구간·기본)까지 들어오므로 특정 요금제 이름(베이직)은 오해를 부른다.
      「리포트」 = 세모리포트만 쓰는 곳(인사이트 병행 아님)이라는 뜻이다(2026-09-06과 같은 결론). */
@@ -12806,20 +12806,23 @@ function planJoinTableHtml(){
      v08.240 요청("베이직이 아니라 리포트로") — 인사이트 미가입 쪽 행 이름을 리포트로 변경. */
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
+    /* ══ v08.298 사용자 스펙(재확인: "이렇게 표시하라고 했잖아") ══
+       행 순서·표기는 스펙 그대로 둔다 — 플러스 / └ 개업세무사 / 리포트 / 합계.
+       v08.294에서 「개업세무사는 프로모션 시작월 기준이라 하위 항목이 아니다」는 이유로 합계 아래
+       별도 행으로 내렸는데, 그건 내 판단이었고 사용자 스펙은 플러스 아래 하위 표기다.
+       기준이 다르다는 사실(합계에 더하지 않음)은 표 아래 문구가 계속 밝힌다. */
     +tr('플러스',rows.plus)
+    +tr('&nbsp;&nbsp;└ 개업세무사',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
     +tr('합계',rows.total,'font-weight:700')
-    /* v08.294 개업세무사는 프로모션 시작월 기준이라 가입일 기준인 위 세 행의 하위 항목이 아니다 —
-       합계 아래 별도 행으로 내리고 기준은 표 아래 문구가 밝힌다(구분 칸이 150px 고정이라 라벨은 짧게) */
-    +tr('개업세무사<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (별도)</span>',rows.pkg,'color:var(--link);border-top:1px dashed var(--border)')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
     +'<b>가입</b> = 신규가입 + 재가입 + 요금제변경(플러스로 올라온 건만) + 인사이트 신규 가입 · '
     +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳 · '
-    +'<b>리포트</b> = 인사이트 미가입(베이직·PREMIUM·구간 등 그 외 요금제 모두) · <b>합계</b> = 플러스 + 리포트. '
-    +'<b>개업세무사</b>는 <b>프로모션 시작월</b>이 그 달인 곳이라 위 세 행(가입일·재가입일·요금제변경일 기준)과 '
-    +'세는 날짜가 달라 별도 행이며 합계에 더하지 않습니다'
+    +'<b>리포트</b> = 플러스를 제외한 모든 요금제(인사이트 미가입 — 베이직·PREMIUM·구간 등) · <b>합계</b> = 플러스 + 리포트. '
+    +'<b>└ 개업세무사</b>는 플러스 안에 든 개업세무사 성장지원 패키지로, <b>프로모션 시작월</b>이 그 달인 곳입니다 — '
+    +'플러스·리포트(가입일·재가입일·요금제변경일 기준)와 세는 날짜가 달라 합계에는 더하지 않습니다'
     +((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS
         ?' (세무사무소목록의 프로모션 구분명·시작 연월 기준).'
         :((Array.isArray(window.__billAllRows)&&window.__billAllRows.length)
