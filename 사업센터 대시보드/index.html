@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.286';
+window.__APP_VER='v08.287';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8834,7 +8834,20 @@ window.spPaint=function(){
        안 보였다(플러스 가입 카드는 v08.179부터 이미 표시 중). 새 계산 없이 이미 있는 pkgOf를
        plusConv에도 적용해 개수만 센다 — 판정 자체(누가 플러스 전환인지)는 그대로, 표시만 는다. */
     const plusConvPkgN = pkgHas? plusConv.filter(function(x){return pkgOf(x)===true;}).length : 0;
+    /* ══ v08.287 요청("A로 하고") — 「플러스 가입」 기준 통일 ══
+       종전 이 카드는 **신규 가입 중 가입 시점 요금제명이 플러스**(+개업성장패키지)였고(v08.120·
+       v08.188), 주간회의 「플러스 가입 실적」은 **인사이트 가입 여부**(2026-09-06 확정 정책)라
+       같은 이름인데 숫자가 달랐다(2026-08: 카드 1건 vs 표 3건).
+       사용자 확정에 따라 이 카드도 **주간회의 표와 같은 기준**으로 바꾼다 —
+       계산도 같은 함수(planJoinCountRangeByIns)를 그대로 불러, 두 화면이 구조적으로
+       어긋날 수 없게 한다(신규 가입 + 재가입 중 인사이트 함께 가입).
+       ※ 이 변경으로 v08.182의 근거("월 목표가 신규 기준이니 카드도 신규만")는 무효가 된다 —
+         월 목표 카드(신규 가입 + 플러스 전환, 정책 v01.34)는 그대로 두고, 카드 밑줄에 기준을
+         적어 둔다. 종전 값(plusNew·plusJoinN)도 계산은 그대로 남겨 둔다(다른 화면 호환). */
+    const plusInsN = (typeof planJoinCountRangeByIns==='function')
+      ? planJoinCountRangeByIns(true,s,e) : null;
     return { inq, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
+             plusInsN: plusInsN,          /* v08.287 인사이트 가입 기준(신규+재가입) — 카드가 쓰는 값 */
              /* v08.286 요금제 변경 — plan은 실적 기준(제외 적용), planAll은 제외 전 전량,
                 planSkip은 제외 사유별 건수({total, 재등록, 구간 폐지}) */
              planAll: (hasPc?planAll:[]), planSkip: (hasPc?planSkip:{total:0}),
@@ -8972,10 +8985,14 @@ window.spPaint=function(){
        2026-07은 신규 0건인데 전환 6건, 2026-08은 신규 2건에 전환 13건이다.
        합쳐 두면 신규가 멈춘 달을 놓친다. 그래서 전환은 아래 세부 지표로 내린다.
        plusAll(합계)은 계산해 두므로 합계가 필요해지면 그 값을 쓰면 된다. */
-    const plusNote='신규 가입 '+S.join.length+'건 중 플러스'
-      + (S.join.length?(' · 비중 '+Math.round((S.plusJoinN||0)/S.join.length*100)+'%'):'')
-      + ((S.pkg!=null&&S.pkg>0)?(' · 개업성장패키지 '+S.pkg+'건 포함'):'')
-      + ' · 가입 시점 요금제 기준';   /* v08.188 판정 기준 — 값의 정의라 필요하다 */
+    /* v08.287 기준이 「인사이트 가입 여부」로 바뀌었으므로 밑줄도 그 기준으로 다시 쓴다 —
+       모수는 신규 가입 + 재가입이고, 요금제명·개업성장패키지 포함 여부는 이제 판정에 쓰지 않는다. */
+    const _plusBase=S.join.length+S.rejoin.length;
+    const plusNote=(S.plusInsN==null)
+      ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
+      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+') 중 인사이트 함께 가입'
+         + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
+         + ' · 주간회의 「플러스 가입 실적」과 같은 기준');
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -9002,8 +9019,8 @@ window.spPaint=function(){
     const pkgHeroNote=(S.pkgHero!=null&&S.pkgHero>0)?'청구대상 고객관리 파일의 프로모션 시작월 기준':'청구대상 고객관리 파일 업로드 필요';
     return '<div class="kpi-head four">'
       + hero('도입 문의', z(S.inq.length), 'tc', d('inq',1), '')
-      + hero('플러스 가입', z(S.plusJoinN||0), 'oc',
-             P?deltaBadge(S.plusJoinN||0,P.plusJoinN||0,1):'', plusNote)
+      + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
+             (P&&S.plusInsN!=null&&P.plusInsN!=null)?deltaBadge(S.plusInsN,P.plusInsN,1):'', plusNote)
       + hero('플러스 전환', z(S.plusConvN||0), 'oc',
              P?deltaBadge(S.plusConvN||0,P.plusConvN||0,1):'', plusConvNote)
       + hero('개업성장패키지 가입', S.pkgHero!=null?z(S.pkgHero):'—', 'oc',
@@ -12599,11 +12616,23 @@ function planJoinTableHtml(){
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
-    +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
     +tr('리포트',rows.report)
     +tr('합계',rows.total,'font-weight:700')
+    /* ══ v08.287 요청("└개업성장패키지를 별도 행으로 분리(기준이 다르다는 표기 추가)") ══
+       종전에는 플러스 아래 「└ 개업성장패키지」로 붙여 하위 항목처럼 보였는데, 두 행은
+       **기간을 정하는 날짜가 아예 다르다** — 플러스·리포트는 고객 마스터의 가입일·재가입일,
+       개업성장패키지는 청구 파일의 「프로모션 시작월」이다. 그래서 포함 관계가 성립하지 않고,
+       실제로 2026-08은 플러스 3건 < 패키지 5건으로 하위가 상위보다 컸다.
+       합계(플러스+리포트) 아래로 내리고 기준을 라벨·설명에 적어 오해를 없앤다. */
+    /* 구분 칸 폭이 150px 고정(wkMonColgroup)이라 라벨이 길면 1월 칸으로 넘친다 —
+       라벨은 짧게 「(별도)」만 달고, 기준 설명은 표 아래 문구가 담당한다 */
+    +tr('개업성장패키지<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (별도)</span>',rows.pkg,'color:var(--link);border-top:1px dashed var(--border)')
     +'</tbody></table>';
-  return '<div style="overflow:auto">'+table+'</div>';
+  return '<div style="overflow:auto">'+table+'</div>'
+    +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
+    +'플러스·리포트·합계는 고객 마스터의 <b>가입일·재가입일</b> 기준이고, 개업성장패키지는 청구 파일의 '
+    +'<b>프로모션 시작월</b> 기준입니다 — 기간을 정하는 날짜가 달라 합계에 포함되지 않으며, 달에 따라 '
+    +'플러스보다 많을 수 있습니다.</div>';
 }
 /* v07.63 회의 대상 주 = 오늘이 들어간 주(요청).
    종전에는 직전 주를 기본으로 잡았는데(「지난주 브리핑」 전제), 화면을 열자마자 지난 주가 떠
@@ -13799,6 +13828,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u20',d:'2026-09-09',tt:'「플러스 가입」 기준을 세 화면에서 하나로 통일 · 개업성장패키지 행 분리',
+  b:'실적 분석(월별·일별·누적) 카드와 주간 실적 요약의 「플러스 가입」이 주간회의 표와 다른 기준이라 숫자가 달랐습니다(2026-08: 1건 vs 3건). 이제 세 화면 모두 같은 기준(인사이트 함께 가입 · 신규+재가입)으로 셉니다. 「전체 가입 현황」의 개업성장패키지는 날짜 기준이 달라(프로모션 시작월) 플러스 하위에서 빼내 별도 행으로 옮기고 기준을 표기했습니다.'},
  {id:'u19',d:'2026-09-09',tt:'「요금제 변경」 건수 기준을 화면 전체에서 하나로 통일',
   b:'화면마다 요금제 변경 건수가 다르게 나오던 문제를 고쳤습니다. 이제 모든 화면이 확정 정책과 같은 기준(시스템 재등록·구간요금제 폐지 전환은 실적으로 보지 않음)으로 셉니다. 월별·일별·누적 카드에는 제외된 건수도 「실적 아닌 변경 N건 제외」로 함께 표시됩니다.'},
  {id:'u18',d:'2026-09-09',tt:'월별 실적 현황 표의 「가입 실적」을 플러스 가입 기준으로 변경',
@@ -15006,7 +15037,10 @@ function wkAutoPerf(wk){
     /* v08.286 요금제 변경 기준 통일 — 공통 규칙(planChgReal)으로 실적 아닌 변경을 먼저 뺀다 */
     '플러스 해지':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&isPl(x.bf)&&!isPl(x.pl)).length,
           '신규가입'   :_nj,
-          '플러스 가입':R.filter(x=>inR(x.jn)&&isPl(x.pl)).length,
+          /* v08.287 「플러스 가입」 기준 통일 — 실적 분석 카드·주간회의 표와 같은 함수를 쓴다
+             (인사이트 가입 여부 · 신규 가입 + 재가입). 종전에는 현재 요금제명이 플러스인
+             신규 가입만 세어 세 화면이 서로 달랐다. */
+          '플러스 가입':(typeof planJoinCountRangeByIns==='function')?planJoinCountRangeByIns(true,s,e):0,
           '순증'       :_nj+_rj-_cn,
           '재가입'     :_rj,
           '요금제 변경':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&!(isPl(x.bf)&&!isPl(x.pl))).length,   /* v08.286 실적 아닌 변경 제외 + 플러스 해지는 따로 세므로 뺀다 */
