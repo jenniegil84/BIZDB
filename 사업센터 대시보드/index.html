@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.301';
+window.__APP_VER='v08.302';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12747,12 +12747,20 @@ function monPerfTableHtml(){
     +tr('&nbsp;&nbsp;└ 신규 플러스',months.map(function(m){return td(actCell(rows.pnA[m]),m);}),pnASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 업셀(인사이트·전환)',months.map(function(m){return td(actCell(rows.upsA[m]),m);}),upsASum,'color:var(--link)')
+    /* ══ v08.302 요청("개업세무사는 플러스요금제 프로모션인데, 아래에 따로 있으니 위 플러스에
+       포함되는지 헷갈려한다") — 사용자 확정(A안): 세부 3줄 다음에 「그중 개업세무사」 실적 줄을
+       하나 더 둔다. 아래 파란 블록의 실적과 같은 값(pkgA)이지만, 이 자리에 있으면
+       「플러스 20건 중 개업세무사 5건」이 한 줄로 읽혀 포함 관계가 분명해진다.
+       ※ 세부 3줄(신규·재가입·업셀)과는 성격이 다르다 — 그 셋은 서로 겹치지 않는 분해이고,
+         이 줄은 그 안에 걸쳐 있는 프로모션 표시라 셋의 합에 더하지 않는다(그래서 회색 안내를 붙인다). */
+    +tr('&nbsp;&nbsp;└ 그중 개업세무사<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (프로모션)</span>',
+        months.map(function(m){return td(actCell(rows.pkgA[m]),m);}),pkgASum,'color:var(--link)')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
     /* v08.288 이름 변경(사용자 스펙) — 「프로모션」 → 「개업세무사」(= 개업세무사 성장지원 패키지) */
-    +pkgTr('개업세무사 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
+    +pkgTr('개업세무사 가입 목표<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (플러스 내)</span>',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
     +pkgTr('개업세무사 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
     +pkgTr('달성 실적',function(m){return deltaCell(rows.pkgA[m],rows.pkgT[m]);},
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
@@ -12779,7 +12787,9 @@ function monPerfTableHtml(){
     +'세부 3줄은 그 실적이 어디서 왔는지 나눈 것입니다 — <b>신규 플러스</b>(새 고객) · '
     +'<b>재가입</b>(돌아온 고객) · <b>업셀</b>(이미 우리 고객이 인사이트를 추가하거나 요금제를 플러스로 올린 것). '
     +'셋의 합이 위 실적과 같고 서로 겹치지 않습니다. '
-    +'<b>개업세무사 가입 실적</b>은 청구 기준 <b>프로모션 시작월</b>이 그 달인 곳입니다. '
+    +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
+    +'「└ 그중 개업세무사」 줄이 그 내역이고(프로모션 시작월이 그 달인 곳), 아래 파란 블록은 그 프로모션만 목표 대비로 관리합니다. '
+    +'세부 3줄(신규·재가입·업셀)은 서로 겹치지 않는 분해이고, 「그중 개업세무사」는 그 셋에 걸쳐 있어 합에 더하지 않습니다. '
     +'※ 아래 「전체 가입 현황」은 <b>전체 집계</b>라 신규가입+재가입만 세므로 숫자가 더 작습니다'
     +'</div>';
 }
@@ -14133,6 +14143,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u32',d:'2026-09-09',tt:'개업세무사가 플러스에 포함된다는 것을 표에서 바로 보이게',
+  b:'개업세무사 프로모션이 플러스 실적에 포함되는지 헷갈린다는 의견을 반영했습니다. 플러스 실적 세부 항목에 「└ 그중 개업세무사(프로모션)」 줄을 추가해 「플러스 20건 중 개업세무사 5건」이 한 줄로 보이고, 아래 파란 블록 라벨에도 「플러스 내」라고 표기했습니다.'},
  {id:'u31',d:'2026-09-09',tt:'플러스 실적의 구성을 3줄로 표시 (신규 플러스 / 재가입 / 업셀)',
   b:'플러스 실적이 어디서 왔는지 세 줄로 나눠 보여줍니다 — 새 고객(신규 플러스), 돌아온 고객(재가입), 기존 고객의 업셀(인사이트 추가·플러스 전환). 8월 20건 중 실제 신규는 2곳이라는 사실이 화면에서 바로 보입니다.'},
  {id:'u30',d:'2026-09-09',tt:'「전체 가입 현황」을 전체 기준으로 분리 (위=플러스 집계 / 아래=전체 집계)',
