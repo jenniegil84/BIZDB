@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.300';
+window.__APP_VER='v08.301';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12587,7 +12587,16 @@ window.joinSplitCount=function(kind,s,e,onlyRejoin,scope){
                       :function(x){return inR(x.jn)||inR(x.rj)||chg(x)||insNew(x);};
   const rows=R.filter(hit);        // 같은 사무소가 가입·요금제변경을 함께 했어도 행 하나라 1건
   if(kind==='total')return rows.length;
+  /* ══ v08.301 사용자 확정("구성 3줄만 추가") ══
+     플러스 실적이 「어디서 왔는가」를 서로 겹치지 않게 셋으로 나눈다(우선순위: 신규 > 재가입 > 업셀).
+       · plus_new    = 그 달 신규가입이면서 인사이트 보유 → 새 고객이 플러스로 들어온 것
+       · plus_rejoin = 신규가입이 아니고 그 달 재가입이면서 인사이트 보유 → 돌아온 고객
+       · plus_upsell = 그 밖(인사이트 추가 가입 · 플러스 전환) → 이미 우리 고객이었던 곳
+     셋의 합은 항상 plus와 같다(2026 실데이터: 31 + 3 + 68 = 102). */
   if(kind==='plus') return rows.filter(function(x){return !!x.insJn;}).length;
+  if(kind==='plus_new')   return rows.filter(function(x){return !!x.insJn&&inR(x.jn);}).length;
+  if(kind==='plus_rejoin')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&inR(x.rj);}).length;
+  if(kind==='plus_upsell')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&!inR(x.rj);}).length;
   if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
   return 0;
 };
@@ -12654,7 +12663,7 @@ function monPerfTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   const num=v=>(v!==''&&v!=null)?+v:null;
-  const rows={newT:{},newA:{},rejA:{},pkgT:{},pkgA:{}};
+  const rows={newT:{},newA:{},pnA:{},rejA:{},upsA:{},pkgT:{},pkgA:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
@@ -12673,18 +12682,23 @@ function monPerfTableHtml(){
        아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다.
        v08.297에서 스펙에 없다는 지적을 받아 「└ 재가입」 행을 지웠다가, v08.299에서 사용자가
        스펙에 그 행을 다시 넣어(재가입도 실적에 포함하되 몇 건인지 보이게) 복원했다.
-       └ 재가입 = **플러스 가입 실적 안에 든 재가입분**(재가입일이 그 달인 곳) — 합계에 또 더하지 않는다.
-       (2026년 실데이터: 재가입 11건 중 인사이트 보유 3건 — 3·8·9월 각 1건) */
+       v08.301 사용자 확정("구성 3줄만 추가") — 「└ 재가입」 한 줄이던 세부 행을 셋으로 늘린다:
+       └ 신규 플러스 / └ 재가입 / └ 업셀(인사이트 추가·플러스 전환). 셋의 합 = 플러스 가입 실적이고
+       서로 겹치지 않는다(합계에 또 더하지 않는다). 8월 20건 중 실제 신규는 2곳뿐이라는 사실이
+       이 3줄로 화면에 드러난다. */
     const _r=monRangeOf(y,m);
-    rows.rejA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1],true);
-    rows.newA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
+    rows.newA[m] =future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
+    rows.pnA[m]  =future(m)?null:window.joinSplitCount('plus_new',_r[0],_r[1]);
+    rows.rejA[m] =future(m)?null:window.joinSplitCount('plus_rejoin',_r[0],_r[1]);
+    rows.upsA[m] =future(m)?null:window.joinSplitCount('plus_upsell',_r[0],_r[1]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
     /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
        행과 같은 함수를 쓴다(joinSplitCount('pkg') → pkgJoinCountRange). */
     rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
-  const newTSum=sum(rows.newT), newASum=sum(rows.newA), rejASum=sum(rows.rejA);
+  const newTSum=sum(rows.newT), newASum=sum(rows.newA);
+  const pnASum=sum(rows.pnA), rejASum=sum(rows.rejA), upsASum=sum(rows.upsA);
   const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
   const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
   const targetCell=function(kind,m){
@@ -12729,8 +12743,10 @@ function monPerfTableHtml(){
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스 가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
     +tr('플러스 가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
-    /* v08.299 스펙에 다시 들어온 세부 행 — 플러스 가입 실적 안에 든 재가입분(합계에 또 더하지 않는다) */
+    /* v08.301 플러스 실적의 구성 3줄 — 서로 겹치지 않고 합이 위 실적과 같다(합계에 또 더하지 않는다) */
+    +tr('&nbsp;&nbsp;└ 신규 플러스',months.map(function(m){return td(actCell(rows.pnA[m]),m);}),pnASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
+    +tr('&nbsp;&nbsp;└ 업셀(인사이트·전환)',months.map(function(m){return td(actCell(rows.upsA[m]),m);}),upsASum,'color:var(--link)')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
@@ -12760,7 +12776,9 @@ function monPerfTableHtml(){
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
     +'<b>플러스 가입 실적</b> = 그 달에 <b>플러스가 된 모든 경로</b>를 셉니다 — 신규가입 · 재가입 · '
     +'플러스 전환(요금제변경) · 인사이트 추가 가입 중 인사이트를 보유한 곳(개업세무사 포함). '
-    +'<b>└ 재가입</b>은 그 안에 든 재가입분입니다. '
+    +'세부 3줄은 그 실적이 어디서 왔는지 나눈 것입니다 — <b>신규 플러스</b>(새 고객) · '
+    +'<b>재가입</b>(돌아온 고객) · <b>업셀</b>(이미 우리 고객이 인사이트를 추가하거나 요금제를 플러스로 올린 것). '
+    +'셋의 합이 위 실적과 같고 서로 겹치지 않습니다. '
     +'<b>개업세무사 가입 실적</b>은 청구 기준 <b>프로모션 시작월</b>이 그 달인 곳입니다. '
     +'※ 아래 「전체 가입 현황」은 <b>전체 집계</b>라 신규가입+재가입만 세므로 숫자가 더 작습니다'
     +'</div>';
@@ -14115,6 +14133,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u31',d:'2026-09-09',tt:'플러스 실적의 구성을 3줄로 표시 (신규 플러스 / 재가입 / 업셀)',
+  b:'플러스 실적이 어디서 왔는지 세 줄로 나눠 보여줍니다 — 새 고객(신규 플러스), 돌아온 고객(재가입), 기존 고객의 업셀(인사이트 추가·플러스 전환). 8월 20건 중 실제 신규는 2곳이라는 사실이 화면에서 바로 보입니다.'},
  {id:'u30',d:'2026-09-09',tt:'「전체 가입 현황」을 전체 기준으로 분리 (위=플러스 집계 / 아래=전체 집계)',
   b:'아래 「전체 가입 현황」이 위 표와 같은 플러스 기준 모수를 쓰고 있어 「전체」가 아니었습니다. 이제 아래 표는 그 달의 신규가입+재가입(모든 요금제)만 셉니다(2026 합계 92). 위 표는 플러스가 된 모든 경로(플러스 전환·인사이트 추가 포함, 102)를 세며, 두 표 아래에 각각 기준 설명을 넣었습니다.'},
  {id:'u29',d:'2026-09-09',tt:'월별 실적 현황에 「└ 재가입」 행 복원',
