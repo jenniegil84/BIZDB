@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.07
+- 버전: v01.08
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -52,7 +52,7 @@
 
 | 사이드바 표시명 | tab id | 방식 | 실제 담당 함수 (찾는 법) | 비고 |
 |---|---|---|---|---|
-| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 이번 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
+| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 이번 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281), **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**저번 주 / 이번 주**, v08.283). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
 | 통합 현황 | `home` | ① | `RENDER['home']=render;` 바로 위 IIFE, `document.getElementById('s-home')` | 화면 아래쪽 `homeShell()`/`paintHome()`은 **죽은 코드**(호출 안 됨). |
 | 시장 현황 | `sales` | ② | `function salesMount(){` | |
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
@@ -188,10 +188,15 @@
   문의 건수를 부풀리고 있었다. `inqCls` 반환값을 키로 쓰는 맵(`{inq:[],join:[],…}`)에는
   **`sub:[]`를 반드시 넣어야 한다** — 없으면 `push`에서 오류가 난다.
 - **하위업무 제목이 추천인코드 모양**(`SUB_REF_RE` = 영문 대문자·숫자·밑줄/하이픈, 예 `WE_MOON`)이면
-  부모의 가입채널을 **「영업 > 그 코드」로 확정**한다(추천 정보 관리 매핑을 거치지 않음 — 사용자 확정).
+  부모의 가입채널을 확정한다. 어떤 값을 쓸지는 **`refEnsureChannel(code)` 한 곳에서만** 정한다(v08.283):
+  ① 추천 정보 관리(`window.__refList`)에 그 코드로 적어 둔 추천채널이 있으면 **그 값**(`refChannelOf`),
+  ② 없으면 「영업 > 코드」를 쓰고 **같은 내용을 추천 정보 관리에 자동 생성**한다(행이 없으면 새 행,
+  행은 있고 채널 칸만 비었으면 그 칸만 채움 — 추천인 등 다른 칸은 건드리지 않는다).
   사람이 수기로 지정한 가입채널은 덮어쓰지 않는다.
-  ※ '내용' 텍스트에서 추천인코드를 찾는 옛 경로(`xlAutoJoinChFromContent`, v08.98/v08.244)는
-  **여전히 추천 정보 관리에 매핑된 채널**을 쓴다 — 두 경로의 규칙이 다르므로 통일할지는 미결.
+  자동 생성분 저장은 행마다 하지 않는다 — `window.__refDirty`만 켜 두고 `xlLinkSubTasks`가 끝날 때
+  `refSave()`를 **한 번만** 부른다(저장 요청·`#refPanel` 재렌더 폭주 방지).
+  ※ 이로써 '내용' 텍스트에서 추천인코드를 찾는 옛 경로(`xlAutoJoinChFromContent`, v08.98/v08.244)와
+  규칙이 거의 같아졌다 — 다른 점은 옛 경로는 **매핑이 없으면 자동지정을 포기**한다는 것(자동 생성 안 함).
 - 하위업무는 신청 관리 카드 상세(`inqDetail`)에 표로 보여준다. 상위업무 컬럼이 없는 파일이면
   그 사실을 안내한다(없는 값을 지어내지 않는다).
 
@@ -228,3 +233,20 @@
    정지업체 검색 칸(`#chQ`·`#spQ`)은 이미 id가 있었는데 못 보고 또 붙여 `id` 속성이 두 번 들어간
    적이 있다(v08.278 작업 중, 커밋 전에 되돌림). 죽은 화면(`inqShell`)의 `#inqQ`와 이름이 겹치는
    문제도 있었다 — `grep -n 'id="붙일이름"'`으로 먼저 확인할 것.
+
+---
+
+## 11. 주간회의 월별 표 2개의 열 정렬 (v08.283)
+
+「플러스 가입 및 프로모션 가입 — 월별 실적 현황」(`monPerfTableHtml`)과 「전체 가입 현황」
+(`planJoinTableHtml`)은 열 구성이 같다(구분 + 1~12월 + 합계 = 14열). 그런데 구분 칸의 글자 길이가
+달라(「프로모션 가입 목표」 vs 「└ 개업성장패키지」) 브라우저가 표마다 다른 폭을 계산해, 위아래로
+놓았을 때 같은 달 열이 서로 어긋나 보였다(예: 9월 열이 16px 차이).
+
+- 두 표 모두 `<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">`+`wkMonColgroup()`을 쓴다.
+- `wkMonColgroup()`은 **구분 150px · 12개월 균등 · 합계 56px** colgroup을 돌려준다 — 열 폭이 내용과
+  무관해지므로 두 표가 항상 같은 자리에 온다(화면·PDF 모두 확인).
+- **`.wk-mtbl` 클래스 자체에는 손대지 않았다** — 같은 클래스를 쓰는 다른 표(주간 인사이트 등)까지
+  고정폭이 되면 안 되기 때문. 그래서 클래스가 아니라 이 두 표의 인라인 style·colgroup으로만 적용한다.
+- 열을 더하거나 뺄 때는 **`wkMonColgroup()`의 `<col>` 개수도 함께 맞춰야 한다**(안 맞으면 남는 열이
+  0폭이 된다).

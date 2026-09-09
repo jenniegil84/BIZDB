@@ -848,6 +848,8 @@ table.t .na{color:#B6BCC6}
 .ww-col-h span{font-weight:500;opacity:.8;margin-left:7px;font-family:ui-monospace,Consolas,monospace;font-size:10px}
 .ww-col-h.now{background:#0F766E}
 .ww-col-h.next{background:#1F2937}
+/* v08.283 저번 주 칸 머리 — 이번 주(청록 강조)와 구분되는 진한 회색(옛 .next와 같은 톤) */
+.ww-col-h.prev{background:#1F2937}
 .ww-col-b{padding:12px 13px 16px}
 /* ══ v08.147 요청("글이 위아래로 너무 붙어있는데 주제별로 사이 여백이 추가되어서 구분이 되면 좋을듯") ══
    종전에는 과제 사이 간격이 4px뿐이라, 앞 과제의 실행기록 마지막 줄과 다음 과제 제목이 거의
@@ -2054,7 +2056,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.282';
+window.__APP_VER='v08.283';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -2805,11 +2807,36 @@ function refChannelOf(code){
      제목은 파서가 「[유형] 제목」으로 쪼개 두므로 비교할 때 다시 붙여 맞춘다.
    · 추천인코드 판정: 하위업무 제목이 영문 대문자·숫자·밑줄만으로 된 코드 모양이면 코드로 본다
      (예: WE_MOON, TAX_SEMO_UXM). 한글이 섞인 일반 하위업무 제목은 코드로 보지 않는다.
-   · 가입채널 값은 사용자 확정에 따라 **추천인코드 자체**를 쓴다(「영업 > WE_MOON」).
-     추천 정보 관리 매핑을 거치지 않으므로 표에 등록하지 않아도 바로 잡힌다.
+   · 가입채널 값은 ① 추천 정보 관리에 그 코드로 매핑해 둔 추천채널이 있으면 그 값,
+     ② 없으면 「영업 > 코드」를 쓰고 그 내용을 추천 정보 관리에 자동으로 만들어 둔다
+     (v08.283 요청 — refEnsureChannel 참고).
    · 사람이 수기로 지정해 둔 가입채널은 덮어쓰지 않는다(기존 규칙과 동일). */
 window.__inqSubs={};
 window.SUB_REF_RE=/^[A-Z][A-Z0-9]*(?:[_-][A-Z0-9]+)+$/;
+/* ══ v08.283 요청("하위업무에서 찾으면 추천 정보 관리에 매핑된 채널을 먼저 반영하고
+   없으면 추천 정보 관리에 자동 생성") ══
+   하위업무 제목이 추천인코드 모양일 때 쓸 가입채널 값을 이 함수 하나로 정한다.
+     ① 추천 정보 관리(__refList)에 그 코드로 적어 둔 추천채널이 있으면 → 그 값을 그대로 쓴다
+        (사람이 정해 둔 채널 이름이 항상 우선. 예: WE_MOON → 「위멤버스 > 온라인 마케팅」)
+     ② 매핑이 없으면 → 「영업 > 코드」를 쓰고, 같은 내용을 추천 정보 관리에 자동으로 만들어 둔다
+        · 행이 아예 없으면 새 행 추가({코드, 영업 > 코드, 추천인 빈칸})
+        · 행은 있는데 추천채널 칸만 비어 있으면 그 칸만 채운다(추천인 등 다른 칸은 건드리지 않음)
+        → 이후 사용자가 그 표에서 채널 이름만 고치면 ①로 넘어가 계속 그 이름이 쓰인다.
+   저장은 여기서 매번 하지 않는다 — 여러 건이 한꺼번에 생기므로 __refDirty만 켜 두고
+   xlLinkSubTasks가 끝날 때 refSave()를 한 번만 부른다(저장 요청·화면 재렌더 폭주 방지). */
+function refEnsureChannel(code){
+  const raw=String(code||'').trim();
+  const c=raw.replace(/\s+/g,'').toUpperCase();
+  if(!c)return '';
+  const mapped=refChannelOf(c);
+  if(mapped)return mapped;
+  const ch='영업 > '+c;
+  const L=window.__refList=window.__refList||[];
+  const hit=L.filter(function(r){ return String(r&&r.cd||'').replace(/\s+/g,'').toUpperCase()===c; })[0];
+  if(hit)hit.ch=ch; else L.push({cd:raw, ch:ch, nm:''});
+  window.__refDirty=true;
+  return ch;
+}
 function xlLinkSubTasks(rows){
   const norm=function(v){return String(v||'').replace(/\s+/g,'');};
   const full=function(r){return norm((r.tp&&r.tp!=='미분류'?'['+r.tp+'] ':'')+r.tt);};
@@ -2824,11 +2851,15 @@ function xlLinkSubTasks(rows){
     /* 제목이 추천인코드 모양이면 부모의 가입채널을 그 코드로 확정 */
     const code=String(r.tt||'').trim().toUpperCase();
     if(!window.SUB_REF_RE.test(code))return;
+    const ch=refEnsureChannel(code);          // 매핑 우선 · 없으면 추천 정보 관리에 자동 생성
+    if(!ch)return;
     window.IX___inqManage=window.IX___inqManage||{};
     const M=window.IX___inqManage[par.fid]=window.IX___inqManage[par.fid]||{};
-    if(!M.joinCh)M.joinCh='영업 > '+code;
+    if(!M.joinCh)M.joinCh=ch;
   });
   window.__inqSubs=subs;
+  /* 자동 생성분이 있으면 여기서 한 번만 저장한다(행마다 저장하면 요청이 수십 번 나간다) */
+  if(window.__refDirty){ window.__refDirty=false; if(typeof window.refSave==='function')window.refSave(); }
   return subs;
 }
 function xlAutoJoinChFromContent(rows){
@@ -12247,7 +12278,7 @@ function monPerfTableHtml(){
       +months.map(function(m){return pkgTd(cellsFn(m),isTop,isBottom,m);}).join('')
       +'<td style="'+sumStyle+'">'+sumTxt+'</td></tr>';
   };
-  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+  const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
     +tr('가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
@@ -12289,6 +12320,19 @@ function wkMonHl(y,m,strong){
   if(!(y===curY&&m===curM))return '';
   return ';background:'+(strong?'#FDE68A':'#FEF9C3');
 }
+/* ══ v08.283 요청("월별 실적 현황과 전체 가입 현황 위아래 월별 자리를 맞춰봐") ══
+   두 표(월별 실적 현황 / 전체 가입 현황)는 열 구성이 같은데(구분 + 1~12월 + 합계),
+   구분 칸의 글자 길이가 달라(「프로모션 가입 목표」 vs 「└ 개업성장패키지」) 브라우저가
+   표마다 다른 폭을 계산했다 — 그래서 위아래로 놓았을 때 9월 열이 서로 어긋나 보였다.
+   두 표에 똑같은 colgroup(구분 150px · 12개월 균등 · 합계 56px)과 table-layout:fixed를
+   주면 폭 계산이 내용과 무관해져 항상 같은 자리에 온다.
+   .wk-mtbl을 쓰는 다른 표(주간 인사이트 등)에는 영향이 없도록, 클래스가 아니라
+   이 두 표의 인라인 style·colgroup으로만 적용한다. */
+function wkMonColgroup(){
+  return '<colgroup><col style="width:150px">'
+    +[1,2,3,4,5,6,7,8,9,10,11,12].map(function(){return '<col>';}).join('')
+    +'<col style="width:56px"></colgroup>';
+}
 function planJoinTableHtml(){
   const y=window.__monTgtYear;
   const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
@@ -12317,7 +12361,7 @@ function planJoinTableHtml(){
      --link 재사용). 집계 자체(pkgJoinCountRange)는 그대로라 두 행 숫자가 겹칠 수 있음은
      이전과 같다 — 표시만 이 관계를 드러내도록 바꾼 것.
      v08.240 요청("베이직이 아니라 리포트로") — 인사이트 미가입 쪽 행 이름을 리포트로 변경. */
-  const table='<table class="wk-mtbl" style="font-size:10.5px"><thead><tr><th style="text-align:left">구분</th>'
+  const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스',rows.plus)
     +tr('&nbsp;&nbsp;└ 개업성장패키지',rows.pkg,'color:var(--link)')
@@ -13520,6 +13564,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u16',d:'2026-09-09',tt:'주간 업무 현황을 「저번 주/이번 주」로 변경 · 월별 두 표 자리 정렬 · 추천인코드 자동 등록',
+  b:'팀별 주간 업무 현황이 저번 주와 이번 주를 나란히 보여줍니다. 주간회의 「월별 실적 현황」과 「전체 가입 현황」의 월 칸이 위아래로 정확히 맞춰졌고, 하위업무에서 찾은 추천인코드는 추천 정보 관리에 등록된 채널을 먼저 쓰고 없으면 그 표에 자동으로 만들어 둡니다.'},
  {id:'u15',d:'2026-09-09',tt:'플로우 하위업무를 가져와 보여주고, 추천인코드는 가입채널로 자동 확정',
   b:'신청 관리에서 업무를 열면 그 업무의 하위업무 목록이 함께 보입니다. 하위업무 이름이 추천인코드(예: WE_MOON)면 가입채널이 「영업 > WE_MOON」으로 자동 지정되고, 하위업무는 도입문의 건수에서 제외됩니다.'},
  {id:'u14',d:'2026-09-09',tt:'월별 실적 표에 이번 달 형광펜 표시 · 성과 지표 그래프 크기 정상화',
@@ -15303,7 +15349,12 @@ function byLabel(v){
   return s.split('@')[0];                             // 없으면 계정 앞부분만
 }
 function teamWeekTableHtml(team){
-  const nextWk=addD(CURWK,7);
+  /* ══ v08.283 요청("주간업무현황은 저번 주와 이번 주를 보여줘") ══
+     종전에는 「이번 주 / 다음 주」 2단이었는데, 이 표는 그 주 구간에 실제로 찍힌 실행기록만
+     세므로(아래 v06.26 주석) 다음 주 칸은 사실상 늘 비어 있었다. 회의에서 실제로 보는 것은
+     「지난주에 무엇을 했고 이번 주에 무엇을 하고 있는지」라, 저번 주 → 이번 주 순서로 바꿨다.
+     색은 이번 주가 강조(청록)로 남고, 저번 주는 진한 회색(.prev)이다. */
+  const prevWk=addD(CURWK,-7);
   const dot=d=>String(d).replace(/-/g,'.').slice(0,10);
   const rowsFor=wk=>{
     const items=wkCardsFor(team.id,wk);
@@ -15326,10 +15377,10 @@ function teamWeekTableHtml(team){
     }).join('');
   };
   return '<div class="ww-cols">'
+   +'<div class="ww-col"><div class="ww-col-h prev">저번 주 <span>'+dot(prevWk)+' – '+dot(wkEndOf(prevWk)).slice(5)+'</span></div>'
+   +'<div class="ww-col-b">'+rowsFor(prevWk)+'</div></div>'
    +'<div class="ww-col"><div class="ww-col-h now">이번 주 <span>'+dot(CURWK)+' – '+dot(wkEndOf(CURWK)).slice(5)+'</span></div>'
    +'<div class="ww-col-b">'+rowsFor(CURWK)+'</div></div>'
-   +'<div class="ww-col"><div class="ww-col-h next">다음 주 <span>'+dot(nextWk)+' – '+dot(wkEndOf(nextWk)).slice(5)+'</span></div>'
-   +'<div class="ww-col-b">'+rowsFor(nextWk)+'</div></div>'
    +'</div>';
 }
 function issueBlockHtml(){
