@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.36
+- 버전: v01.37
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -258,11 +258,14 @@
 
 ## 11. 주간회의 월별 표 2개 — 같은 기준·같은 열 폭
 
-> **표 아래 기준 설명은 💡 안에 접혀 있다**(v08.309) — 공통 함수 `wkNoteBox(id,html)`로 감싸고
-> `window.wkNoteToggle(id,btn)`이 여닫는다(`monPerfNote` · `planJoinNote`). 기본은 접힘이고
-> 여닫은 상태는 저장하지 않는다. **인쇄·PDF에서는 항상 펼쳐져 찍힌다** — 파일 상단
-> `@media print`의 `.wk-note{display:block!important}` / `.wk-note-btn{display:none!important}`.
-> 설명 문구를 고칠 때는 이 두 함수 호출 안의 문자열만 바꾸면 된다.
+> **기준 설명은 표 제목 옆 (!) 버튼으로 연다**(v08.309 💡 → v08.310 (!) · 제목 옆으로 이동).
+> · 버튼 = `wkNoteBtn(id)`(동그란 (!), 열려 있으면 청록으로 강조) — **제목 줄**(paintWeek)에 붙는다
+> · 본문 = `wkNoteBody(id,html)` — 제목 바로 아래(표 위)에 접혀 있다
+> · 문구 = `monPerfNoteHtml()` · `planJoinNoteHtml()` — **표 함수에서 분리**했으니 설명을 고칠 때는
+>   이 두 함수만 열면 된다(표 함수 안에는 더 이상 설명이 없다)
+> · 여닫기 = `window.wkNoteToggle(id,btn)`, 기본 접힘, 상태는 저장하지 않는다
+> · **인쇄·PDF에서는 항상 펼쳐져 찍힌다** — 파일 상단 `@media print`의
+>   `.wk-note{display:block!important}` / `.wk-note-btn{display:none!important}`
 
 **두 표의 관계(v08.285)**: 「플러스 가입 및 프로모션 가입 — 월별 실적 현황」(`monPerfTableHtml`)의
 「플러스 가입 실적」 행과 「전체 가입 현황」(`planJoinTableHtml`)의 「플러스」 행은 **같은 함수**
