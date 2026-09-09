@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.301';
+window.__APP_VER='v08.305';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3578,6 +3578,13 @@ function xlParseOffice(rows,hdr){
      가입일자(jn/rj) 자체는 그대로 두고(정상/현재 요금제 여부와 무관하게 전부 포함), 인사이트
      가입일자가 있으면 플러스, 없으면 리포트로 가른다(사용자 확정). */
   const iInsJn=xlIdx(hdr,'인사이트 가입일자');
+  /* ══ v08.305 사용자 확정("포함 + 별도 표기") ══
+     인사이트를 가입한 달에 곧바로 해지한 건이 있다(2026-08 실데이터 5곳 — 8/11 가입 → 8/20 해지 등).
+     가입일 기준으로 세는 원칙은 그대로 두되, 그런 건이 몇 건인지 화면에 함께 보여줘야 한다.
+     판정에는 「인사이트 해지일」을 쓰고(상태는 참고용) — 해지일이 그 기간 안이면 「당월 해지」다. */
+  const iInsSt=xlIdxLoose(hdr,['인사이트 상태','인사이트상태']),
+        iInsCn=xlIdxLoose(hdr,['인사이트 해지일','인사이트해지일','인사이트 해지일자']),
+        iInsRs=xlIdxLoose(hdr,['인사이트 해지사유','인사이트해지사유']);
   /* ══ v08.290 요청("마스터파일(세무사무소목록)에 이제 프로모션명과 시작일 종료일도 데이터가
      들어오게 되어서 청구파일을 굳이 참조하지 않아도 돼") ══
      세무사무소목록의 CS·CT·CU 열(프로모션 구분명 / 프로모션 시작 연월 / 프로모션 종료 연월).
@@ -3653,6 +3660,10 @@ function xlParseOffice(rows,hdr){
     /* v08.240 인사이트 가입일자 — 값이 있으면 인사이트 가입, 없으면 미가입(전체 가입 현황 표
        「플러스」/「리포트」 분류 기준, xlParseMonitor가 이미 쓰던 같은 컬럼) */
     insJn: iInsJn>=0?xlDay(r[iInsJn]):'',
+    /* v08.305 인사이트 해지 — 상태·해지일·해지사유(없으면 빈 값) */
+    insSt: iInsSt>=0?String(r[iInsSt]||'').trim():'',
+    insCn: iInsCn>=0?xlDay(r[iInsCn]):'',
+    insRs: iInsRs>=0?String(r[iInsRs]||'').trim():'',
     /* v08.137 시장 현황용 — 사업자 구분(개인/법인)·거래처수 */
     bt: iBt>=0?String(r[iBt]||'').trim():'',
     cc: iCc>=0?num(r[iCc]):null,
@@ -3679,6 +3690,9 @@ function xlParseOffice(rows,hdr){
     insAll:iInsAll>=0, insFund:iInsFund>=0, insTax:iInsTax>=0,
     insAllCol:_colNm(iInsAll), insFundCol:_colNm(iInsFund), insTaxCol:_colNm(iInsTax),
     insCands:_cands('인사이트'),
+    /* v08.305 인사이트 가입·해지 컬럼 인식 여부 — 없으면 화면이 「데이터 없음」으로 안내한다 */
+    insJnC:iInsJn>=0, insSt:iInsSt>=0, insCn:iInsCn>=0, insRs:iInsRs>=0,
+    insJnCol:_colNm(iInsJn), insStCol:_colNm(iInsSt), insCnCol:_colNm(iInsCn),
     /* v08.137 시장 현황용 컬럼 인식 여부 */
     bt:iBt>=0, cc:iCc>=0, btCol:_colNm(iBt), ccCol:_colNm(iCc),
     spRs:iSpRs>=0, spRsCol:_colNm(iSpRs),   /* v08.149 정지사유 컬럼 인식 여부 */
@@ -4182,7 +4196,8 @@ window.dayJoinRows=function(d){
 };
 window.dayChurnRows=function(d){
   const R=window.__xlOfficeRows||[];
-  return R.filter(function(x){return String(x.cn||'').slice(0,10)===d && String(x.st||'').trim()==='해지';})
+  /* v08.305 해지일 기준 전량(카드와 같은 기준) — 현재 상태로 걸러 재가입한 곳이 빠지지 않게 한다 */
+  return R.filter(function(x){return String(x.cn||'').slice(0,10)===d;})
           .map(function(x){return [x.nm||'', x.pl||'—', x.rs||'—', x.cn||''];});
 };
 window.dayInqRows=function(d){
@@ -5869,7 +5884,8 @@ function custToMg(c,step,status,problem,action,dmn){
   const _fN=v=>(v==null||!isFinite(v))?'—':v.toLocaleString();
   const _hCustN=O?O.total:null;
   const _hAll=(typeof window.perfStat==='function')?window.perfStat('1900-01-01', baseDate()):null;
-  const _hTot=_hAll?_hAll.join.length:(O?O.total:null), _hChu=_hAll?_hAll.churn.length:(O?O.churned:null);
+  /* v08.305 누적 해지는 종전 기준(현재 상태 해지)을 유지한다 — 아래 검산 식이 그 정의에 기댄다 */
+  const _hTot=_hAll?_hAll.join.length:(O?O.total:null), _hChu=_hAll?(_hAll.churnNow||_hAll.churn).length:(O?O.churned:null);
   // v08.98 요청("누적은 날짜필요없이 무조건 상태값으로 계산할것") — 현재 정상도 누적 가입·해지·정지와
   // 같은 원천(perfStat 전체기간 = 상태값 기준)으로 통일한다. 캐시 집계(O.normal)를 쓰면
   // 검산(가입 − 해지 − 정지 = 현재 정상)이 깨진다(실제로 396 vs 2로 어긋나던 것을 확인).
@@ -5883,7 +5899,7 @@ function custToMg(c,step,status,problem,action,dmn){
   const _hPauNow=(window.__xlOfficeRows&&window.__xlOfficeRows.length)
     ? window.__xlOfficeRows.filter(function(x){return String(x.st||'').trim()==='정지';}).length
     : (O?O.paused:null);
-  const _hNor=(_hPauNow==null)?(O?O.normal:null):(_hAll?(_hAll.join.length-_hAll.churn.length-_hPauNow):(O?O.normal:null));
+  const _hNor=(_hPauNow==null)?(O?O.normal:null):(_hAll?(_hAll.join.length-_hChu-_hPauNow):(O?O.normal:null));
   const _hNorSt=(window.__xlOfficeRows&&window.__xlOfficeRows.length)
     ? window.__xlOfficeRows.filter(function(x){return String(x.st||'').trim()==='정상';}).length
     : null;
@@ -8770,7 +8786,17 @@ window.spPaint=function(){
        ※ 날짜가 비어 있는 행은 어느 기간에도 잡히지 않으므로, 통합현황의
          「가입 − 해지 − 정지 = 현재 정상」 검산이 어긋날 수 있다(그 차이는 화면에 ✗로 표시된다). */
     const join  = offRows().filter(x=>inR(x.jn,s,e));
-    const churn = offRows().filter(x=>inR(x.cn,s,e) && String(x.st||'').trim()==='해지');
+    /* ══ v08.305 사용자 확정("해지일 기준 전량") ══
+       종전에는 「해지일이 그 기간 + 현재 상태가 해지」로 세어, 해지 후 다시 돌아온 곳이 빠졌다.
+       회사 시스템의 월별 현황 시트(2026-09-10 검증 파일)와 대조해 보니 그 차이가 정확히 4건이었다
+       (1월 13/14 · 4월 17/18 · 5월 5/6 · 8월 8/9 — 최원석 세무사·세무회계 모아·세무그룹 서울택스·
+       이원희 세무회계, 모두 해지 후 재가입). 가입을 「지금 해지됐어도 가입일 기준」으로 세는
+       원칙(2026-09-09 확정)과 대칭이 되도록 해지도 **해지일 기준 전량**으로 센다.
+       ※ 누적(전체 기간) 화면만은 예외로 종전 기준(churnNow)을 쓴다 — 거기서 「누적 해지」는
+         「지금 해지 상태인 곳」이고, 「누적가입 − 누적해지 − 누적정지 = 현재 정상」 검산
+         (v08.98 사용자 확정)이 그 정의에 기대고 있다. 두 값을 함께 돌려준다. */
+    const churn = offRows().filter(x=>inR(x.cn,s,e));
+    const churnNow = churn.filter(x=>String(x.st||'').trim()==='해지');
     const rejoin = offRows().filter(x=>inR(x.rj,s,e));
     /* 정지일시 컬럼이 없는 파일이면 날짜 귀속이 불가하므로 「데이터 없음」으로 둔다(0을 사실처럼
        보여주지 않는다). 컬럼 존재 여부로 판단한다 — 컬럼이 있으면 0건은 진짜 0건이다. */
@@ -8895,9 +8921,14 @@ window.spPaint=function(){
     const pkgJoinN = (typeof window.joinSplitCount==='function')
       ? window.joinSplitCount('pkg',s,e) : null;
     /* v08.296 인사이트를 그 기간에 새로 가입한 곳 — 가입 모수에 포함되며 카드 밑줄에 내역으로 적는다 */
-    const insNewN = offRows().filter(function(x){return inR(x.insJn,s,e);}).length;
+    const insNew = offRows().filter(function(x){return inR(x.insJn,s,e);});
+    const insNewN = insNew.length;
+    /* v08.305 인사이트를 그 기간에 해지한 곳 — 발생 건 목록에 싣고, 「그중 당월 해지」 표기에 쓴다 */
+    const insOut = offRows().filter(function(x){return inR(x.insCn,s,e);});
     return { inq, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
              range: [s,e],                /* v08.289 카드 밑줄에서 모수를 다시 세는 데 쓴다 */
+             churnNow: churnNow,          /* v08.305 종전 기준(해지일 + 현재 상태 해지) — 누적 화면 전용 */
+             insNew: insNew, insOut: insOut,   /* v08.305 인사이트 가입·해지 행(발생 건 목록·표기용) */
              insNewN: insNewN,            /* v08.296 인사이트 신규 가입 수 */
              plusInsN: plusInsN,          /* v08.289 플러스(인사이트 가입 · 개업세무사 포함) */
              pkgJoinN: pkgJoinN,          /* v08.289 개업세무사 — 프로모션 시작월 기준 */
@@ -9044,11 +9075,24 @@ window.spPaint=function(){
     const _plusBase=(typeof window.joinSplitCount==='function')
       ? window.joinSplitCount('total',S.range?S.range[0]:'',S.range?S.range[1]:'')
       : (S.join.length+S.rejoin.length);
+    /* ══ v08.303 요청("주간회의내용과 월별 실적분석 데이터는 같아야돼") ══
+       종전 밑줄은 **모수의 경로별 원건수**(신규 9 · 재가입 1 · 플러스 전환 13 · 인사이트 신규 19)라
+       주간회의 표의 세부 3줄(신규 플러스 2 · 재가입 1 · 업셀 17)과 숫자가 달라, 같은 값을 보는
+       두 화면이 어긋난 것처럼 읽혔다(2026-09-09 질문 "데이터가 다른이유").
+       이제 밑줄도 **표와 같은 상호배타 3줄**을 그대로 적는다 — 같은 함수(joinSplitCount)를 부르므로
+       구조적으로 어긋날 수 없다. 모수(후보 건수)는 「… 중」으로 뒤에 붙여 맥락만 남긴다. */
+    const _pn=(typeof window.joinSplitCount==='function'&&S.range)
+      ? { n:window.joinSplitCount('plus_new',   S.range[0],S.range[1]),
+          r:window.joinSplitCount('plus_rejoin',S.range[0],S.range[1]),
+          u:window.joinSplitCount('plus_upsell',S.range[0],S.range[1]),
+          o:window.joinSplitCount('plus_insout',S.range[0],S.range[1]) } : null;   /* v08.305 당월 인사이트 해지 */
     const plusNote=(S.plusInsN==null)
       ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
-      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+' · 플러스 전환 '+(S.plusConvN||0)+' · 인사이트 신규 '+(S.insNewN||0)+') 중 인사이트 보유'
-         + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
-         + ' · 개업세무사 포함 · 주간회의 표와 같은 기준');   /* v08.289 스펙 v2 */
+      : (_pn
+         ? ('신규 플러스 '+_pn.n+' · 재가입 '+_pn.r+' · 업셀(인사이트·전환) '+_pn.u
+            + (_pn.o>0?(' · <span style="color:var(--red)">그중 당월 인사이트 해지 '+_pn.o+'</span>'):'')   /* v08.305 */
+            + ' · 가입 후보 '+_plusBase+'건 중 · 개업세무사 포함 · 주간회의 표와 같은 기준')
+         : ('가입 '+_plusBase+'건 중 인사이트 보유 · 개업세무사 포함 · 주간회의 표와 같은 기준'));
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -9424,7 +9468,13 @@ window.spPaint=function(){
     재가입:    '<span class="rtag" style="background:#E8F7EE;color:#1B9E5A;border-color:#B7E4C7">재가입</span>',
     정지:      '<span class="rtag tP1">정지</span>',
     정지해제:  '<span class="rtag" style="background:#EAF9F8;color:var(--teal-dk);border-color:#A9E3E0">정지해제</span>',
-    해지:      '<span class="rtag tP0">해지</span>'
+    해지:      '<span class="rtag tP0">해지</span>',
+    /* ══ v08.305 사용자 확정("인사이트 가입 + 해지 추가") ══
+       종전 목록에는 인사이트 항목이 없어, 「플러스 가입」·「업셀」 숫자의 근거(인사이트 가입일)를
+       목록에서 확인할 수 없었다(2026-09-09 질문 "플러스 업셀이 17개가 맞아?").
+       인사이트 가입 = 플러스 실적의 근거, 인사이트 해지 = 그 실적이 유지되는지 보는 값이다. */
+    '인사이트 가입':'<span class="rtag" style="background:#EEF2FF;color:#4338CA;border-color:#C7D2FE">인사이트 가입</span>',
+    '인사이트 해지':'<span class="rtag" style="background:#FDF2F8;color:#BE185D;border-color:#FBCFE8">인사이트 해지</span>'
   };
   function eventRows(S){
     // v08.199 요청("실적관리에 있는 유입경로 가입채널 최종실적 데이터가 실적분석에 반영되어야해")
@@ -9465,6 +9515,10 @@ window.spPaint=function(){
     // v08.98 정지해제 — 정지에서 풀려 다시 이용을 시작한 건(요청). 재가입과 별개로 센다.
     (S.unpause||[]).forEach(x=>out.push([String(x.se||'').slice(0,10)||'—', TAG['정지해제'], x.nm||'', x.pl||'—', byBiz(x.bz)||'—', '—', '정지해제']));
     S.churn.forEach(x=>out.push([String(x.cn).slice(0,10), TAG['해지'],      x.nm||'', x.pl||'—',   x.rs||'—', '—', '해지']));
+    /* v08.305 인사이트 가입·해지 — 요금제 칸에는 그 곳의 요금제를, 사유 칸에는 인사이트 해지사유를 적는다 */
+    (S.insNew||[]).forEach(x=>out.push([String(x.insJn||'').slice(0,10)||'—', TAG['인사이트 가입'], x.nm||'', x.pl||'—', byBiz(x.bz)||'—', '—', '인사이트 가입']));
+    (S.insOut||[]).forEach(x=>out.push([String(x.insCn||'').slice(0,10)||'—', TAG['인사이트 해지'], x.nm||'', x.pl||'—',
+       (String(x.insRs||'').trim()&&x.insRs!=='-')?x.insRs:'미기재', '—', '인사이트 해지']));
     /* 요금제변경(고객 마스터 기준)도 같은 방식으로 유입경로를 붙인다 */
     return out;
   }
@@ -9476,7 +9530,7 @@ window.spPaint=function(){
      업무 흐름 순(문의 → 요금제변경 → 가입 → 해지)으로 고정한다. */
   const SORT_COLS=[{k:0,t:'일자'},{k:6,t:'구분'},{k:2,t:'사무소·업체명'},
                    {k:3,t:'유형·요금제'},{k:4,t:'최종실적·해지사유'},{k:5,t:'담당자'}];
-  const TAG_ORDER={'문의':0,'요금제변경':1,'가입':2,'재가입':3,'정지':4,'정지해제':5,'해지':6};   // v08.98 정지해제 추가
+  const TAG_ORDER={'문의':0,'요금제변경':1,'가입':2,'재가입':3,'인사이트 가입':4,'인사이트 해지':5,'정지':6,'정지해제':7,'해지':8};   // v08.305 인사이트 2종 추가
   window.__perfSort=window.__perfSort||{};
   function sortOf(tab){ return window.__perfSort[tab]||{k:0,d:-1}; }
   window.perfSortSet=function(tab,k){
@@ -9678,6 +9732,9 @@ window.spPaint=function(){
     const el=document.getElementById('s-cumul'); if(!el)return;
     const D=baseDate();
     const S=perfStat('1900-01-01', D);
+    /* v08.305 누적만 종전 기준(현재 상태 해지)을 쓴다 — 누적 해지 목록(allChurnRows)·통합현황
+       검산과 같은 정의여야 한다. 일별·월별·주간은 해지일 기준 전량이다. */
+    if(S&&S.churnNow)S.churn=S.churnNow;
     const ser=(window.__xlOffice&&window.__xlOffice.series)||[];
     const n=Math.min(24, Math.max(1, ser.length));
     el.innerHTML=
@@ -10717,7 +10774,7 @@ window.spPaint=function(){
     const inq=by.inq;
     const joinF=by.join, plan=by.plan;
     const join=R.filter(function(x){return inR(x.jn,s,e);});          // 교차 검증용(고객 원본 가입일시)
-    const churn=R.filter(function(x){return inR(x.cn,s,e)&&String(x.st||'').trim()==='해지';});
+    const churn=R.filter(function(x){return inR(x.cn,s,e);});   /* v08.305 해지일 기준 전량 */
     const hold=real.filter(function(r){return String(r.st||'')!=='완료';});   // 미완결 = 가입 고민
     const cons=consAll().filter(function(c){return c.stage==='타겟'&&inR(c.reg,s,e);});
     const voc=rowsOf('wkVoc',w);
@@ -10750,7 +10807,7 @@ window.spPaint=function(){
       hdrs:FH,rows:fRows(S.plan)});
     if(k==='hold')return openM({title:'가입 고민 '+S.hold.length+'건',sub:sub+' · 도입 문의 중 처리 상태가 「완료」가 아닌 건(요청·진행·피드백·보류)',
       hdrs:FH,rows:fRows(S.hold)});
-    if(k==='churn')return openM({title:'해지 '+S.churn.length+'곳',sub:sub+' · 출처: 고객 원본(해지일시 · 현재 상태 해지)',
+    if(k==='churn')return openM({title:'해지 '+S.churn.length+'곳',sub:sub+' · 출처: 고객 원본(해지일시 기준 · 재가입한 곳도 그 달 해지로 셈)',   /* v08.305 */
       hdrs:['사무소명','요금제','해지 사유','해지일'],rows:S.churn.map(function(x){return [IX_esc(x.nm),IX_esc(x.pl||'—'),IX_esc(x.rs||'—'),x.cn];})});
     if(k==='cons'){
       const all=consAll().filter(function(c){return c.stage==='타겟';});
@@ -12402,7 +12459,7 @@ const WKKPI_PERF=['도입문의','순증','플러스 가입','신규가입','재
    대표(hero) 카드로 올린다. */
 const WKKPI_HERO=['도입문의','플러스 가입','플러스 전환','개업성장패키지 가입'];
 /* v08.288 화면에 보이는 이름만 바꾸는 표 — 저장 키(위 배열 값)는 그대로 둬야 직접 입력분이 살아 있다 */
-const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입'};
+const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입(월)'};   /* v08.305 (월) = 프로모션 시작 연월 기준이라 주 단위로 나눌 수 없다 */
 /* ══ v08.129 요청("플러스해지와 해지는 다른건이야") ══
    두 항목이 같은 「해지」라는 말로 나란히 있어 같은 것으로 읽히기 쉬웠다. 실제로는
      · 플러스 해지 = 요금제 변경일 기준, 플러스 → 다른 요금제. 고객은 그대로 남는다.
@@ -12547,12 +12604,13 @@ window.pkgStartCount=function(s,e){
   if(Array.isArray(AB)&&AB.length&&typeof pkgJoinCountRange==='function')return pkgJoinCountRange(s,e);
   return null;
 };
-/* ══ v08.300 사용자 지적("지금 위가 플러스 집계이고 아래가 전체 집계잖아") ══
-   두 표의 역할이 다르므로 **모수도 달라야** 한다.
-     · 위 「월별 실적 현황」 = **플러스 집계** — 플러스가 되는 모든 경로를 센다
-       (신규가입 + 재가입 + 플러스 전환 + 인사이트 추가 가입) → scope 생략(기본)
-     · 아래 「전체 가입 현황」 = **전체 집계** — 그 달에 들어온 가입만 센다
-       (신규가입 + 재가입, 모든 요금제) → scope='join'
+/* ══ v08.300 → v08.303에서 되돌림 ══
+   v08.300에서는 두 표의 모수를 달리 했다(위=기본 / 아래=scope='join'). 그러나 같은 이름의
+   「플러스」가 102 / 34로 갈려 두 화면을 나란히 놓고 검산할 수 없었고, 사용자 확정
+   ("전체 가입현황은 위에 있는 플러스 가입실적을 가져오고" · "주간회의내용과 월별 실적분석
+   데이터는 같아야돼")에 따라 **두 표 모두 기본 모수**를 쓴다.
+     · 기본 모수 = 신규가입 + 재가입 + 플러스 전환 + 인사이트 추가 가입
+     · scope='join'(신규+재가입만)은 함수에 남아 있지만 지금 쓰는 자리는 없다
    종전에는 아래 표도 플러스 기준 모수를 써서 「전체」인데 플러스 관점으로 좁혀져 있었다
    (실데이터 2026 합계: 전체 92 vs 플러스 기준 160).
    kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
@@ -12598,6 +12656,12 @@ window.joinSplitCount=function(kind,s,e,onlyRejoin,scope){
   if(kind==='plus_rejoin')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&inR(x.rj);}).length;
   if(kind==='plus_upsell')return rows.filter(function(x){return !!x.insJn&&!inR(x.jn)&&!inR(x.rj);}).length;
   if(kind==='basic')return rows.filter(function(x){return !x.insJn;}).length;
+  /* ══ v08.305 사용자 확정("포함 + 별도 표기") ══
+     그중 당월 인사이트 해지 — 플러스 실적으로 센 곳 가운데 그 기간에 인사이트를 해지한 곳.
+     실적에서 빼지 않는다(가입일 기준 원칙 유지) — 몇 건이 곧바로 떨어졌는지만 함께 보여준다.
+     ※ 모수 안에서만 세므로 「이전에 가입해 두고 이번 달에 해지한 곳」은 여기 들어오지 않는다
+       (그건 실적이 아니라 이탈이며, 발생 건 목록의 「인사이트 해지」 행에서 본다). */
+  if(kind==='plus_insout')return rows.filter(function(x){return !!x.insJn&&inR(x.insCn);}).length;
   return 0;
 };
 
@@ -12663,7 +12727,7 @@ function monPerfTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   const num=v=>(v!==''&&v!=null)?+v:null;
-  const rows={newT:{},newA:{},pnA:{},rejA:{},upsA:{},pkgT:{},pkgA:{}};
+  const rows={newT:{},newA:{},pnA:{},rejA:{},upsA:{},pkgT:{},pkgA:{},insOut:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
@@ -12695,11 +12759,14 @@ function monPerfTableHtml(){
     /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
        행과 같은 함수를 쓴다(joinSplitCount('pkg') → pkgJoinCountRange). */
     rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
+    /* v08.305 그중 당월 인사이트 해지 — 가입한 그 달에 인사이트를 해지한 곳(실적에서 빼지 않는다) */
+    rows.insOut[m]=future(m)?null:window.joinSplitCount('plus_insout',_r[0],_r[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const newTSum=sum(rows.newT), newASum=sum(rows.newA);
   const pnASum=sum(rows.pnA), rejASum=sum(rows.rejA), upsASum=sum(rows.upsA);
   const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
+  const insOutSum=sum(rows.insOut);   /* v08.305 */
   const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
   const targetCell=function(kind,m){
     return '<input type="number" value="'+esc(T[kind][m]||'')+'" style="width:44px;font-size:10.5px;text-align:center;border:1px solid var(--border);border-radius:4px" '
@@ -12747,12 +12814,28 @@ function monPerfTableHtml(){
     +tr('&nbsp;&nbsp;└ 신규 플러스',months.map(function(m){return td(actCell(rows.pnA[m]),m);}),pnASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 업셀(인사이트·전환)',months.map(function(m){return td(actCell(rows.upsA[m]),m);}),upsASum,'color:var(--link)')
+    /* ══ v08.302 요청("개업세무사는 플러스요금제 프로모션인데, 아래에 따로 있으니 위 플러스에
+       포함되는지 헷갈려한다") — 사용자 확정(A안): 세부 3줄 다음에 「그중 개업세무사」 실적 줄을
+       하나 더 둔다. 아래 파란 블록의 실적과 같은 값(pkgA)이지만, 이 자리에 있으면
+       「플러스 20건 중 개업세무사 5건」이 한 줄로 읽혀 포함 관계가 분명해진다.
+       ※ 세부 3줄(신규·재가입·업셀)과는 성격이 다르다 — 그 셋은 서로 겹치지 않는 분해이고,
+         이 줄은 그 안에 걸쳐 있는 프로모션 표시라 셋의 합에 더하지 않는다(그래서 회색 안내를 붙인다). */
+    +tr('&nbsp;&nbsp;└ 그중 개업세무사<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (프로모션)</span>',
+        months.map(function(m){return td(actCell(rows.pkgA[m]),m);}),pkgASum,'color:var(--link)')
+    /* ══ v08.305 사용자 확정("포함 + 별도 표기") ══
+       인사이트를 가입한 그 달에 곧바로 해지한 건이 있다(2026-08 5곳). 가입일 기준으로 세는
+       원칙은 그대로 두되, 몇 건이 곧 떨어졌는지 이 줄로 함께 보여준다 — 실적에서 빼지 않으므로
+       위 3줄의 합도 그대로다. 값이 아예 없는 연도에는 줄을 만들지 않는다(빈 줄로 표를 늘리지 않는다). */
+    +(insOutSum>0
+      ? tr('&nbsp;&nbsp;└ 그중 당월 인사이트 해지<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (실적 유지)</span>',
+           months.map(function(m){return td(actCell(rows.insOut[m]),m);}),insOutSum,'color:var(--red)')
+      : '')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
     /* v08.288 이름 변경(사용자 스펙) — 「프로모션」 → 「개업세무사」(= 개업세무사 성장지원 패키지) */
-    +pkgTr('개업세무사 가입 목표',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
+    +pkgTr('개업세무사 가입 목표<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (플러스 내)</span>',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
     +pkgTr('개업세무사 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
     +pkgTr('달성 실적',function(m){return deltaCell(rows.pkgA[m],rows.pkgT[m]);},
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
@@ -12771,29 +12854,49 @@ function monPerfTableHtml(){
     +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div><div style="overflow:auto">'+table+'</div>'
-    /* v08.300 두 표의 모수가 다르다는 사실을 이 표에서도 밝힌다 — 아래 「전체 가입 현황」과
-       숫자가 달라 보이는 이유가 화면에서 바로 읽혀야 한다. */
+    /* v08.303 두 표는 같은 모수를 쓴다 — 아래 「전체 가입 현황」의 「플러스」 행은 이 표의
+       「플러스 가입 실적」과 항상 같은 값이다(사용자 확정). 그 사실을 문구로 밝힌다. */
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
     +'<b>플러스 가입 실적</b> = 그 달에 <b>플러스가 된 모든 경로</b>를 셉니다 — 신규가입 · 재가입 · '
     +'플러스 전환(요금제변경) · 인사이트 추가 가입 중 인사이트를 보유한 곳(개업세무사 포함). '
     +'세부 3줄은 그 실적이 어디서 왔는지 나눈 것입니다 — <b>신규 플러스</b>(새 고객) · '
     +'<b>재가입</b>(돌아온 고객) · <b>업셀</b>(이미 우리 고객이 인사이트를 추가하거나 요금제를 플러스로 올린 것). '
     +'셋의 합이 위 실적과 같고 서로 겹치지 않습니다. '
-    +'<b>개업세무사 가입 실적</b>은 청구 기준 <b>프로모션 시작월</b>이 그 달인 곳입니다. '
-    +'※ 아래 「전체 가입 현황」은 <b>전체 집계</b>라 신규가입+재가입만 세므로 숫자가 더 작습니다'
+    +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
+    +'「└ 그중 개업세무사」 줄이 그 내역이고(프로모션 시작월이 그 달인 곳), 아래 파란 블록은 그 프로모션만 목표 대비로 관리합니다. '
+    +'세부 3줄(신규·재가입·업셀)은 서로 겹치지 않는 분해이고, 「그중 개업세무사」는 그 셋에 걸쳐 있어 합에 더하지 않습니다. '
+    +(insOutSum>0
+      ? '<b>└ 그중 당월 인사이트 해지</b>는 인사이트를 가입한 그 달에 바로 해지한 곳입니다 — 가입일 기준으로 세는 원칙에 따라 <b>실적에는 그대로 포함</b>하고, 곧 떨어진 건이 몇 건인지만 함께 보여줍니다. '
+      : '')
+    +'※ 아래 「전체 가입 현황」의 <b>플러스</b> 행과 실적 분석 카드의 <b>플러스 가입</b>은 이 실적과 <b>같은 값</b>입니다'
     +'</div>';
 }
 /* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에 해당 표도 추가" — 참고 이미지의
    「전체 가입 현황」, 요금제별 월별 가입 현황·목표 입력은 없음, 위 표와 같은 연도(년) 기준을
    그대로 쓴다(monTgtShift가 두 표를 함께 넘긴다)). */
 /* ══ v08.281 요청("이렇게 해당월에 형광펜 표시해줘" — 9월 열에 형광펜을 그은 스크린샷) ══
-   월별 표에서 "이번 달" 열만 노란 배경으로 깔아 준다. 기준은 오늘 날짜의 달이고, ◀▶로 다른
-   연도를 보고 있으면 표시하지 않는다(그 연도에는 "이번 달"이 없다).
+   월별 표에서 해당 달 열만 노란 배경으로 깔아 준다. ◀▶로 다른 연도를 보고 있으면 표시하지
+   않는다(그 연도에는 해당 달이 없다).
    머리글은 진하게(#FDE68A), 숫자 칸은 옅게(#FEF9C3) — 숫자 가독성을 지키면서 열이 드러난다.
-   인쇄(PDF)에도 그대로 나온다 — @media print에서 배경색 인쇄를 강제해 뒀다(v08.269). */
+   인쇄(PDF)에도 그대로 나온다 — @media print에서 배경색 인쇄를 강제해 뒀다(v08.269).
+   ══ v08.304 요청("이 노랑 형광색은 주간회의일에 맞게 옮겨갈수 있어야 함") ══
+   종전 기준은 오늘 날짜여서, 「◀ 지난주 / 다음주 ▶」로 다른 주 회의를 열어도 형광펜은 늘
+   이번 달에 남아 있었다. 이제 **보고 있는 주간회의 주(CURWK)** 를 따라간다 — 이 두 표가
+   그 화면(paintWeek → #weekBody) 안에 있으므로 주를 옮기면 표가 다시 그려지고 형광펜도
+   함께 옮겨간다.
+   귀속 달은 주간회의가 이미 쓰는 규칙 그대로 **주 종료일이 속한 달**이다(목~수 주간이라
+   7/30~8/5 주간은 8월 회의에서 다룬다 — wkCur().m과 같은 기준).
+   CURWK가 없는 상황(다른 화면에서 호출)에서는 종전처럼 오늘 날짜를 쓴다. */
 function wkMonHl(y,m,strong){
-  const curY=+TODAY.slice(0,4), curM=+TODAY.slice(5,7);
-  if(!(y===curY&&m===curM))return '';
+  let ty=null, tm=null;
+  try{
+    if(typeof CURWK!=='undefined'&&/^\d{4}-\d{2}-\d{2}$/.test(String(CURWK||''))){
+      const em=wkEndOf(CURWK).slice(0,7);       // 주 종료일이 속한 달
+      ty=+em.slice(0,4); tm=+em.slice(5,7);
+    }
+  }catch(e){}
+  if(ty==null){ ty=+TODAY.slice(0,4); tm=+TODAY.slice(5,7); }
+  if(!(y===ty&&m===tm))return '';
   return ';background:'+(strong?'#FDE68A':'#FEF9C3');
 }
 /* ══ v08.283 요청("월별 실적 현황과 전체 가입 현황 위아래 월별 자리를 맞춰봐") ══
@@ -12825,11 +12928,19 @@ function planJoinTableHtml(){
   const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
-    /* v08.300 이 표는 「전체 집계」다 — 모수는 그 달의 가입(신규+재가입)만(scope='join').
-       위 「월별 실적 현황」(플러스 집계)은 플러스 전환·인사이트 추가까지 세므로 숫자가 다르다. */
-    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1],false,'join');
+    /* ══ v08.303 사용자 확정("이 전체 가입현황은 위에 있는 플러스 가입실적을 가져오고
+       리포트는 플러스외 모든 요금제를 말해" · "주간회의내용과 월별 실적분석 데이터는 같아야돼") ══
+       v08.300에서 이 표만 scope='join'(신규+재가입)으로 좁혔더니 같은 이름의 「플러스」가
+       위 표 102 / 아래 표 34로 갈라져, 두 화면을 나란히 놓으면 검산이 되지 않았다.
+       이제 **위 표와 같은 모수**(기본 scope — 신규가입+재가입+플러스 전환+인사이트 추가 가입)를
+       쓴다: 「플러스」 행은 위 「플러스 가입 실적」과 항상 같은 값이다.
+       ※ 「리포트」(인사이트 미가입)는 모수를 넓혀도 값이 변하지 않는다 — 플러스 전환·인사이트
+         추가로 들어오는 행은 모두 인사이트 보유라 리포트 쪽에 새로 붙는 행이 없다
+         (실데이터 2026: 리포트 58 = 58, 월별 값도 전부 동일). 그래서 이 변경으로 바뀌는 것은
+         「플러스」 행과 「합계」뿐이다. */
+    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1]);
     rows.pkg[m]   = future(m)?null:window.joinSplitCount('pkg',  r[0],r[1]);
-    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1],false,'join');
+    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1]);
     /* v08.289 합계 = 플러스 + 베이직(스펙 v2) — 개업세무사는 플러스에 이미 포함돼 더하지 않는다.
        모수 전체('total')와 같은 값이지만, 스펙의 산식을 그대로 드러내려고 두 행을 더한다. */
     rows.total[m] = (rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
@@ -12861,12 +12972,12 @@ function planJoinTableHtml(){
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
-    +'<b>전체 가입</b> = 그 달의 신규가입 + 재가입(모든 요금제) · '
-    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳 · '
-    +'<b>리포트</b> = 플러스를 제외한 모든 요금제(인사이트 미가입 — 베이직·PREMIUM·구간 등) · <b>합계</b> = 플러스 + 리포트. '
+    +'<b>플러스</b> = 위 「월별 실적 현황」의 <b>플러스 가입 실적과 같은 값</b>입니다(같은 모수·같은 함수) · '
+    +'<b>리포트</b> = 플러스를 제외한 모든 요금제로 가입한 곳(인사이트 미가입 — 베이직·PREMIUM·구간 등) · '
+    +'<b>합계</b> = 플러스 + 리포트. '
     +'<b>└ 개업세무사</b>는 플러스 안에 든 개업세무사 성장지원 패키지로, <b>프로모션 시작월</b>이 그 달인 곳입니다 — '
     +'플러스·리포트(가입일·재가입일 기준)와 세는 날짜가 달라 합계에는 더하지 않습니다. '
-    +'※ 위 「월별 실적 현황」은 <b>플러스 집계</b>라 플러스 전환·인사이트 추가 가입까지 세므로 숫자가 더 큽니다'
+    +'※ 위 표·실적 분석 카드와 <b>같은 기준</b>이라 「플러스」 숫자는 세 화면이 항상 일치합니다'
     +((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS
         ?' (세무사무소목록의 프로모션 구분명·시작 연월 기준).'
         :((Array.isArray(window.__billAllRows)&&window.__billAllRows.length)
@@ -14133,6 +14244,14 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u35',d:'2026-09-10',tt:'해지 집계를 해지일 기준으로 통일 + 인사이트 가입·해지를 목록에 추가',
+  b:'① 해지를 「해지일이 그 달」이면 모두 셉니다(종전에는 현재 상태가 해지인 곳만 세어, 해지 후 돌아온 곳이 빠져 회사 시스템 집계와 4건 차이가 났습니다 — 1·4·5·8월 각 1건). 누적 화면만 종전 기준(현재 해지 상태)을 유지합니다(누적가입−누적해지−누적정지=현재 정상 검산 때문). ② 발생 건 목록에 「인사이트 가입」·「인사이트 해지」 2종을 추가해 플러스·업셀 숫자를 목록에서 검산할 수 있습니다. ③ 인사이트를 가입한 달에 바로 해지한 건은 실적에 그대로 포함하되 「└ 그중 당월 인사이트 해지」 줄로 함께 보여줍니다(2026-08 5건).'},
+ {id:'u34',d:'2026-09-10',tt:'월별 표의 노란 형광펜이 보고 있는 주간회의 주를 따라갑니다',
+  b:'종전에는 형광펜이 늘 오늘 날짜의 달에 고정돼, ◀▶로 지난 주 회의를 열어도 그 주의 달이 표시되지 않았습니다. 이제 보고 있는 주간회의 주에 맞춰 옮겨갑니다(주 종료일이 속한 달 기준 — 7/30~8/5 주간은 8월).'},
+ {id:'u33',d:'2026-09-09',tt:'주간회의 표와 실적 분석 카드의 플러스 숫자를 완전히 일치시킴',
+  b:'「전체 가입 현황」의 플러스 행이 신규가입+재가입만 세어 위 「플러스 가입 실적」과 숫자가 갈렸습니다(34 vs 102). 이제 세 화면(주간회의 두 표 · 실적 분석 카드)이 같은 모수를 쓰며, 「플러스」 숫자는 항상 같습니다. 리포트 행은 값이 변하지 않습니다(58). 실적 분석 카드 밑줄도 주간회의 표와 같은 3줄 내역(신규 플러스 · 재가입 · 업셀)으로 바꿨습니다.'},
+ {id:'u32',d:'2026-09-09',tt:'개업세무사가 플러스에 포함된다는 것을 표에서 바로 보이게',
+  b:'개업세무사 프로모션이 플러스 실적에 포함되는지 헷갈린다는 의견을 반영했습니다. 플러스 실적 세부 항목에 「└ 그중 개업세무사(프로모션)」 줄을 추가해 「플러스 20건 중 개업세무사 5건」이 한 줄로 보이고, 아래 파란 블록 라벨에도 「플러스 내」라고 표기했습니다.'},
  {id:'u31',d:'2026-09-09',tt:'플러스 실적의 구성을 3줄로 표시 (신규 플러스 / 재가입 / 업셀)',
   b:'플러스 실적이 어디서 왔는지 세 줄로 나눠 보여줍니다 — 새 고객(신규 플러스), 돌아온 고객(재가입), 기존 고객의 업셀(인사이트 추가·플러스 전환). 8월 20건 중 실제 신규는 2곳이라는 사실이 화면에서 바로 보입니다.'},
  {id:'u30',d:'2026-09-09',tt:'「전체 가입 현황」을 전체 기준으로 분리 (위=플러스 집계 / 아래=전체 집계)',
@@ -15359,7 +15478,7 @@ function wkAutoPerf(wk){
      순증 = 신규가입 + 재가입 − 해지(실적 분석과 같은 산식). */
   const _nj=R.filter(x=>inR(x.jn)).length,
         _rj=R.filter(x=>inR(x.rj)).length,
-        _cn=R.filter(x=>inR(x.cn)&&String(x.st||'').trim()==='해지').length;
+        _cn=R.filter(x=>inR(x.cn)).length;   /* v08.305 해지일 기준 전량(현재 상태로 걸르지 않는다) */
   return {'도입문의'   :P.filter(r=>inR(r.dt)&&cls(r)!=='test'&&cls(r)!=='notice'&&cls(r)!=='sub').length,
     /* v08.286 요금제 변경 기준 통일 — 공통 규칙(planChgReal)으로 실적 아닌 변경을 먼저 뺀다 */
     '플러스 해지':R.filter(x=>inR(x.pc)&&window.planChgReal(x)&&isPl(x.bf)&&!isPl(x.pl)).length,
@@ -15387,7 +15506,19 @@ function wkAutoPerf(wk){
           /* v08.288 가입일 기준으로 통일(두 표·실적 분석 카드와 같은 함수).
              저장 키는 그대로 둔다 — 직접 입력해 둔 값이 키로 보관돼 있어 이름을 바꾸면 사라진다.
              화면에 보이는 이름만 WKKPI_LABEL로 「개업세무사 가입」으로 바꾼다. */
-          '개업성장패키지 가입':(typeof window.joinSplitCount==='function')?window.joinSplitCount('pkg',s,e):null};
+          /* ══ v08.305 버그 수정(사용자 질문: "플러스가입에 플러스전환 개업세무사 모두 포함된거야?") ══
+             개업세무사는 **프로모션 시작 연월(YYYYMM)** 로만 판정할 수 있어 주 단위로 쪼갤 수 없다.
+             종전에는 주 시작일~종료일을 그대로 넘겨, 주가 두 달에 걸치면 **두 달 전체가 합산**됐다
+             (2026-08-27~09-02 주 = 8월 5 + 9월 2 = 7건 — 그 주에 7건이 시작된 것처럼 보였다).
+             주간회의가 이미 쓰는 귀속 규칙(**주 종료일이 속한 달**)대로 그 달 한 달만 센다.
+             ※ 그래서 이 칸은 주간 값이 아니라 **그 주가 속한 달의 값**이다 — 라벨에 「(월)」을 붙여
+               화면에서 구분되게 했다(WKKPI_LABEL). 시작 연월만 있는 원천 데이터의 한계다. */
+          '개업성장패키지 가입':(function(){
+             if(typeof window.joinSplitCount!=='function')return null;
+             const em=String(e||'').slice(0,7);
+             if(!/^\d{4}-\d{2}$/.test(em))return null;
+             return window.joinSplitCount('pkg', em+'-01', em+'-28');
+           })()};
 }
 /* ══ v06.84 주간회의 ①-2 기간별 발생 건 목록 ══
    ①의 5개 숫자가 어떤 건들로 이뤄졌는지 그 자리에서 확인할 수 있게, 같은 주 기간의 발생 건을
@@ -15463,7 +15594,7 @@ function wkEventRows(wk){
    });
   R.filter(x=>inR(x.jn))
    .forEach(x=>out.push({d:String(x.jn).slice(0,10),k:'가입',nm:x.nm||'',dt:x.pl||'—',ex:inflowByBiz(x.bz)||'—',ow:'—'}));
-  R.filter(x=>inR(x.cn)&&String(x.st||'').trim()==='해지')
+  R.filter(x=>inR(x.cn))   /* v08.305 해지일 기준 전량 — 위 카드와 같은 기준 */
    .forEach(x=>out.push({d:String(x.cn).slice(0,10),k:'해지',nm:x.nm||'',dt:x.pl||'—',
                          ex:(String(x.rs||'').trim()&&x.rs!=='-')?x.rs:'미기재',ow:'—'}));
   /* 재가입은 ①에 칸이 있으나 그 주엔 0건인 경우가 많다 — 있을 때만 줄이 생긴다 */
