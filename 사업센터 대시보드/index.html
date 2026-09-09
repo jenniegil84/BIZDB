@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.302';
+window.__APP_VER='v08.303';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9044,11 +9044,22 @@ window.spPaint=function(){
     const _plusBase=(typeof window.joinSplitCount==='function')
       ? window.joinSplitCount('total',S.range?S.range[0]:'',S.range?S.range[1]:'')
       : (S.join.length+S.rejoin.length);
+    /* ══ v08.303 요청("주간회의내용과 월별 실적분석 데이터는 같아야돼") ══
+       종전 밑줄은 **모수의 경로별 원건수**(신규 9 · 재가입 1 · 플러스 전환 13 · 인사이트 신규 19)라
+       주간회의 표의 세부 3줄(신규 플러스 2 · 재가입 1 · 업셀 17)과 숫자가 달라, 같은 값을 보는
+       두 화면이 어긋난 것처럼 읽혔다(2026-09-09 질문 "데이터가 다른이유").
+       이제 밑줄도 **표와 같은 상호배타 3줄**을 그대로 적는다 — 같은 함수(joinSplitCount)를 부르므로
+       구조적으로 어긋날 수 없다. 모수(후보 건수)는 「… 중」으로 뒤에 붙여 맥락만 남긴다. */
+    const _pn=(typeof window.joinSplitCount==='function'&&S.range)
+      ? { n:window.joinSplitCount('plus_new',   S.range[0],S.range[1]),
+          r:window.joinSplitCount('plus_rejoin',S.range[0],S.range[1]),
+          u:window.joinSplitCount('plus_upsell',S.range[0],S.range[1]) } : null;
     const plusNote=(S.plusInsN==null)
       ? '인사이트 가입일자 컬럼이 없어 집계할 수 없습니다'
-      : ('가입 '+_plusBase+'건(신규 '+S.join.length+' · 재가입 '+S.rejoin.length+' · 플러스 전환 '+(S.plusConvN||0)+' · 인사이트 신규 '+(S.insNewN||0)+') 중 인사이트 보유'
-         + (_plusBase?(' · 비중 '+Math.round((S.plusInsN||0)/_plusBase*100)+'%'):'')
-         + ' · 개업세무사 포함 · 주간회의 표와 같은 기준');   /* v08.289 스펙 v2 */
+      : (_pn
+         ? ('신규 플러스 '+_pn.n+' · 재가입 '+_pn.r+' · 업셀(인사이트·전환) '+_pn.u
+            + ' · 가입 후보 '+_plusBase+'건 중 · 개업세무사 포함 · 주간회의 표와 같은 기준')
+         : ('가입 '+_plusBase+'건 중 인사이트 보유 · 개업세무사 포함 · 주간회의 표와 같은 기준'));
     /* v08.182 전환은 세부 지표에서 본다 — 요금제 개편에 따른 이동이 섞여 있어 신규 실적과
        같이 두면 「이번 달 잘했다」로 잘못 읽힌다(2026-08 전환 13건은 대부분 PREMIUM·구간요금제 이동). */
     const plusConvNote=(S.plusSrc==='noPc')
@@ -12779,8 +12790,8 @@ function monPerfTableHtml(){
     +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div><div style="overflow:auto">'+table+'</div>'
-    /* v08.300 두 표의 모수가 다르다는 사실을 이 표에서도 밝힌다 — 아래 「전체 가입 현황」과
-       숫자가 달라 보이는 이유가 화면에서 바로 읽혀야 한다. */
+    /* v08.303 두 표는 같은 모수를 쓴다 — 아래 「전체 가입 현황」의 「플러스」 행은 이 표의
+       「플러스 가입 실적」과 항상 같은 값이다(사용자 확정). 그 사실을 문구로 밝힌다. */
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
     +'<b>플러스 가입 실적</b> = 그 달에 <b>플러스가 된 모든 경로</b>를 셉니다 — 신규가입 · 재가입 · '
     +'플러스 전환(요금제변경) · 인사이트 추가 가입 중 인사이트를 보유한 곳(개업세무사 포함). '
@@ -12790,7 +12801,7 @@ function monPerfTableHtml(){
     +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
     +'「└ 그중 개업세무사」 줄이 그 내역이고(프로모션 시작월이 그 달인 곳), 아래 파란 블록은 그 프로모션만 목표 대비로 관리합니다. '
     +'세부 3줄(신규·재가입·업셀)은 서로 겹치지 않는 분해이고, 「그중 개업세무사」는 그 셋에 걸쳐 있어 합에 더하지 않습니다. '
-    +'※ 아래 「전체 가입 현황」은 <b>전체 집계</b>라 신규가입+재가입만 세므로 숫자가 더 작습니다'
+    +'※ 아래 「전체 가입 현황」의 <b>플러스</b> 행과 실적 분석 카드의 <b>플러스 가입</b>은 이 실적과 <b>같은 값</b>입니다'
     +'</div>';
 }
 /* v08.236 요청("플러스 가입및 프로모션 가입 표 아래에 해당 표도 추가" — 참고 이미지의
@@ -12835,11 +12846,19 @@ function planJoinTableHtml(){
   const rows={plus:{},pkg:{},report:{},total:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
-    /* v08.300 이 표는 「전체 집계」다 — 모수는 그 달의 가입(신규+재가입)만(scope='join').
-       위 「월별 실적 현황」(플러스 집계)은 플러스 전환·인사이트 추가까지 세므로 숫자가 다르다. */
-    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1],false,'join');
+    /* ══ v08.303 사용자 확정("이 전체 가입현황은 위에 있는 플러스 가입실적을 가져오고
+       리포트는 플러스외 모든 요금제를 말해" · "주간회의내용과 월별 실적분석 데이터는 같아야돼") ══
+       v08.300에서 이 표만 scope='join'(신규+재가입)으로 좁혔더니 같은 이름의 「플러스」가
+       위 표 102 / 아래 표 34로 갈라져, 두 화면을 나란히 놓으면 검산이 되지 않았다.
+       이제 **위 표와 같은 모수**(기본 scope — 신규가입+재가입+플러스 전환+인사이트 추가 가입)를
+       쓴다: 「플러스」 행은 위 「플러스 가입 실적」과 항상 같은 값이다.
+       ※ 「리포트」(인사이트 미가입)는 모수를 넓혀도 값이 변하지 않는다 — 플러스 전환·인사이트
+         추가로 들어오는 행은 모두 인사이트 보유라 리포트 쪽에 새로 붙는 행이 없다
+         (실데이터 2026: 리포트 58 = 58, 월별 값도 전부 동일). 그래서 이 변경으로 바뀌는 것은
+         「플러스」 행과 「합계」뿐이다. */
+    rows.plus[m]  = future(m)?null:window.joinSplitCount('plus', r[0],r[1]);
     rows.pkg[m]   = future(m)?null:window.joinSplitCount('pkg',  r[0],r[1]);
-    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1],false,'join');
+    rows.report[m]= future(m)?null:window.joinSplitCount('basic',r[0],r[1]);
     /* v08.289 합계 = 플러스 + 베이직(스펙 v2) — 개업세무사는 플러스에 이미 포함돼 더하지 않는다.
        모수 전체('total')와 같은 값이지만, 스펙의 산식을 그대로 드러내려고 두 행을 더한다. */
     rows.total[m] = (rows.plus[m]!=null&&rows.report[m]!=null)?(rows.plus[m]+rows.report[m]):null;
@@ -12871,12 +12890,12 @@ function planJoinTableHtml(){
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>'
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
-    +'<b>전체 가입</b> = 그 달의 신규가입 + 재가입(모든 요금제) · '
-    +'<b>플러스</b> = 그중 인사이트 가입이 있는 곳 · '
-    +'<b>리포트</b> = 플러스를 제외한 모든 요금제(인사이트 미가입 — 베이직·PREMIUM·구간 등) · <b>합계</b> = 플러스 + 리포트. '
+    +'<b>플러스</b> = 위 「월별 실적 현황」의 <b>플러스 가입 실적과 같은 값</b>입니다(같은 모수·같은 함수) · '
+    +'<b>리포트</b> = 플러스를 제외한 모든 요금제로 가입한 곳(인사이트 미가입 — 베이직·PREMIUM·구간 등) · '
+    +'<b>합계</b> = 플러스 + 리포트. '
     +'<b>└ 개업세무사</b>는 플러스 안에 든 개업세무사 성장지원 패키지로, <b>프로모션 시작월</b>이 그 달인 곳입니다 — '
     +'플러스·리포트(가입일·재가입일 기준)와 세는 날짜가 달라 합계에는 더하지 않습니다. '
-    +'※ 위 「월별 실적 현황」은 <b>플러스 집계</b>라 플러스 전환·인사이트 추가 가입까지 세므로 숫자가 더 큽니다'
+    +'※ 위 표·실적 분석 카드와 <b>같은 기준</b>이라 「플러스」 숫자는 세 화면이 항상 일치합니다'
     +((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS
         ?' (세무사무소목록의 프로모션 구분명·시작 연월 기준).'
         :((Array.isArray(window.__billAllRows)&&window.__billAllRows.length)
@@ -14143,6 +14162,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u33',d:'2026-09-09',tt:'주간회의 표와 실적 분석 카드의 플러스 숫자를 완전히 일치시킴',
+  b:'「전체 가입 현황」의 플러스 행이 신규가입+재가입만 세어 위 「플러스 가입 실적」과 숫자가 갈렸습니다(34 vs 102). 이제 세 화면(주간회의 두 표 · 실적 분석 카드)이 같은 모수를 쓰며, 「플러스」 숫자는 항상 같습니다. 리포트 행은 값이 변하지 않습니다(58). 실적 분석 카드 밑줄도 주간회의 표와 같은 3줄 내역(신규 플러스 · 재가입 · 업셀)으로 바꿨습니다.'},
  {id:'u32',d:'2026-09-09',tt:'개업세무사가 플러스에 포함된다는 것을 표에서 바로 보이게',
   b:'개업세무사 프로모션이 플러스 실적에 포함되는지 헷갈린다는 의견을 반영했습니다. 플러스 실적 세부 항목에 「└ 그중 개업세무사(프로모션)」 줄을 추가해 「플러스 20건 중 개업세무사 5건」이 한 줄로 보이고, 아래 파란 블록 라벨에도 「플러스 내」라고 표기했습니다.'},
  {id:'u31',d:'2026-09-09',tt:'플러스 실적의 구성을 3줄로 표시 (신규 플러스 / 재가입 / 업셀)',
