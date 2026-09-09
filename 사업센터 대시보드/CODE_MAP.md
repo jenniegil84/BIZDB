@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.09
+- 버전: v01.10
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -58,7 +58,7 @@
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
 | 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
-| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. |
+| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. 툴바에 패널 3개가 붙어 있다 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단, v08.284). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). |
 | 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
@@ -169,8 +169,13 @@
   `IX_creditChannel`(최종실적). **수동으로 고른 값이 있으면 항상 그것이 우선**한다(잠그지 않는다).
 - 「문의 없는 실적」 탭은 드롭다운 대신 배지(「위멤버스 확정」/「로움 확정」)로 보여주고 잠근다.
 - 일괄 지정(`pmBulkTargets`)에서는 두 명단 건을 **대상에서 제외**한다(이미 확정값이라).
-- **두 명단 모두 앱 안에 등록 화면이 없다** — Supabase에서 불러오기만 한다(`STATE_MAP`).
-  명단을 바꿔야 하면 등록 화면부터 만들어야 한다(2026-09-09 기준 미해결).
+- **등록·삭제 화면(v08.284)**: 실적 관리 화면 툴바의 **[실적확정 명단]** 버튼 → `#protPanel`.
+  `window.protPanelHTML()`(패널) / `protBlockHTML(which)`(명단 한 벌) / `protAdd`·`protDel`·`protClear`
+  / `protParse`(붙여넣기 파싱) / `protSave`(저장 + `RENDER['perfmg']()` 재렌더 + 패널 다시 열기).
+  두 명단의 차이는 `window.PROT_DEF`(kind·전역변수명·이름·색·채널값·textarea id) 한 곳에만 있다 —
+  명단을 더 늘릴 때도 이 표에 한 줄 더하는 식으로 확장한다.
+  붙여넣기 파싱 규칙: 한 줄에 한 곳, 줄에서 **8자리 이상 숫자 덩어리**를 사업자번호로 보고
+  (하이픈·공백 허용) 나머지 글자를 상호명으로 본다. 사업자번호를 못 찾은 줄은 **건너뛴다**.
 
 ## 9. 플로우 엑셀의 하위업무 (v08.282)
 
@@ -197,6 +202,14 @@
   `refSave()`를 **한 번만** 부른다(저장 요청·`#refPanel` 재렌더 폭주 방지).
   ※ 이로써 '내용' 텍스트에서 추천인코드를 찾는 옛 경로(`xlAutoJoinChFromContent`, v08.98/v08.244)와
   규칙이 거의 같아졌다 — 다른 점은 옛 경로는 **매핑이 없으면 자동지정을 포기**한다는 것(자동 생성 안 함).
+- **새로고침·재배포 후 복원(v08.284)**: 저장되는 것은 **행(`inq_rows`)** 뿐이고 부모-하위 연결
+  (`__inqSubs`)은 업로드할 때만 계산되는 파생값이라, 예전에는 화면을 새로고침하면 하위업무 표가
+  사라지고 「상위업무 컬럼이 없어 연결할 수 없습니다」라는 잘못된 안내가 떴다(= "배포하면 파일이
+  삭제된다"고 보이던 증상). 복원된 행에 `pt`·`pno`가 남아 있으므로 `IX_loadFromSupabase`가
+  **`window.xlRelinkSubsAfterRestore()`** 를 불러 연결만 다시 만든다 —
+  이때 `xlLinkSubTasks(rows, true)`(linkOnly)로 불러 **가입채널 확정·추천 정보 자동 생성·저장은
+  하지 않는다**(그 결과는 업로드 때 이미 저장됐고, 복원 직후 저장은 서버 데이터를 덮어쓸 위험).
+  컬럼 인식 결과 `__flowSubCol`은 계산으로 되살릴 수 없어 `STATE_MAP`의 `flow_sub_col`로 저장한다.
 - 하위업무는 신청 관리 카드 상세(`inqDetail`)에 표로 보여준다. 상위업무 컬럼이 없는 파일이면
   그 사실을 안내한다(없는 값을 지어내지 않는다).
 
