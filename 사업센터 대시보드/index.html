@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.291';
+window.__APP_VER='v08.292';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -13371,6 +13371,71 @@ window.warnBadHost=function(){
   el.textContent='⚠ 여기서 고친 내용은 저장되지 않습니다 — '+why+'. 파일을 Netlify에 올린 뒤 배포 주소(https://…netlify.app)로 접속해 작업해 주세요.';
   document.body.appendChild(el);
 };
+/* ══ v08.292 요청("새 버전 알림 띠 만들어") ══
+   배포는 화면 파일만 새것으로 바꾸고, **이미 열려 있는 창은 자동으로 새로고침되지 않는다**
+   (이 파일에서 강제 새로고침은 로그아웃 한 곳뿐이다). 그래서 팀원이 옛 화면을 계속 열어 두면
+   ① 새 기능·수정이 반영되지 않고 ② 오래된 화면 상태로 저장해 다른 사람이 넣은 값을 밀어낼 수 있다
+   (병합 저장은 칸반 5종만 적용 — CODE_MAP 6번 참고).
+   → 새 버전이 올라온 것을 감지해 **띠로 알리기만** 한다. 강제로 새로고침하지 않는다 —
+     입력 중인 내용이 날아가면 안 되므로, 새로고침은 사람이 버튼을 눌러 결정한다.
+
+   감지 방법(가볍게):
+     · 5분마다 이 페이지 파일에 HEAD 요청 → ETag/Last-Modified가 처음 값과 달라졌으면 새 배포다.
+       (1.3MB 본문을 내려받지 않는다. 화면이 보이지 않는 탭에서는 건너뛴다.)
+     · 새 배포가 감지되면 그때 한 번만 앞부분(256KB)을 Range로 받아 새 버전 번호를 읽는다.
+       Range를 지원하지 않으면 번호 없이 알린다(없는 값을 지어내지 않는다).
+   끄는 조건: 파일을 직접 연 상태·미리보기(badHost) — 그때는 배포 개념이 없다. */
+window.__verWatch={base:'', dismissed:'', on:false};
+window.verBar=function(newVer,tag){
+  if(document.getElementById('verNewBar'))return;
+  const el=document.createElement('div');
+  el.id='verNewBar';
+  el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:10003;background:var(--teal-dk,#0F766E);color:#fff;'
+    +'font-size:12px;font-weight:700;padding:8px 12px;display:flex;align-items:center;gap:10px;justify-content:center;flex-wrap:wrap';
+  const cur=window.__APP_VER||'';
+  el.innerHTML='<span>새 버전'+(newVer?(' '+newVer):'')+'이 배포되었습니다'
+    +(cur?(' <span style="font-weight:400;opacity:.85">— 지금 보고 있는 화면은 '+cur+'</span>'):'')+'</span>'
+    +'<span style="font-weight:400;opacity:.85;font-size:11px">입력 중이던 칸이 있으면 칸 밖을 한 번 클릭한 뒤 새로고침해 주세요</span>'
+    +'<button id="verNewGo" style="font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:14px;border:0;background:#fff;color:var(--teal-dk,#0F766E);cursor:pointer">새로고침</button>'
+    +'<button id="verNewLater" style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;cursor:pointer">나중에</button>';
+  document.body.appendChild(el);
+  const go=document.getElementById('verNewGo'), later=document.getElementById('verNewLater');
+  if(go)go.onclick=function(){ location.reload(); };
+  if(later)later.onclick=function(){ window.__verWatch.dismissed=tag||''; el.remove(); };
+};
+window.verWatchStart=function(){
+  if(window.__verWatch.on)return;
+  if(typeof window.badHost==='function'&&window.badHost())return;   // 미리보기·파일 직접 열기 — 배포 개념 없음
+  window.__verWatch.on=true;
+  const url=function(){ return location.pathname+'?__v='+Date.now(); };
+  const tagOf=function(r){
+    if(!r)return '';
+    return String(r.headers.get('etag')||'')+'|'+String(r.headers.get('last-modified')||'');
+  };
+  const readVer=function(){
+    /* 새 배포가 확인됐을 때만 부른다 — 앞부분만 받아 버전 문자열을 찾는다 */
+    return fetch(url(),{cache:'no-store',headers:{Range:'bytes=0-262143'}})
+      .then(function(r){ return r.text(); })
+      .then(function(t){ const m=t.match(/__APP_VER\s*=\s*'([^']+)'/); return m?m[1]:''; })
+      .catch(function(){ return ''; });
+  };
+  const check=function(){
+    if(document.hidden)return;                                       // 안 보이는 탭은 건너뛴다
+    fetch(url(),{method:'HEAD',cache:'no-store'}).then(function(r){
+      if(!r||!r.ok)return;
+      const tag=tagOf(r);
+      if(!tag)return;                                                // 헤더가 없으면 판단 불가 — 아무것도 하지 않는다
+      if(!window.__verWatch.base){ window.__verWatch.base=tag; return; }
+      if(tag===window.__verWatch.base)return;                        // 그대로 = 새 배포 없음
+      if(tag===window.__verWatch.dismissed)return;                   // 「나중에」를 누른 그 버전
+      readVer().then(function(v){ window.verBar(v,tag); });
+    }).catch(function(){});
+  };
+  window.__verWatch.check=check;                 // 필요할 때(점검·테스트) 직접 한 번 돌릴 수 있게
+  const ms=+(window.__verWatch.ms||0)||5*60*1000;  // 확인 주기(기본 5분)
+  check();                                       // 기준값(ETag·Last-Modified) 먼저 확보
+  setInterval(check, ms);
+};
 window.saveFail=function(on,kind,msg){
   let el=document.getElementById('saveFailBar');
   if(!on){ if(el)el.remove(); return; }
@@ -13972,6 +14037,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u25',d:'2026-09-09',tt:'새 버전이 배포되면 화면 위에 알림 띠 표시',
+  b:'새 버전이 올라오면 열어 둔 화면 위에 「새 버전이 배포되었습니다 · 새로고침」 띠가 뜹니다. 강제로 새로고침하지 않으니 입력 중인 내용은 안전하고, 새로고침 전에 입력 칸 밖을 한 번 클릭하라는 안내도 함께 보여줍니다.'},
  {id:'u24',d:'2026-09-09',tt:'프로모션 종료 관리도 세무사무소목록 기준으로 이전',
   b:'종료 관리 목록과 개업세무사 일시납 스케줄이 세무사무소목록의 프로모션 구분명·시작·종료 연월을 씁니다. 청구대상 고객관리 파일이 없어도 종료 관리가 동작하고, 면제·할인 정보만 청구 파일이 있을 때 함께 표시됩니다.'},
  {id:'u23',d:'2026-09-09',tt:'개업세무사 판정을 세무사무소목록으로 이전 · 「베이직」 → 「리포트」',
@@ -16995,6 +17062,9 @@ async function init(){
       if(typeof hasUploadData==='function'&&!hasUploadData())showNoData();
       markSavedBaseline();
       updateSaveBadge();
+      /* v08.292 새 버전 감시 시작 — 로그인해 실제로 작업하는 사람에게만 알린다.
+         (미리보기·파일 직접 열기는 verWatchStart 안에서 badHost로 걸러진다) */
+      try{ if(typeof window.verWatchStart==='function')window.verWatchStart(); }catch(e){}
     }else{
       gate().classList.add('on');
     }
