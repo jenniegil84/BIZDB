@@ -2054,7 +2054,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.277';
+window.__APP_VER='v08.278';
 window.__wembProtect=[];
 
 
@@ -4930,6 +4930,43 @@ const RENDER={};
     waitBlur(el,fn);
     T=setTimeout(fn, 2000);          // 커서를 계속 두고 있어도 결국은 그린다(안전망)
   };
+  /* ══════════════════════════════════════════════════════════════════
+     v08.278 요청("검색기능안됨" — 실적 관리 검색창에 「ㅁ」 한 자만 들어간 스크린샷)
+
+     검색 칸은 oninput(글자 하나마다)으로 화면을 통째로 다시 그리고 있었다. 그러면 그 칸이
+     새로 만들어져 커서가 사라지고, 한글은 조합 중이던 글자까지 끊겨 첫 자모만 남는다
+     — 「무선」을 치면 「ㅁ」만 들어가던 증상이 이것이다(날짜 칸 v08.277과 같은 원인,
+     CLAUDE.md 8번 섹션 5번 항목을 검색 칸에서 어기고 있었다).
+
+     검색은 "치는 대로 걸러 보이는 것"이 목적이라 아예 안 그릴 수는 없으므로 이렇게 한다.
+       ① 마지막 입력 뒤 0.3초 기다렸다 한 번만 그린다(글자마다 그리지 않는다).
+       ② 한글처럼 글자를 조합하는 중(composition)이면 조합이 끝날 때까지 미룬다.
+       ③ 그린 뒤에는 그 칸을 다시 찾아 커서를 원래 자리로 되돌린다 — 그래야 이어서 칠 수 있다.
+     ③ 때문에 그 칸에는 id가 있어야 한다. 쓰는 법: txRedraw(그릴함수, '그 칸의 id'). */
+  document.addEventListener('compositionstart', function(e){ if(e.target)e.target.__txIme=1; }, true);
+  document.addEventListener('compositionend', function(e){
+    const t=e.target; if(!t)return; t.__txIme=0;
+    if(t.__txRun){ const r=t.__txRun; t.__txRun=null; clearTimeout(TT); TT=setTimeout(r,300); }
+  }, true);
+  let TT=null;
+  window.txRedraw=function(fn,keepId){
+    if(typeof fn!=='function')return;
+    const el=keepId?document.getElementById(keepId):null;
+    if(!el||el!==document.activeElement){ fn(); return; }   // 그 칸에 커서가 없으면 바로 그린다
+    let pos=null; try{ pos=el.selectionStart; }catch(e){}
+    const run=function(){
+      fn();
+      const n=document.getElementById(keepId); if(!n)return;
+      try{ n.focus(); if(pos!=null&&n.setSelectionRange)n.setSelectionRange(pos,pos); }catch(e){}
+    };
+    clearTimeout(TT);
+    TT=setTimeout(function(){
+      /* 0.3초가 지났어도 아직 조합 중이면(자모 하나 치고 멈춘 경우) 조합이 끝난 뒤에 그린다 */
+      const cur=document.getElementById(keepId);
+      if(cur&&cur.__txIme){ cur.__txRun=run; return; }
+      run();
+    },300);
+  };
   /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 기간 필터(시작~끝)를 한 달씩 통째로
      옮긴다. 기준은 현재 시작일의 달(비어 있으면 데이터 기준월)이고, 결과는 그 달 1일~말일이다.
      일별(dayShift)·월별(monShift)·기준월(moShift)에는 이미 ◀▶가 있었고, 기간 필터 쪽에만
@@ -7112,8 +7149,10 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
      · 조회 전용이다. 지정·수정은 실적 관리에서 한다(신청 관리는 조회 전용이라는 원칙 유지).
      ══════════════════════════════════════════════════════════════════ */
   window.__ofF=window.__ofF||{d1:'',d2:'',kind:'',q:'',open:false};
-  window.ofSet=function(k,v){
+  window.ofSet=function(k,v,keepId){
     window.__ofF[k]=v;
+    /* v08.278 — 검색 칸은 글자마다 다시 그리면 커서·한글 조합이 끊긴다(공통 규칙 txRedraw) */
+    if(k==='q'&&keepId){ txRedraw(function(){ window.__renderOfficeEvents(); }, keepId); return; }
     /* v08.277 — 기간 칸(d1·d2)은 치는 중에 다시 그리면 입력이 끊긴다. v08.189식 임시 방어
        (연도 검사+0.4초 디바운스)를 공통 규칙(dtRedraw)으로 대체 — 커서가 빠질 때 그린다. */
     if(k==='d1'||k==='d2'){ dtRedraw(function(){ window.__renderOfficeEvents(); }); return; }
@@ -7217,7 +7256,7 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       +'<input type="date" value="'+IX_esc(F.d2||'')+'" onchange="ofSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="ofMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="ofSet(\'d1\',\'\');ofSet(\'d2\',\'\')">전체 기간</button>'
-      +'<input value="'+IX_esc(F.q||'')+'" oninput="ofSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
+      +'<input id="ofQ" value="'+IX_esc(F.q||'')+'" oninput="ofSet(\'q\',this.value,this.id)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:190px">'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건</span>'
       +'</div>'
@@ -7286,7 +7325,12 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
   /* v08.277 — 등록일(iD1·iD2) 칸은 디바운스조차 없이 change마다 즉시 표를 다시 그려서,
      날짜를 손으로 치면 거의 항상 첫 자리만 들어갔다. 공통 규칙(dtRedraw)을 적용한다 —
      제목 검색(iq) 같은 일반 칸은 종전처럼 즉시 그린다(dtRedraw가 날짜 칸일 때만 미룬다). */
-  window.inqSetVal=function(id,v){const e=document.getElementById(id);if(e){e.value=v;dtRedraw(render);}};
+  window.inqSetVal=function(id,v,keepId){
+    const e=document.getElementById(id); if(!e)return;
+    e.value=v;
+    /* v08.278 — 글자 칸(제목 검색)은 txRedraw, 날짜 칸(등록일)은 dtRedraw가 맡는다 */
+    if(keepId)txRedraw(render,keepId); else dtRedraw(render);
+  };
   window.inqJCat=function(c){window.__inqJC=(window.__inqJC===c?'':c);window.__inqLongF=false;render();
     const a=document.getElementById('inqListAnchor');if(a)a.scrollIntoView({behavior:'smooth',block:'start'});
     if(typeof IX_toast==='function')IX_toast(window.__inqJC?('문의 관리 목록: '+c+' 필터'):'문의 관리 목록: 목적 필터 해제');}
@@ -7362,7 +7406,7 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
       {l:'실적보호',f:`<select onchange="protectFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option><option value="보호" ${window.__inqProtF==='보호'?'selected':''}>보호</option><option value="만료" ${window.__inqProtF==='만료'?'selected':''}>만료</option></select>`},
       {l:'최종실적',f:`<select onchange="creditFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option>${window.inflowGroups().map(([g])=>`<option value="${g}" ${window.__inqCreditF===g?'selected':''}>${g}</option>`).join('')}</select>`},
       {l:'가입채널',f:`<select onchange="joinChFilterSet(this.value)" style="display:block;width:100%;font-size:8px;padding:2px;border:1px solid var(--border);border-radius:4px;margin-top:2px;background:#fff"><option value="">전체</option>${window.inflowGroups().map(([g])=>`<option value="${g}" ${window.__inqJoinChF===g?'selected':''}>${g}</option>`).join('')}</select>`},
-      {l:'제목',flow:1,f:`<input value="${gv2('iq')}" oninput="inqSetVal('iq',this.value)" placeholder="제목·작성자 검색" style="display:block;width:100%;font-size:8px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;margin-top:2px">`},
+      {l:'제목',flow:1,f:`<input value="${gv2('iq')}" id="inqHdrQ" oninput="inqSetVal('iq',this.value,this.id)" placeholder="제목·작성자 검색" style="display:block;width:100%;font-size:8px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;margin-top:2px">`},
       {l:'작성자',flow:1},
       {l:'등록일',flow:1,f:`<div style="display:flex;gap:2px;margin-top:2px"><input type="date" value="${gv2('iD1')}" onchange="inqSetVal('iD1',this.value)" style="width:50%;font-size:7px;padding:1px;border:1px solid var(--border);border-radius:4px"><input type="date" value="${gv2('iD2')}" onchange="inqSetVal('iD2',this.value)" style="width:50%;font-size:7px;padding:1px;border:1px solid var(--border);border-radius:4px"></div>`},
       {l:'수정일',flow:1},
@@ -9328,8 +9372,10 @@ window.spPaint=function(){
      쳐도 값이 유효해지는 것은 못 막았고 0.4초보다 느리게 치면 그대로 깨졌다(v08.277 신고 내용).
      이제 공통 규칙 dtRedraw(RENDER 선언 옆)로 통일한다 — 커서가 그 칸에 있는 동안은 다시 그리지
      않는다. 값 저장(window.__pmF)은 종전처럼 change마다 즉시 한다 — 저장이 늦으면 안 된다. */
-  window.pmSet=function(k,v){
+  window.pmSet=function(k,v,keepId){
     window.__pmF[k]=v;
+    /* v08.278 — 검색 칸(q)은 글자마다 다시 그리면 커서·한글 조합이 끊긴다(공통 규칙 txRedraw) */
+    if(k==='q'&&keepId){ txRedraw(function(){ renderPerfMg(); }, keepId); return; }
     /* v08.277 버그 수정(요청: "2026 09 30을 입력하려고 시도하면 2026 09 03으로 입력이 돼") —
        여기 있던 "연도 4자리 검사 + 0.4초 디바운스"는 0.4초보다 느리게 치면 그 사이에 화면을
        다시 그려 커서가 날아갔다. 공통 규칙(dtRedraw)으로 대체 — 커서가 그 칸에 있는 동안은
@@ -9668,7 +9714,8 @@ window.spPaint=function(){
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')
       +seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
-      +'<input value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value)" placeholder="사무소·사업자번호 검색"'
+      /* v08.278 — id는 다시 그린 뒤 커서를 되돌리는 데 쓴다(txRedraw). 두 하위 탭이 각각 자기 칸을 갖는다. */
+      +'<input id="pmQorp" value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">발생일</span>'
       /* v08.277 요청("전월 다음월로 넘기는 기능도 추가해줘") — 일별·월별 화면의 ◀▶와 같은 조작감 */
@@ -9851,7 +9898,7 @@ window.spPaint=function(){
        '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')+seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
-      +'<input value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value)" placeholder="제목·작성자 검색"'
+      +'<input id="pmQ" value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="제목·작성자 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       /* v08.98 등록일 기간 필터 — 「7월까지」처럼 기간을 끊어 일괄 지정할 때 쓴다 */
       +'<span style="font-size:10px;color:var(--gray-md);margin-left:4px">등록일</span>'
@@ -13305,6 +13352,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u13',d:'2026-09-09',tt:'날짜 입력·검색창이 제대로 안 되던 문제 수정',
+  b:'날짜를 천천히 쳐도 30일이 그대로 들어가고, 검색창에 한글을 쳐도 글자가 끊기지 않습니다. 기간 필터에 「전월/다음월」 버튼도 추가했습니다.'},
  {id:'u12',d:'2026-09-07',tt:'"활동 타임라인"을 "안내" 메뉴로 이동, 업데이트 내역 안 읽으면 NEW 배지 표시',
   b:'활동 타임라인이 업데이트 내역과 같은 자리로 옮겨졌고, 새 업데이트를 안 읽으면 사이드바에 NEW가 뜹니다.'},
  {id:'u11',d:'2026-09-07',tt:'카드 상세 "논의사항" 내용칸이 길면 잘리던 문제 수정',
