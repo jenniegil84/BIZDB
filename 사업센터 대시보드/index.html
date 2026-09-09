@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.284';
+window.__APP_VER='v08.285';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12335,6 +12335,14 @@ function planJoinCountRangeByIns(hasIns,s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return !!x.insJn===hasIns&&(inR(x.jn)||inR(x.rj));}).length;
 }
+/* v08.285 위 함수와 같은 기준(인사이트 가입 여부)에서 **재가입분만** 센다 —
+   「플러스 가입 실적」 아래 「└ 재가입」 세부 행에 쓴다(합계에 이미 포함된 값을 쪼개 보여주는 것). */
+function planRejoinCountByIns(hasIns,s,e){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return 0;
+  const inR=officeInRange(s,e);
+  return R.filter(function(x){return !!x.insJn===hasIns&&inR(x.rj);}).length;
+}
 /* v08.227 요청("재가입도 포함해") — 사용자가 실제 파일에서 "세무그룹 서울택스"(2026-05-05 가입 →
    2026-05-19 해지 → 2026-08-29 재가입, 개업성장패키지)를 예로 들어 확인. 이 파일 다른 곳(WKKPI_PERF
    등)에서는 신규가입(jn)과 재가입(rj)을 별개 지표로 센다 — 그건 그대로 두고, 개업성장패키지
@@ -12397,11 +12405,19 @@ function monPerfTableHtml(){
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
-       신규가입만 세던 것을 재가입까지 더한 값으로 바꾼다(joinCountRange+rejoinCountRange,
-       둘 다 이미 검증된 함수 그대로 재사용). rejA는 그 안에 포함된 재가입만 따로 보여줄
-       세부 항목으로 남긴다(전체 가입 현황의 "└ 개업성장패키지"와 같은 표시 방식). */
-    rows.rejA[m]=future(m)?null:rejoinCountRange.apply(null,monRangeOf(y,m));
-    rows.newA[m]=future(m)?null:(joinCountRange.apply(null,monRangeOf(y,m))+rows.rejA[m]);
+       신규가입만 세던 것을 재가입까지 더한 값으로 바꿨다(joinCountRange+rejoinCountRange).
+       ══ v08.285 요청("빨간테두리는 플러스 가입및 프로모션 가입수 집계현황이야") ══
+       그런데 그 값은 **요금제 구분 없는 전체 가입**이라, 이 표 제목(「플러스 가입 및 프로모션
+       가입」)과 어긋났고 아래 「전체 가입 현황」 표의 합계 행과 숫자가 똑같았다(같은 값을 두 번
+       보여주고 있었다). 사용자 확정에 따라 **플러스 가입만** 센다 —
+       기준은 아래 「전체 가입 현황」 표의 「플러스」 행과 **완전히 같은 인사이트 가입 여부**
+       (2026-09-06 확정 정책: 세모리포트+인사이트 함께 가입 = 플러스, 리포트만 = 리포트).
+       두 표가 같은 함수(planJoinCountRangeByIns)를 쓰므로 이제 서로 어긋날 수 없다.
+       · 신규 가입 + 재가입 둘 다 포함(가입일 또는 재가입일이 그 달) — 종전 범위와 같다.
+       · 「가입 목표」 숫자는 전체 가입 기준으로 입력해 둔 값이라 그대로 남아 있다 —
+         사용자가 플러스 기준으로 다시 입력하기로 확정(그때까지 달성률은 낮게 보인다). */
+    rows.rejA[m]=future(m)?null:planRejoinCountByIns.apply(null,[true].concat(monRangeOf(y,m)));
+    rows.newA[m]=future(m)?null:planJoinCountRangeByIns.apply(null,[true].concat(monRangeOf(y,m)));
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
     rows.pkgA[m]=future(m)?null:pkgJoinCountRange.apply(null,monRangeOf(y,m));
   });
@@ -12450,8 +12466,8 @@ function monPerfTableHtml(){
   };
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
-    +tr('가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
-    +tr('가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
+    +tr('플러스 가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
+    +tr('플러스 가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
     +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
@@ -12471,7 +12487,7 @@ function monPerfTableHtml(){
     +'<b style="font-size:12px">'+y+'년</b>'
     +'<button class="btn gh" style="padding:3px 9px" onclick="monTgtShift(1)">▶</button></div>'
     +'<div class="wk-kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:8px">'
-    +'<div class="wk-kpi"><div class="wk-kl">가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
+    +'<div class="wk-kpi"><div class="wk-kl">플러스 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
     +'<div class="wk-kpi"><div class="wk-kl">프로모션 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
@@ -13734,6 +13750,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u18',d:'2026-09-09',tt:'월별 실적 현황 표의 「가입 실적」을 플러스 가입 기준으로 변경',
+  b:'제목은 「플러스 가입 및 프로모션 가입」인데 실제로는 요금제 구분 없는 전체 가입을 세고 있어(아래 전체 가입 현황 표의 합계와 같은 숫자), 플러스 가입만 세도록 바꿨습니다. 기준은 아래 표의 「플러스」 행과 같습니다(인사이트 함께 가입). 가입 목표 숫자는 전체 가입 기준으로 입력된 값이라 새 기준으로 다시 입력해 주세요.'},
  {id:'u17',d:'2026-09-09',tt:'새로고침·배포 후 하위업무가 사라지던 문제 수정 · 실적확정 명단 관리 화면 추가',
   b:'배포하거나 새로고침하면 신청 관리 카드의 하위업무가 사라지던 문제를 고쳤습니다. 실적 관리 화면에 [실적확정 명단] 버튼이 생겨, 위멤버스·로움 명단을 엑셀에서 복사해 붙여넣어 직접 관리할 수 있습니다. 월별 목표 입력칸 숫자도 가운데로 정렬했습니다.'},
  {id:'u16',d:'2026-09-09',tt:'주간 업무 현황을 「저번 주/이번 주」로 변경 · 월별 두 표 자리 정렬 · 추천인코드 자동 등록',
