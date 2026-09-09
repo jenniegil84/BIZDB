@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.290';
+window.__APP_VER='v08.291';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3284,12 +3284,29 @@ window.__xlOffice=window.__xlOffice||null;
 // 값을 못 읽으면 손대지 않고 기존 스냅샷을 그대로 둔다.
 // v07.17 프로모션 종료·면제 집계를 청구 파일에서 다시 만든다.
 // 기준월은 고객 마스터 최신일의 달. 종료월 '209912'는 무기한 표기라 임박·경과 어디에도 넣지 않는다.
+/* ══ v08.291 요청("종료 관리도 마스터로 옮기면 청구파일 없이도 정확해진다 → 진행해줘") ══
+   세무사무소목록(마스터)에 프로모션 구분명·시작 연월·종료 연월이 들어오면서(v08.290) 프로모션
+   종료 관리를 청구 파일 없이도 할 수 있게 됐다. 원천을 마스터로 옮긴다.
+     · 모수는 종전(청구 파일 live)과 같게 맞춘다 — **해지일·정지일이 없는 행**(= 지금 청구 중인 곳).
+       그래야 종료 관리 대상 수가 원천만 바뀌어도 흔들리지 않는다.
+     · 면제·할인은 마스터에 없는 정보라, 청구 파일이 함께 있으면 그것만 보조로 붙인다(정보 손실 방지).
+     · 마스터에 컬럼이 없는 예전 파일이면 종전 청구 파일 로직을 그대로 쓴다. */
+window.promoRowsMaster=function(){
+  if(!((window.__xlOfficeCols||{}).pmNm))return null;      // 프로모션 구분명 컬럼 없음 → 마스터 기준 불가
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return null;
+  return R.filter(function(x){ return !x.cn && !x.sp; });  // 청구 파일 live와 같은 모수
+};
 window.__syncPromo=function(){
   try{
     const B=window.__xlBilling||null;
     const map=(B&&B.byBiz)||null;
-    if(!map||typeof A==='undefined'||!A)return false;
-    const base=(B.baseYm)||String((window.__xlOffice&&window.__xlOffice.maxDate)||'').replace(/-/g,'').slice(0,6);
+    const MR=(typeof window.promoRowsMaster==='function')?window.promoRowsMaster():null;
+    if((!map&&!MR)||typeof A==='undefined'||!A)return false;
+    const base=MR
+      ? (String((window.__xlOffice&&window.__xlOffice.maxDate)||window.__baseDate||'').replace(/-/g,'').slice(0,6)
+         ||((B&&B.baseYm)||''))
+      : ((B&&B.baseYm)||String((window.__xlOffice&&window.__xlOffice.maxDate)||'').replace(/-/g,'').slice(0,6));
     if(!base)return false;
     const addM=function(ym,n){
       let y=+ym.slice(0,4), m=+ym.slice(4,6)+n;
@@ -3307,12 +3324,12 @@ window.__syncPromo=function(){
        할인이 있으면 목록에 포함하도록 넓힌다(그전엔 프로모션 없는 곳은 아예 안 보였다). */
     const has=function(v){ v=String(v||'').trim(); return !!(v&&v!=='-'&&v!=='.'); };
     const rows=[]; let soon=0, past=0, exem=0, contact1m=0;
-    Object.keys(map).forEach(function(k){
-      const v=map[k];
-      const hasPromo=has(v.promo), hasExempt=!!v.exempt, hasDiscount=has(v.discount);
+    /* 한 곳을 한 줄로 만드는 부분은 원천이 무엇이든 같다 — 판정 규칙을 두 번 쓰지 않는다 */
+    const push=function(nm,pl,promo,endYm,exempt,discount){
+      const hasPromo=has(promo), hasExempt=!!exempt, hasDiscount=has(discount);
       if(hasExempt)exem++;
       if(!hasPromo&&!hasExempt&&!hasDiscount)return;
-      const e=hasPromo?(v.pE||''):'';
+      const e=hasPromo?(endYm||''):'';
       let stt='';
       if(!hasPromo)stt='무기한';   // 프로모션 없이 면제·할인만 있는 곳 — 종료 개념이 없다
       else if(!e||e==='209912')stt='무기한';
@@ -3323,8 +3340,21 @@ window.__syncPromo=function(){
       const need1m=stt==='종료 경과'||(stt==='종료 3개월 전 대상'&&e<=lim1);
       if(need1m)contact1m++;
       const tag=[hasPromo?'프로모션':'',hasDiscount?'할인':'',hasExempt?'면제':''].filter(Boolean).join('·');
-      rows.push([v.nm||'', (v.pl||'—'), hasPromo?v.promo:tag, e||'—', stt, need1m]);
-    });
+      rows.push([nm||'', (pl||'—'), hasPromo?promo:tag, e||'—', stt, need1m]);
+    };
+    if(MR){
+      /* v08.291 마스터 기준 — 프로모션명·종료월은 마스터에서, 면제·할인은 청구 파일이 있으면 보조로 */
+      MR.forEach(function(x){
+        const bill=(map&&x.bz&&typeof xlBizKey==='function')?(map[xlBizKey(x.bz)]||null):null;
+        push(x.nm, x.pl, x.pmNm, x.pmE, bill&&bill.exempt, bill&&bill.discount);
+      });
+    }else{
+      Object.keys(map).forEach(function(k){
+        const v=map[k];
+        push(v.nm, v.pl, v.promo, v.pE, v.exempt, v.discount);
+      });
+    }
+    A['프로모션원천']=MR?'마스터':'청구';
     const ORD={'종료 경과':0,'종료 3개월 전 대상':1,'진행 중':2,'무기한':3};
     rows.sort(function(a,b){ return (ORD[a[4]]-ORD[b[4]])||String(a[3]).localeCompare(String(b[3])); });
     A['종료임박']=soon; A['종료경과']=past; A['면제플러스']=exem; A['종료임박1개월']=contact1m;
@@ -8149,9 +8179,15 @@ function renderSales(){
      데이터(__billAllRows·isPromo190·프로모션 시작월/종료월, v08.235에서 이미 검증)로 이
      "190만 일시납" 스케줄을 직접 채울 수 있다 — 새 계산 없이 이미 검증된 판정만 재사용,
      날짜 계산도 이미 있는 monRangeOf(월→시작일/종료일)만 쓴다. */
+  /* v08.291 마스터(세무사무소목록)에 프로모션 구분명·시작·종료 연월이 있으면 그것을 쓴다 —
+     청구 파일 없이도 이 스케줄이 채워진다. 컬럼이 없는 예전 파일이면 종전대로 청구 파일을 본다.
+     두 원천의 필드 이름만 맞춰 주고(promo/promoS/promoE), 아래 판정·표시 로직은 그대로 재사용한다. */
   const pkg190Rows=(function(){
-    const AB=window.__billAllRows||null;
-    if(!Array.isArray(AB)||!AB.length)return null;   // 청구 파일 미업로드 — 판정 불가(하드코딩 금지)
+    const MR=(typeof window.promoRowsMaster==='function')?window.promoRowsMaster():null;
+    const AB=MR
+      ? MR.map(function(x){return {nm:x.nm, promo:x.pmNm, promoS:x.pmS, promoE:x.pmE};})
+      : (window.__billAllRows||null);
+    if(!Array.isArray(AB)||!AB.length)return null;   // 원천 미업로드 — 판정 불가(하드코딩 금지)
     const okYm=v=>/^\d{6}$/.test(String(v||''));
     return AB.filter(function(r){return isPromo190(r.promo);}).map(function(r){
       let st='—', ed='—', al='—', stt='데이터보완';
@@ -8188,7 +8224,7 @@ function renderSales(){
        그 아래 있던 "세무회계 셈" 특정 사무소 안내문은 sched가 비어 있어도 무조건 떠 있던 하드코딩
        텍스트였다 — 근거가 될 행 자체가 없는데 특정 사무소를 지목한 안내가 항상 노출됐다(정책 위반).
        이제 sched에 실제 행이 있을 때만 이 안내 블록을 보여준다. -->
-  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="7" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
+  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="7" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 세무사무소목록(프로모션 구분명·시작·종료 연월) 또는 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
   ${sched?`<div class="panel-body" style="border-top:1px solid var(--border)">
    <div style="font-size:10px;color:var(--gray-md)">필수 안내: 프로모션명·시작/종료일·일시납 기간 종료 사실·<b>종료 후 월 35만 정상가 적용</b>·적용 예정일·제공 서비스·의사표시 기한·문의 방법 — 문구 버전·발송 일시·채널·반응 이력화.</div></div>`:''}</div>
   <div class="sec-label">종료 관리 목록</div>
@@ -13936,6 +13972,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u24',d:'2026-09-09',tt:'프로모션 종료 관리도 세무사무소목록 기준으로 이전',
+  b:'종료 관리 목록과 개업세무사 일시납 스케줄이 세무사무소목록의 프로모션 구분명·시작·종료 연월을 씁니다. 청구대상 고객관리 파일이 없어도 종료 관리가 동작하고, 면제·할인 정보만 청구 파일이 있을 때 함께 표시됩니다.'},
  {id:'u23',d:'2026-09-09',tt:'개업세무사 판정을 세무사무소목록으로 이전 · 「베이직」 → 「리포트」',
   b:'세무사무소목록에 프로모션 구분명·시작 연월·종료 연월이 들어와, 개업세무사 판정에 청구 파일을 더 이상 참조하지 않습니다. 세는 날짜도 다른 행과 같은 가입 기준으로 맞춰 「└ 개업세무사」가 플러스에 정확히 포함됩니다. 인사이트 미가입 행은 과거 요금제까지 포함하므로 이름을 「리포트」로 바꿨습니다.'},
  {id:'u22',d:'2026-09-09',tt:'가입 집계 기준 갱신 — 요금제변경 포함 · 플러스에 개업세무사 포함',
