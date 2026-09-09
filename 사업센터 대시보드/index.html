@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.305';
+window.__APP_VER='v08.308';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3708,6 +3708,49 @@ function xlParseOffice(rows,hdr){
     adCol:_colNm(iAd), ad:iAd>=0};
   IX_saveToSheet('office_cols',window.__xlOfficeCols);
   window.__xlOfficeRows=keep; IX_saveToSheet('office_rows',keep);
+  /* ══ v08.308 요청("세개 카드 모두 사용건수가 늘어나고 있는지 그래프 추가") ══
+     인사이트 사용건수 3종은 파일에 **현재 누적값**만 있어 그 자체로는 추이를 만들 수 없다.
+     그래서 업로드할 때마다 **그 파일의 기준일 + 합계·사용 곳 수**를 스냅샷으로 남긴다.
+     · 점 하나 = **업로드한 날**(TODAY). 사용건수는 원천에서 매일 늘어나므로, 파일 기준일(파일 안의
+       가장 늦은 날짜)로 키를 잡으면 그 날짜가 며칠씩 그대로일 때 점이 늘지 않는다. 파일 기준일은
+       참고용으로 `bd`에 함께 담는다(오늘 이후 날짜는 제외 — 인사이트 해지일 등 미래 날짜가 있다)
+     · 같은 날 다시 올리면 덮어쓴다(하루에 여러 번 올려도 점은 하나)
+     · 컬럼이 없으면 그 항목만 null(0으로 지어내지 않는다)
+     · 최근 36개만 보관 */
+  (function(){
+    try{
+      const C=window.__xlOfficeCols||{};
+      if(!(C.insAll||C.insFund||C.insTax))return;
+      const live=keep.filter(function(x){
+        const st=String(x.st||'').trim(); return st!=='해지'&&st!=='정지';
+      });
+      const agg=function(k){
+        let sum=0,used=0,has=false;
+        live.forEach(function(x){ const v=x[k];
+          if(typeof v==='number'&&isFinite(v)){ has=true; sum+=v; if(v>0)used++; } });
+        return {has:has,sum:sum,used:used};
+      };
+      let mx='';
+      keep.forEach(function(x){
+        ['jn','rj','cn','sp','pc','insJn','insCn'].forEach(function(f){
+          const d=String(x[f]||'').slice(0,10);
+          if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&d>mx&&d<=TODAY)mx=d;
+        });
+      });
+      const a=agg('insAll'), f=agg('insFund'), t=agg('insTax');
+      const rec={ d:TODAY, bd:(mx||''), base:live.length,
+                  all:a.has?a.sum:null,  allU:a.has?a.used:null,
+                  fund:f.has?f.sum:null, fundU:f.has?f.used:null,
+                  tax:t.has?t.sum:null,  taxU:t.has?t.used:null };
+      const arr=(Array.isArray(window.__insSnap)?window.__insSnap.slice():[])
+        .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));});
+      const i=arr.map(function(x){return x.d;}).indexOf(rec.d);
+      if(i>=0)arr[i]=rec; else arr.push(rec);
+      arr.sort(function(x,y){return String(x.d).localeCompare(String(y.d));});
+      while(arr.length>36)arr.shift();
+      window.__insSnap=arr; IX_saveToSheet('ins_snap',arr);
+    }catch(e){ try{console.warn('[인사이트 스냅샷 적립 실패]',e);}catch(x){} }
+  })();
   if(typeof window.markUpload==='function')window.markUpload('office');
   setTimeout(function(){ if(typeof window.__syncMonthly==='function')window.__syncMonthly(); },0);
   // v04.68 월별 역산: 가입일·해지일로 누적/신규/해지/순증 산출
@@ -5438,6 +5481,9 @@ const STATE_MAP={
   // v08.284 플로우 상위업무 컬럼 인식 결과 — 저장하지 않으면 새로고침·재배포 후 하위업무가 사라진다
   flow_sub_col:'__flowSubCol',
   xl_uploads:'__xlUploads',   // v07.70 파일별 최신 업로드 시각
+  /* v08.308 인사이트 사용건수 추이 — 마스터 파일에는 「현재 누적 사용건수」만 있고 시계열이 없다.
+     그래서 파일을 올릴 때마다 그 파일의 기준일 스냅샷을 쌓아 추이를 그린다(과거 수치는 만들어 낼 수 없다). */
+  ins_snap:'__insSnap',
   inq_manage:'IX___inqManage', ref_list:'__refList', inq_del:'IX___inqDel', mkt_tasks:'__mktTasks', mkt_budget:'__mktBudgetRows',
   /* v08.167 문의 없는 실적(마스터 사건)에 지정한 채널값 — 플로우 문의(inq_manage)와 섞으면
      키 체계가 달라 서로를 덮어쓴다. 별도 kind로 둔다. */
@@ -5842,6 +5888,37 @@ function custToMg(c,step,status,problem,action,dmn){
              fund:one(!!C.insFund,'insFund'), tax:one(!!C.insTax,'insTax'),
              cands:(C.insCands||[]) };
   })();
+  /* ══ v08.308 인사이트 사용건수 추이(스파크라인) ══
+     원천은 업로드마다 쌓이는 스냅샷(`__insSnap`, STATE_MAP의 ins_snap)이다. 파일 안에는 현재
+     누적값만 있어 과거를 만들어 낼 수 없으므로, 스냅샷이 1개뿐이면 선을 그리지 않고 안내만 둔다
+     (없는 데이터를 지어내지 않는다 — CLAUDE.md 7번). 마지막 두 스냅샷의 차이를 함께 적어
+     「늘어나는지」가 숫자로도 보이게 한다. */
+  const _insSpark=function(key){
+    const raw=(Array.isArray(window.__insSnap)?window.__insSnap:[])
+      .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''))
+                             &&typeof x[key]==='number'&&isFinite(x[key]);});
+    if(raw.length<2){
+      return '<div style="font-size:9.5px;color:var(--gray-md);margin-top:6px">추이는 다른 날 파일을 한 번 더 올리면 그려집니다'
+        +(raw.length?(' · 지금 1회('+IX_esc(raw[0].d)+' 업로드)'):' · 쌓인 스냅샷 없음')+'</div>';
+    }
+    const W=180,H=34, vs=raw.map(function(x){return x[key];});
+    const mxv=Math.max.apply(null,vs), mnv=Math.min.apply(null,vs), rng=(mxv-mnv)||1;
+    const X=function(i){return (i/(raw.length-1)*(W-6)+3);};
+    const Y=function(v){return (H-4-((v-mnv)/rng*(H-10)));};
+    const line=raw.map(function(x,i){return X(i).toFixed(1)+','+Y(x[key]).toFixed(1);}).join(' ');
+    const last=raw[raw.length-1], prev=raw[raw.length-2], d1=last[key]-prev[key];
+    const col=(d1>0)?'#13918B':((d1===0)?'#7E8299':'#F1416C');
+    const pct=prev[key]?(Math.round(d1/prev[key]*1000)/10):null;
+    return '<div style="margin-top:6px">'
+      +'<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:34px;display:block">'
+      +'<polyline points="'+line+'" fill="none" stroke="'+col+'" stroke-width="1.6"/>'
+      +raw.map(function(x,i){return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(x[key]).toFixed(1)+'" r="'+((i===raw.length-1)?2.2:1.4)+'" fill="'+col+'"/>';}).join('')
+      +'</svg>'
+      +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:2px">'
+      +'<b style="color:'+col+'">'+((d1>0)?'▲':((d1===0)?'—':'▼'))+' '+((d1>0)?'+':'')+d1.toLocaleString()+'건'
+      +((pct!=null)?(' ('+((pct>0)?'+':'')+pct+'%)'):'')+'</b>'
+      +' 지난 업로드 '+IX_esc(prev.d)+' 대비 · 스냅샷 '+raw.length+'회('+IX_esc(raw[0].d)+'~'+IX_esc(last.d)+')</div></div>';
+  };
   /* ══ v08.145 요청("통합현황에 세모리포트 가입거래처수도 추가") ══
      세무사무소목록의 거래처수 3종을 합산한다. 인사이트 사용 현황과 같은 원칙:
      · 현재 정상 이용 중인 곳만 — 해지·정지된 곳의 과거 거래처수는 지금 현황이 아니다
@@ -5986,7 +6063,8 @@ function custToMg(c,step,status,problem,action,dmn){
   <!-- v08.122 인사이트 사용 현황 — 세무사무소목록의 사용건수 3종(총·자금일보·전자세금계산서) -->
   <div class="blk">
     <div class="blk-hd"><span class="blk-ttl">인사이트 사용 현황</span>${basisTag('n')}
-      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_insStat.base.toLocaleString()}곳 합계 · 해지·정지 제외</span></div>
+      <span style="font-size:10px;color:var(--gray-md)">현재 정상 이용 ${_insStat.base.toLocaleString()}곳 합계 · 해지·정지 제외
+      · 추이는 <b>업로드할 때마다 쌓인 그 날의 스냅샷</b> 기준</span></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
       ${[{k:'all',l:'인사이트 총 사용건수',tone:'tc'},
          {k:'fund',l:'자금일보 사용건수',tone:'oc'},
@@ -6000,7 +6078,9 @@ function custToMg(c,step,status,problem,action,dmn){
         return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
           +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">건</span></div>'
           +'<div class="kpi-s">사용 '+s.used.toLocaleString()+'곳 · 이용 사무소의 '+rate+'%'
-          +(s.used?(' · 곳당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'건'):'')+'</div></div>';
+          +(s.used?(' · 곳당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'건'):'')+'</div>'
+          +_insSpark(o.k)   /* v08.308 사용건수가 늘어나는지 — 업로드 스냅샷 추이 */
+          +'</div>';
       }).join('')}
     </div>
   </div>
@@ -12814,20 +12894,19 @@ function monPerfTableHtml(){
     +tr('&nbsp;&nbsp;└ 신규 플러스',months.map(function(m){return td(actCell(rows.pnA[m]),m);}),pnASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
     +tr('&nbsp;&nbsp;└ 업셀(인사이트·전환)',months.map(function(m){return td(actCell(rows.upsA[m]),m);}),upsASum,'color:var(--link)')
-    /* ══ v08.302 요청("개업세무사는 플러스요금제 프로모션인데, 아래에 따로 있으니 위 플러스에
-       포함되는지 헷갈려한다") — 사용자 확정(A안): 세부 3줄 다음에 「그중 개업세무사」 실적 줄을
-       하나 더 둔다. 아래 파란 블록의 실적과 같은 값(pkgA)이지만, 이 자리에 있으면
-       「플러스 20건 중 개업세무사 5건」이 한 줄로 읽혀 포함 관계가 분명해진다.
-       ※ 세부 3줄(신규·재가입·업셀)과는 성격이 다르다 — 그 셋은 서로 겹치지 않는 분해이고,
-         이 줄은 그 안에 걸쳐 있는 프로모션 표시라 셋의 합에 더하지 않는다(그래서 회색 안내를 붙인다). */
-    +tr('&nbsp;&nbsp;└ 그중 개업세무사<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (프로모션)</span>',
-        months.map(function(m){return td(actCell(rows.pkgA[m]),m);}),pkgASum,'color:var(--link)')
+    /* ══ v08.306 요청("이거 빼" — 「└ 그중 개업세무사」 줄에 표시) ══
+       v08.302에서 「위 플러스 실적에 개업세무사가 포함되는지 헷갈린다」는 의견을 받아 넣은 줄인데,
+       아래 파란 블록(개업세무사 가입 목표 (플러스 내)·실적)과 값이 같아 같은 숫자가 두 번 나왔다.
+       사용자 지시로 이 줄만 뺀다 — 포함 관계는 파란 블록 라벨의 「(플러스 내)」와 표 아래 문구가
+       계속 밝힌다. 값(rows.pkgA)은 파란 블록이 그대로 쓰므로 계산은 남겨 둔다. */
     /* ══ v08.305 사용자 확정("포함 + 별도 표기") ══
        인사이트를 가입한 그 달에 곧바로 해지한 건이 있다(2026-08 5곳). 가입일 기준으로 세는
        원칙은 그대로 두되, 몇 건이 곧 떨어졌는지 이 줄로 함께 보여준다 — 실적에서 빼지 않으므로
        위 3줄의 합도 그대로다. 값이 아예 없는 연도에는 줄을 만들지 않는다(빈 줄로 표를 늘리지 않는다). */
     +(insOutSum>0
-      ? tr('&nbsp;&nbsp;└ 그중 당월 인사이트 해지<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (실적 유지)</span>',
+      /* v08.307 라벨이 구분 열(150px)을 넘어 1월 칸으로 밀렸다 — 「(실적 유지)」는 표 아래 문구에
+         이미 적혀 있으므로 라벨에서 뺀다(라벨 길이는 표 폭이 정한다). */
+      ? tr('&nbsp;&nbsp;└ 그중 당월 인사이트 해지',
            months.map(function(m){return td(actCell(rows.insOut[m]),m);}),insOutSum,'color:var(--red)')
       : '')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
@@ -12853,7 +12932,32 @@ function monPerfTableHtml(){
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+newTSum+' · 실적 '+newASum+'</div></div>'
     +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
-    +'</div><div style="overflow:auto">'+table+'</div>'
+    +'</div>'
+    /* ══ v08.307 요청("개업세무사가 플러스 안에 있는 프로모션이라는걸 UI적으로 잘 표현할수 있는방법
+       없나?") — 사용자 확정: **포함 비율 바**. 표 행으로 같은 숫자를 두 번 쓰지 않고(v08.306에서
+       뺀 이유), 플러스 실적 전체 길이 안에 개업세무사 몫을 색으로 채워 「안에 들어 있다」를 그림으로
+       보여준다. 목표가 아니라 **실적끼리**의 포함 관계다(목표는 위 두 카드에서 본다).
+       ※ 개업세무사는 프로모션 시작월 기준이라 이론상 플러스 실적을 넘을 수 있어, 폭은 100%로 묶고
+         숫자는 실제 값을 그대로 적는다. 실적이 아직 0이면 바 자체를 만들지 않는다(빈 바를 두지 않는다). */
+    +(function(){
+        if(!(newASum>0))return '';
+        const pct=Math.min(100, Math.round(pkgASum/newASum*1000)/10);
+        const rest=Math.max(0, newASum-pkgASum);
+        const dot=function(c){return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+';margin-right:4px;vertical-align:-1px"></span>';};
+        return '<div style="border:1px solid #DBEAFE;background:#F8FBFF;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+          +'<div style="font-size:10.5px;margin-bottom:6px">'
+          +'<b>플러스 가입 실적 '+newASum+'건</b> <span style="color:var(--gray-md)">안에 '
+          +'<b style="color:'+pkgBorder+'">개업세무사 프로모션 '+pkgASum+'건</b>이 포함돼 있습니다'
+          +(newASum>0?(' <b>('+pct+'%)</b>'):'')+'</span></div>'
+          +'<div style="display:flex;height:13px;border-radius:7px;overflow:hidden;background:#E5E7EB">'
+          +'<div style="width:'+pct+'%;background:'+pkgBorder+'"></div>'
+          +'<div style="flex:1;background:#7FD8D2"></div></div>'
+          +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px">'
+          +dot(pkgBorder)+'개업세무사 프로모션 '+pkgASum+'건'
+          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 '+rest+'건</span></div>'
+          +'</div>';
+      })()
+    +'<div style="overflow:auto">'+table+'</div>'
     /* v08.303 두 표는 같은 모수를 쓴다 — 아래 「전체 가입 현황」의 「플러스」 행은 이 표의
        「플러스 가입 실적」과 항상 같은 값이다(사용자 확정). 그 사실을 문구로 밝힌다. */
     +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px;line-height:1.5">'
@@ -12863,8 +12967,7 @@ function monPerfTableHtml(){
     +'<b>재가입</b>(돌아온 고객) · <b>업셀</b>(이미 우리 고객이 인사이트를 추가하거나 요금제를 플러스로 올린 것). '
     +'셋의 합이 위 실적과 같고 서로 겹치지 않습니다. '
     +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
-    +'「└ 그중 개업세무사」 줄이 그 내역이고(프로모션 시작월이 그 달인 곳), 아래 파란 블록은 그 프로모션만 목표 대비로 관리합니다. '
-    +'세부 3줄(신규·재가입·업셀)은 서로 겹치지 않는 분해이고, 「그중 개업세무사」는 그 셋에 걸쳐 있어 합에 더하지 않습니다. '
+    +'아래 파란 블록이 그 프로모션만 목표 대비로 관리하는 자리입니다(프로모션 시작월이 그 달인 곳). '
     +(insOutSum>0
       ? '<b>└ 그중 당월 인사이트 해지</b>는 인사이트를 가입한 그 달에 바로 해지한 곳입니다 — 가입일 기준으로 세는 원칙에 따라 <b>실적에는 그대로 포함</b>하고, 곧 떨어진 건이 몇 건인지만 함께 보여줍니다. '
       : '')
@@ -14244,6 +14347,12 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u38',d:'2026-09-10',tt:'인사이트 사용건수 3종에 추이 그래프 추가',
+  b:'인사이트 총 사용건수·자금일보·전자세금계산서 카드에 작은 추이선과 「지난 기준일 대비 ▲+N건」 표기를 넣었습니다. 파일에는 현재 누적값만 있어 과거를 만들 수 없으므로, 파일을 올릴 때마다 그 기준일의 값을 스냅샷으로 쌓아 그립니다 — 두 번째 업로드부터 선이 보입니다.'},
+ {id:'u37',d:'2026-09-10',tt:'개업세무사가 플러스 안의 프로모션임을 비율 바로 표시',
+  b:'월별 실적 현황 위에 포함 비율 바를 넣었습니다 — 플러스 가입 실적 전체 길이 안에 개업세무사 프로모션 몫을 파란색으로 채워, 같은 숫자를 표에 두 번 쓰지 않고도 「플러스 안에 들어 있는 프로모션」이라는 관계가 한눈에 보입니다.'},
+ {id:'u36',d:'2026-09-10',tt:'월별 실적 현황에서 「└ 그중 개업세무사」 줄 제거',
+  b:'아래 파란 블록(개업세무사 가입 목표·실적)과 같은 숫자가 두 번 나와 지시에 따라 세부 줄을 뺐습니다. 개업세무사가 플러스 실적에 포함된다는 사실은 파란 블록 라벨의 「(플러스 내)」와 표 아래 설명으로 계속 확인할 수 있습니다.'},
  {id:'u35',d:'2026-09-10',tt:'해지 집계를 해지일 기준으로 통일 + 인사이트 가입·해지를 목록에 추가',
   b:'① 해지를 「해지일이 그 달」이면 모두 셉니다(종전에는 현재 상태가 해지인 곳만 세어, 해지 후 돌아온 곳이 빠져 회사 시스템 집계와 4건 차이가 났습니다 — 1·4·5·8월 각 1건). 누적 화면만 종전 기준(현재 해지 상태)을 유지합니다(누적가입−누적해지−누적정지=현재 정상 검산 때문). ② 발생 건 목록에 「인사이트 가입」·「인사이트 해지」 2종을 추가해 플러스·업셀 숫자를 목록에서 검산할 수 있습니다. ③ 인사이트를 가입한 달에 바로 해지한 건은 실적에 그대로 포함하되 「└ 그중 당월 인사이트 해지」 줄로 함께 보여줍니다(2026-08 5건).'},
  {id:'u34',d:'2026-09-10',tt:'월별 표의 노란 형광펜이 보고 있는 주간회의 주를 따라갑니다',
