@@ -2063,7 +2063,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.296';
+window.__APP_VER='v08.297';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -12468,14 +12468,6 @@ function planJoinCountRangeByIns(hasIns,s,e){
   const inR=officeInRange(s,e);
   return R.filter(function(x){return !!x.insJn===hasIns&&(inR(x.jn)||inR(x.rj));}).length;
 }
-/* v08.285 위 함수와 같은 기준(인사이트 가입 여부)에서 **재가입분만** 센다 —
-   「플러스 가입 실적」 아래 「└ 재가입」 세부 행에 쓴다(합계에 이미 포함된 값을 쪼개 보여주는 것). */
-function planRejoinCountByIns(hasIns,s,e){
-  const R=window.__xlOfficeRows||[];
-  if(!Array.isArray(R)||!R.length)return 0;
-  const inR=officeInRange(s,e);
-  return R.filter(function(x){return !!x.insJn===hasIns&&inR(x.rj);}).length;
-}
 /* ══ v08.289 사용자 스펙 v2(엑셀 이미지 · 「기준」 칸 포함) ══
    v08.288의 스펙이 사용자에 의해 아래와 같이 갱신됐다 — **정의 3줄이 바뀌었다.**
      가입     = 신규가입 + 재가입 + **요금제변경(플러스로 올라온 건만 — v08.295)**
@@ -12652,7 +12644,7 @@ function monPerfTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   const num=v=>(v!==''&&v!=null)?+v:null;
-  const rows={newT:{},newA:{},rejA:{},pkgT:{},pkgA:{}};
+  const rows={newT:{},newA:{},pkgT:{},pkgA:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
@@ -12667,10 +12659,12 @@ function monPerfTableHtml(){
        · 신규 가입 + 재가입 둘 다 포함(가입일 또는 재가입일이 그 달) — 종전 범위와 같다.
        · 「가입 목표」 숫자는 전체 가입 기준으로 입력해 둔 값이라 그대로 남아 있다 —
          사용자가 플러스 기준으로 다시 입력하기로 확정(그때까지 달성률은 낮게 보인다). */
-    /* v08.289 플러스 = 가입(신규+재가입+요금제변경) 중 인사이트 가입 — **개업세무사 포함**.
-       아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다. */
+    /* v08.289 플러스 = 가입(신규+재가입+요금제변경+인사이트 신규) 중 인사이트 가입 — 개업세무사 포함.
+       아래 「전체 가입 현황」 표의 플러스 행과 같은 함수라 두 표는 항상 같은 값이다.
+       v08.297 사용자 지적("내가 준 파일에 재가입이 없는데 왜 재가입을 살려놓은거야?") —
+       스펙에 없는 「└ 재가입」 세부 행을 내가 임의로 남겨 뒀다. 행과 그 계산(rejA)을 함께 지운다
+       (재가입은 실적 분석 「재가입」 카드에서 계속 볼 수 있다). */
     const _r=monRangeOf(y,m);
-    rows.rejA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1],true);
     rows.newA[m]=future(m)?null:window.joinSplitCount('plus',_r[0],_r[1]);
     const pv=num(T.pkg[m]); rows.pkgT[m]=pv;
     /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
@@ -12678,7 +12672,7 @@ function monPerfTableHtml(){
     rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
-  const newTSum=sum(rows.newT), newASum=sum(rows.newA), rejASum=sum(rows.rejA);
+  const newTSum=sum(rows.newT), newASum=sum(rows.newA);
   const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
   const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
   const targetCell=function(kind,m){
@@ -12723,7 +12717,6 @@ function monPerfTableHtml(){
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
     +tr('플러스 가입 목표',months.map(function(m){return td(targetCell('new',m),m);}),newTSum)
     +tr('플러스 가입 실적',months.map(function(m){return td(actCell(rows.newA[m]),m);}),newASum)
-    +tr('&nbsp;&nbsp;└ 재가입',months.map(function(m){return td(actCell(rows.rejA[m]),m);}),rejASum,'color:var(--link)')
     +tr('달성 실적',months.map(function(m){return td(deltaCell(rows.newA[m],rows.newT[m]),m);}),
         newTSum>0?('<span style="color:'+((newASum-newTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((newASum-newTSum)>0?'+':'')+(newASum-newTSum)+'</span>'):'—')
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
