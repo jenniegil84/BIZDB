@@ -861,6 +861,9 @@ table.t .na{color:#B6BCC6}
 .ww-col-h.now{background:#0F766E}
 .ww-col-h.next{background:#1F2937}
 .ww-col-b{padding:12px 13px 16px}
+/* v08.317 주간 업무 현황의 카드 링크(📎) — 팀 탭 카드에 등록된 자료 링크를 그 자리에서 연다 */
+.ww-clip{margin-left:5px;text-decoration:none;font-size:11px;line-height:1;opacity:.75}
+.ww-clip:hover{opacity:1}
 /* ══ v08.147 요청("글이 위아래로 너무 붙어있는데 주제별로 사이 여백이 추가되어서 구분이 되면 좋을듯") ══
    종전에는 과제 사이 간격이 4px뿐이라, 앞 과제의 실행기록 마지막 줄과 다음 과제 제목이 거의
    붙어 보였다. 실행기록이 2~3줄씩 달리면 어디서 과제가 바뀌는지 눈으로 못 따라간다.
@@ -2066,7 +2069,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.315';
+window.__APP_VER='v08.317';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8533,7 +8536,11 @@ window.suspendRowsAll=function(){
   return R.filter(function(x){return String(x.st||'').trim()==='정지';})
     .map(function(x){
       const rs=String(x.spRs||'').trim();
-      return { nm:x.nm||'', pl:String(x.pl||'').trim()||'',
+      /* v08.316 요청("정지업체탭 — 대표자명, 휴대폰 번호 추가") — 마스터가 이미 담고 있는
+         값(`ow`=대표자명 · `hp`=대표자휴대폰번호)을 그대로 쓴다(새 파싱 없음).
+         '-'·'.'처럼 빈칸 대용 문자는 빈 값으로 본다 — 화면에서 「—」로 나간다. */
+      const blank=function(v){ const t=String(v||'').trim(); return (t&&t!=='-'&&t!=='.')?t:''; };
+      return { nm:x.nm||'', ow:blank(x.ow), hp:blank(x.hp), pl:String(x.pl||'').trim()||'',
         rs:(rs&&rs!=='-'&&rs!=='.')?rs:'', sp:x.sp||'', se:x.se||'', bz:x.bz||'' };
     });
 };
@@ -8569,7 +8576,7 @@ window.suspendPanelHTML=function(){
     +grp.map(function(g){ return card(g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
     +'</div>'
     +'<div class="filters" style="margin-bottom:10px">'
-    +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·사업자번호 검색" '
+    +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·대표자·연락처·사업자번호 검색" '
     +'oninput="spSet(\'q\',this.value)" style="width:200px">'
     +opt('pl','요금제',uniq(function(x){return x.pl;}),F.pl)
     +opt('rs','정지사유',uniq(function(x){return x.rs;}),F.rs)
@@ -8594,7 +8601,11 @@ window.spPaint=function(){
       lim=d.toISOString().slice(0,10); }
   }
   const L=window.suspendRowsAll().filter(function(x){
-    if(nq&&!(hit(x.nm)||hit(x.bz)))return false;
+    /* v08.316 대표자명·휴대폰도 검색 대상에 넣는다 — 표에 보이는 값은 검색도 되는 게 자연스럽다.
+       휴대폰은 숫자만 입력해도(하이픈 없이) 찾히도록 숫자 비교를 함께 쓴다. */
+    const digits=nq.replace(/[^0-9]/g,'');
+    if(nq&&!(hit(x.nm)||hit(x.bz)||hit(x.ow)||hit(x.hp)
+             ||(digits&&String(x.hp||'').replace(/[^0-9]/g,'').indexOf(digits)>=0)))return false;
     if(F.pl&&x.pl!==F.pl)return false;
     if(F.rs&&x.rs!==F.rs)return false;
     if(lim&&(!x.sp||x.sp<lim))return false;
@@ -8612,18 +8623,21 @@ window.spPaint=function(){
     return '<th'+(w?' style="width:'+w+'"':'')+' onclick="spSortBy(\''+key+'\')" style="cursor:pointer'+(w?';width:'+w:'')+'">'+label+arrow(key)+'</th>';
   };
   const na='<span class="na">—</span>';
+  /* v08.316 대표자·연락처 두 열 추가(업체명 바로 옆) — 정지 안내 전화를 이 화면에서 바로 건다 */
   box.innerHTML='<table class="tbl chTbl" style="table-layout:fixed;width:100%"><thead><tr>'
-    +th('nm','업체명')+th('pl','요금제','104px')
+    +th('nm','업체명')+th('ow','대표자','84px')+th('hp','연락처','116px')+th('pl','요금제','104px')
     +th('rs','정지 사유')+th('sp','정지일','96px')+th('se','정지해제일','96px')
     +'</tr></thead><tbody>'
     +(L.length?L.map(function(x){
       return '<tr><td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
+        +'<td>'+(x.ow?IX_esc(x.ow):na)+'</td>'
+        +'<td style="font-size:10.5px">'+(x.hp?IX_esc(x.hp):na)+'</td>'
         +'<td>'+(x.pl?IX_esc(x.pl):na)+'</td>'
         +'<td style="text-align:left;font-size:10.5px">'+(x.rs?IX_esc(x.rs):'<span class="na">미기재</span>')+'</td>'
         +'<td>'+(x.sp?IX_esc(x.sp):na)+'</td>'
         +'<td>'+(x.se?IX_esc(x.se):na)+'</td></tr>';
     }).join('')
-    :'<tr><td colspan="5" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
+    :'<tr><td colspan="7" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
     +'</tbody></table>';
   const cc=document.getElementById('spCnt');
   if(cc)cc.textContent='조회 '+L.length.toLocaleString()+'건 / 전체 '+window.suspendRowsAll().length.toLocaleString()+'건';
@@ -14404,6 +14418,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u47',d:'2026-09-16',tt:'주간 업무 현황에 카드 링크(📎) 표시',
+  b:'팀 탭 카드에 등록해 둔 자료 링크를 주간 업무 현황의 과제 제목 옆에 📎로 보여줍니다. 마우스를 올리면 자료 이름이 뜨고, 누르면 새 탭에서 열립니다(URL이 없는 메모형 자료는 표시하지 않습니다).'},
+ {id:'u46',d:'2026-09-16',tt:'정지업체 탭에 대표자·연락처 추가',
+  b:'정지업체 목록에 대표자명과 휴대폰 번호를 업체명 옆에 표시합니다. 검색창에서도 대표자명·연락처로 찾을 수 있습니다(하이픈 없이 숫자만 입력해도 찾힙니다).'},
  {id:'u45',d:'2026-09-16',tt:'주간 업무 현황을 「이번 주 / 다음 주」로 변경',
   b:'팀별 주간 업무 현황 2단 표를 이번 주(왼쪽)·다음 주(오른쪽)로 바꿨습니다. 이 표는 그 주에 실제로 남긴 실행기록만 보여주므로, 다음 주 칸은 기록이 생기기 전까지 「항목 없음」으로 비어 있습니다.'},
  {id:'u44',d:'2026-09-10',tt:'플러스 실적 기준을 「인사이트 가입일」로 확정 (연간 83)',
@@ -16287,12 +16305,25 @@ function teamWeekTableHtml(team){
         .map(g=>'<div class="ww-note">– '+esc(g.txt||'')+(g.by?' - <span class="ww-by">'+esc(byLabel(g.by))+'</span>':'')
           +(g.img?'<img class="ww-note-img" src="'+esc(g.img)+'" onclick="window.open(\''+esc(g.img)+'\',\'_blank\')" title="새 탭에서 보기">':'')
           +'</div>').join('');
+      /* ══ v08.317 요청("주간현황에 탭카드에 있는 링크도 가져오고 표시는 클립모양으로 넣어줘") ══
+         팀 탭 카드에 등록해 둔 자료 링크(DOCS[카드id] = [{nm,url,note}])를 그대로 가져와
+         제목 옆에 📎로 붙인다 — 새 데이터를 만들지 않고 이미 있는 것을 보여주기만 한다.
+         · URL이 없는 항목(메모만 있는 자료)은 열 곳이 없으므로 표시하지 않는다.
+         · 마우스를 올리면 자료 이름이 보이고(title), 눌러도 카드 이동(goTab)이 따라오지
+           않도록 stopPropagation을 건다. */
+      const clips=((typeof DOCS!=='undefined'&&DOCS[c.id])||[])
+        .filter(function(d){ return /^https?:\/\//i.test(String((d&&d.url)||'')); })
+        .map(function(d){
+          return '<a class="ww-clip" href="'+esc(d.url)+'" target="_blank" rel="noopener"'
+            +' title="'+esc(d.nm||'링크')+'" onclick="event.stopPropagation()">📎</a>';
+        }).join('');
       return '<div class="ww-item">'
        +'<div class="ww-line" onclick="goTab(\''+team.id+'\')">'
        +'<span class="ww-bul">•</span>'
        +'<span class="ww-code">'+esc(c.id)+'</span>'
        +'<span class="ww-nm">'+esc(c.nm)+'</span>'
-       +'<span class="ww-st '+(done?'done':'prog')+'">'+(done?'완료':'진행')+'</span></div>'
+       +'<span class="ww-st '+(done?'done':'prog')+'">'+(done?'완료':'진행')+'</span>'
+       +clips+'</div>'
        +logs+'</div>';
     }).join('');
   };
