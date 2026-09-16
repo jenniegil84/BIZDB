@@ -2078,7 +2078,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.326';
+window.__APP_VER='v08.327';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -6008,6 +6008,60 @@ function custToMg(c,step,status,problem,action,dmn){
      같은 분류를 더 자세히(업체 목록까지) 다루고 있어 통합현황에서는 중복) — 여기 있던 _spStat
      계산과 아래 렌더 블록을 함께 삭제했다. 정지 "총 건수"는 위 누적 요약의 "누적 정지" 카드에
      그대로 남아 있어 한눈에 보는 용도는 유지된다. */
+  /* ══ v08.327 요청("통합현황의 모든 숫자들이 과거랑 비교했을때 늘었다는건지 줄었다는건지 알수가 없어") ══
+     비교 기준은 사용자 확정으로 **지난 업로드 대비**다 — 이미 인사이트 카드가 쓰는 방식
+     (업로드할 때마다 그 날 값을 스냅샷으로 쌓아 직전 스냅샷과 견준다)을 화면 전체로 넓힌다.
+     누적 가입·해지·정지는 날짜로 과거를 되살릴 수 있지만 현재 정상·플러스 전환율·거래처수는
+     「지금 값」이라 재계산이 불가능하다 — 한 화면에서 기준이 갈리지 않게 전부 스냅샷으로 통일했다.
+
+     · 적립 위치: **이 화면을 그릴 때**(아래 `_homeSnapPut({...})`). 화면에 찍는 값 그대로를
+       기록하므로 카드 숫자와 스냅샷이 구조적으로 어긋날 수 없다.
+     · 저장 부담: 값이 **실제로 달라졌을 때만** 저장한다(렌더마다 쓰지 않는다).
+     · 그릇은 기존 `__insSnap`(STATE_MAP `ins_snap`)을 그대로 쓴다 — 같은 날 레코드에 필드만 더한다.
+     · 없는 값(null)은 기록하지 않는다 — 0으로 지어내면 다음 업로드에서 가짜 증감이 생긴다.
+     · 이번 배포 이후 쌓이는 스냅샷부터 비교되므로 **처음 한 번은 「—」**로 나온다(안내 문구). */
+  const _homeSnapPut=function(rec){
+    try{
+      if(!rec)return;
+      const arr=(Array.isArray(window.__insSnap)?window.__insSnap.slice():[])
+        .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));});
+      let i=-1; for(let k=0;k<arr.length;k++){ if(arr[k].d===TODAY)i=k; }
+      const rc=(i>=0)?Object.assign({},arr[i]):{d:TODAY};
+      let changed=false;
+      Object.keys(rec).forEach(function(k){
+        const v=rec[k];
+        if(typeof v!=='number'||!isFinite(v))return;     // 값이 없으면 기록하지 않는다
+        if(rc[k]!==v){ rc[k]=v; changed=true; }
+      });
+      if(!changed)return;                                 // 바뀐 게 없으면 저장하지 않는다
+      if(i>=0)arr[i]=rc; else arr.push(rc);
+      arr.sort(function(x,y){return String(x.d).localeCompare(String(y.d));});
+      while(arr.length>36)arr.shift();
+      window.__insSnap=arr;
+      if(typeof IX_saveToSheet==='function')IX_saveToSheet('ins_snap',arr);
+    }catch(e){ try{console.warn('[통합현황 스냅샷 적립 실패]',e);}catch(x){} }
+  };
+  /* 카드 아래 한 줄 — 「▲ +6곳 지난 업로드 2026-09-10 대비」. 비교할 스냅샷이 없으면 안내만 둔다. */
+  /* onDark=true면 어두운 카드(플러스 전환율 hero) 위에 올라가므로 글자색을 밝게 바꾼다 —
+     기본 회색(var(--gray-md))은 남색 배경에서 거의 읽히지 않는다. */
+  const _homeDelta=function(key,unit,dec,onDark){
+    const arr=(Array.isArray(window.__insSnap)?window.__insSnap:[])
+      .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''))
+                             &&typeof x[key]==='number'&&isFinite(x[key]);})
+      .slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
+    const base=onDark?'rgba(255,255,255,.72)':'var(--gray-md)';
+    if(arr.length<2)
+      return '<div style="font-size:9px;color:'+base+';margin-top:3px">증감은 다른 날 파일을 한 번 더 올리면 표시됩니다</div>';
+    const last=arr[arr.length-1], prev=arr[arr.length-2];
+    const d1=Math.round((last[key]-prev[key])*(dec?10:1))/(dec?10:1);
+    const col=onDark
+      ? ((d1>0)?'#6EE7DF':((d1===0)?'rgba(255,255,255,.72)':'#FCA5A5'))
+      : ((d1>0)?'var(--teal-dk)':((d1===0)?'var(--gray-md)':'var(--red)'));
+    const n=Math.abs(d1).toLocaleString(undefined,dec?{minimumFractionDigits:1,maximumFractionDigits:1}:undefined);
+    return '<div style="font-size:9px;color:'+base+';margin-top:3px">'
+      +'<b style="color:'+col+'">'+((d1>0)?'▲ +':((d1===0)?'— ':'▼ '))+n+(unit||'곳')+'</b>'
+      +' 지난 업로드 '+IX_esc(prev.d)+' 대비</div>';
+  };
   const _srStat=(function(){
     const C=window.__xlOfficeCols||{};
     const rows=(window.__xlOfficeRows||[]).filter(function(x){
@@ -6068,6 +6122,12 @@ function custToMg(c,step,status,problem,action,dmn){
      일별·월별의 정지는 그대로 정지일 기준이다 — 「그 기간에 몇 곳이 정지됐나」를 보는 값이라 맞다. */
   const _hPau=_hPauNow;
   const _hRisk=(PAY.monStat&&PAY.monStat.sr_risk_total)||A.위험||0;
+  /* v08.327 화면에 찍는 값 그대로 스냅샷에 남긴다(값이 달라졌을 때만 저장) */
+  _homeSnapPut({ hTot:_hTot, hChu:_hChu, hPau:_hPau, hNor:_hNor,
+                 hPlus:_plus, hPlusR:(_plusR!=null?+_plusR:null),
+                 srTot:(_srStat.tot&&_srStat.tot.ok)?_srStat.tot.sum:null,
+                 srJn: (_srStat.jn &&_srStat.jn.ok )?_srStat.jn.sum :null,
+                 srHj: (_srStat.hj &&_srStat.hj.ok )?_srStat.hj.sum :null });
   el.innerHTML=`
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
     <span style="font-size:11px;color:var(--gray-md)">기준일 <b style="color:var(--navy)">${baseDate()}</b></span>
@@ -6110,27 +6170,27 @@ function custToMg(c,step,status,problem,action,dmn){
 
   <div class="blk">
     <div class="blk-hd"><span class="blk-ttl">누적 요약</span>${basisTag('a')}
-      <span style="font-size:10px;color:var(--gray-md)">2022.12 ~ ${_bm.replace('-','.')}</span>
+      <span style="font-size:10px;color:var(--gray-md)">2022.12 ~ ${_bm.replace('-','.')} · 증감은 <b>지난 업로드 대비</b></span>
       <span class="blk-meta"><a href="#" onclick="gotoTab('cumul');return false" style="color:var(--teal-dk);font-weight:700">누적 탭에서 상세 →</a></span></div>
     <!-- v08.98 요청("통합현황 누적요약에서도 재가입카드는 빼") — 재가입은 이미 누적 가입에
          포함된 중복이라 별도 카드를 두지 않는다. 5칸으로 되돌린다. -->
     <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);align-items:stretch">
       <div class="kpi"><div class="kpi-l">누적 가입</div>
         <div class="kpi-v">${_fN(_hTot)}곳</div>
-        <div class="kpi-s" style="margin-top:6px">세무사무소목록 전체</div></div>
+        <div class="kpi-s" style="margin-top:6px">세무사무소목록 전체</div>${_homeDelta('hTot')}</div>
       <div class="kpi"><div class="kpi-l">누적 해지</div>
         <div class="kpi-v rc">${_fN(_hChu)}곳</div>
-        <div class="kpi-s" style="margin-top:6px">누적 해지율 <b>${(_hTot!=null&&_hChu!=null&&_hTot>0)?(_hChu/_hTot*100).toFixed(1)+'%':'—'}</b></div></div>
+        <div class="kpi-s" style="margin-top:6px">누적 해지율 <b>${(_hTot!=null&&_hChu!=null&&_hTot>0)?(_hChu/_hTot*100).toFixed(1)+'%':'—'}</b></div>${_homeDelta('hChu')}</div>
       <div class="kpi"><div class="kpi-l">누적 정지</div>
         <div class="kpi-v oc">${_fN(_hPau)}곳</div>
-        <div class="kpi-s" style="margin-top:6px">현재 상태 기준</div></div>
+        <div class="kpi-s" style="margin-top:6px">현재 상태 기준</div>${_homeDelta('hPau')}</div>
       <div class="kpi"><div class="kpi-l">현재 정상 ${basisTag('n')}</div>
         <div class="kpi-v tc">${_fN(_hNor)}곳</div>
-        <div class="kpi-s" style="margin-top:6px">잔존율 <b>${(_hTot!=null&&_hNor!=null&&_hTot>0)?(_hNor/_hTot*100).toFixed(1)+'%':'—'}</b></div></div>
+        <div class="kpi-s" style="margin-top:6px">잔존율 <b>${(_hTot!=null&&_hNor!=null&&_hTot>0)?(_hNor/_hTot*100).toFixed(1)+'%':'—'}</b></div>${_homeDelta('hNor')}</div>
   <div class="kcard hero oc" style="margin:0;display:flex;flex-direction:column;justify-content:center"><div class="k-lbl">플러스 전환율 (세모리포트 요금제 기준)</div>
       <div class="k-val">${_plusR==null?'—':_plusR+'%'}</div>
       <div class="k-sub">정상 ${_fN(_nor)}곳 중 <b style="color:var(--teal)">${_fN(_plus)}곳</b></div>
-      <div class="k-desc">${(O&&O.plusConv!=null)?('전환 이력 '+O.plusConv+'건 (변경 전 요금제 ≠ 플러스)'):'플러스 요금제'}</div></div>
+      <div class="k-desc">${(O&&O.plusConv!=null)?('전환 이력 '+O.plusConv+'건 (변경 전 요금제 ≠ 플러스)'):'플러스 요금제'}</div>${_homeDelta('hPlusR','%p',1,1)}</div>
     </div>
     <div style="font-size:9.5px;color:var(--gray-md);margin-top:7px">누적 가입 ${_fN(_hTot)} − 해지 ${_fN(_hChu)} − 정지 ${_fN(_hPau)} = 현재 정상 ${_fN(_hNor)}곳${(_hTot!=null&&_hChu!=null&&_hPau!=null&&_hNor!=null)?' ✓':''}${(_hNorSt!=null&&_hNor!=null&&_hNorSt!==_hNor)?' <span style="color:var(--orange)">· 상태=정상 행은 '+_hNorSt.toLocaleString()+'곳 — 날짜 미기재 '+Math.abs(_hNorSt-_hNor)+'곳</span>':''}</div>
   </div>
@@ -6185,7 +6245,10 @@ function custToMg(c,step,status,problem,action,dmn){
         return '<div class="kpi"><div class="kpi-l">'+o.l+'</div>'
           +'<div class="kpi-v '+o.tone+'">'+s.sum.toLocaleString()+'<span style="font-size:11px;font-weight:700;color:var(--gray-md);margin-left:2px">곳</span></div>'
           +'<div class="kpi-s">보유 '+s.used.toLocaleString()+'곳'+rate
-          +(s.used?(' · 사무소당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'곳'):'')+'</div></div>';
+          +(s.used?(' · 사무소당 평균 '+Math.round(s.sum/s.used).toLocaleString()+'곳'):'')+'</div>'
+          /* v08.327 지난 업로드 대비 증감 — 위 누적 요약 카드와 같은 규칙(_homeDelta) */
+          +_homeDelta({tot:'srTot',jn:'srJn',hj:'srHj'}[o.k],'곳')
+          +'</div>';
       }).join('')}
     </div>
   </div>
@@ -14603,6 +14666,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u57',d:'2026-09-16',tt:'통합현황 숫자에 「지난 업로드 대비」 증감 표시',
+  b:'누적 가입·해지·정지·현재 정상·플러스 전환율·거래처수 3종에 증감이 붙습니다(▲ +6곳 지난 업로드 2026-09-10 대비). 인사이트 사용 현황이 쓰던 방식과 같습니다 — 파일을 올릴 때마다 그 날 값을 쌓아 직전과 견줍니다. 이번 배포 이후 쌓이는 값부터 비교되므로 처음 한 번은 「—」로 나오고, 다른 날 파일을 한 번 더 올리면 표시됩니다.'},
  {id:'u56',d:'2026-09-16',tt:'프로모션 종료·정상가 전환 목록에서 빠지던 업체 수정',
   b:'지금 정상으로 이용 중인데도 과거에 정지·해지 이력이 있으면 「190만 일시납 종료 안내 스케줄」과 「종료 관리 목록」에서 빠졌습니다. 이제 현재 상태가 「정상」인 곳을 모두 보여줍니다(9/16 파일 기준 8곳 → 14곳).'},
  {id:'u55',d:'2026-09-16',tt:'실적 분석 「도입 문의」 카드 이름 정정 + 도입 문의 카드 추가',
