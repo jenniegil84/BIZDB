@@ -2069,7 +2069,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.320';
+window.__APP_VER='v08.322';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9586,6 +9586,17 @@ window.spPaint=function(){
       e.pat=(bf&&bf!=='-'?bf:'(미기재)')+' → '+(pl||'(미기재)');
       return e;
     });
+    /* ══ v08.322 사용자 확정("실적 = 가입+재가입+요금제상향 · 가입 = 가입+재가입") ══
+       종전 t2·t3의 모수는 가입(신규+재가입)뿐이라, 같은 화면의 요금제 상향 건이 채널 집계에서
+       빠졌다(2026-09: 가입채널별 8건인데 실적으로 봐야 할 건은 10건).
+       이제 **실적 사건**(window.perfEvents와 같은 정의 — 신규가입·재가입·요금제 상향)을 모수로
+       삼는다. 한 곳이 가입도 하고 상향도 했으면 **2건**(사건 기준 — 사용자 확정).
+       · 상향 판정은 공통 함수(window.perfIsUpgrade)를 쓴다 — 규칙이 두 곳에 있으면 또 갈라진다.
+       · t4(요금제변경)는 상향·하향 전부를 담은 **내역**이라 그대로 둔다 — 상향분은 t3와 겹친다. */
+    const upEv=planReal.filter(function(x){
+        return (typeof window.perfIsUpgrade==='function')&&window.perfIsUpgrade(x);
+      }).map(function(x){return one(x,'요금제변경',x.pc);});
+    const perfEv=joinEv.concat(upEv);
     const t1=perfTbl2('유입경로별 실적 (문의 기준)', '',
         perfGroup2(S.inq, byInflow));
     /* ══ v08.171 요청("가입채널 최종실적 비활성화 개수는 빼") ══
@@ -9595,18 +9606,18 @@ window.spPaint=function(){
        유입경로별(t1)은 종전대로 미분류도 함께 보여준다 — 그건 「지정이 얼마나 남았나」를
        확인하는 값이라 빼면 안 된다. */
     const un2=function(v){return !v||/^미분류/.test(String(v));};
-    const evJ=joinEv.filter(function(x){return !un2(x.joinCh);});
-    const evF=joinEv.filter(function(x){return !un2(x.finalV);});
+    const evJ=perfEv.filter(function(x){return !un2(x.joinCh);});
+    const evF=perfEv.filter(function(x){return !un2(x.finalV);});
     const evP=planEv.filter(function(x){return !un2(x.finalV);});
     /* v08.173 안내 문구 제거(요청) — v08.171에서 「채널 미지정 N건은 제외했습니다」를 표 밖에
        붙였는데, ① 카드·표 안에 설명 문장을 두지 않는다는 규칙을 어겼고 ② 3열 그리드에 칸이
        하나 더 생겨 표가 줄바꿈됐다. 제외 사실은 제목의 「(실적 기준)」과 요약 줄의 건수로 드러난다. */
-    const t2=perfTbl2('가입채널별 실적 (가입 기준)', '',
+    const t2=perfTbl2('가입채널별 실적 (가입+상향)', '',
         perfGroup2(evJ, function(x){return x.joinCh;}),
-        '채널이 지정된 가입이 없습니다');
-    const t3=perfTbl2('최종실적별 실적 (가입 기준)', '',
+        '채널이 지정된 실적이 없습니다');
+    const t3=perfTbl2('최종실적별 실적 (가입+상향)', '',
         perfGroup2(evF, function(x){return x.finalV;}),
-        '채널이 지정된 가입이 없습니다');
+        '채널이 지정된 실적이 없습니다');
     /* v08.175 요금제 변경은 별도 표 — 가입과 성격이 달라 섞으면 「가입 몇 건」이 흐려진다.
        최종실적(귀속 채널) 기준으로 본다 — 요금제 변경에는 「가입채널」이라는 개념이 없다. */
     /* v08.176 대분류는 채널, 소분류는 변경 전 → 변경 후 */
@@ -9617,10 +9628,25 @@ window.spPaint=function(){
         '채널이 지정된 요금제 변경이 없습니다');
     /* v08.200 요청("최종실적별 실적을 요금제변경 채널별 실적 오른편에 배치") — 2열 그리드로 바꿔
        1행에 유입경로별·가입채널별, 2행에 요금제변경 채널별·최종실적별을 나란히 둔다. */
+    /* ══ v08.322 사용자 요청("전체가입현황과 실적현황개수가 맞지 않을시 왜 차이가 나는지
+       알수있게 메모가 필요") ══
+       같은 화면에 「가입 8건 / 실적 10건 / 전체 가입 현황 9건」처럼 서로 다른 숫자가 떠도
+       무엇을 세는지 적혀 있지 않아 매번 되묻게 됐다. 실제 값으로 검산식을 적어 둔다.
+       · 실적 = 가입(신규+재가입) + 요금제 상향  ← 이 두 표(t2·t3)의 모수
+       · 「전체 가입 현황」은 **인사이트 신규 가입월** 기준(플러스)이라 세는 단위가 다르다
+       표 밖(그리드 아래)에 두어 2열 그리드가 깨지지 않게 한다(v08.173에서 겪은 문제). */
+    const _mNew=S.join.length, _mRe=S.rejoin.length, _mUp=upEv.length;
+    const _memo='<div style="margin:-6px 0 14px;font-size:10.5px;color:var(--muted);line-height:1.7">'
+      +'<b>실적 '+(joinEv.length+_mUp)+'건</b> = 가입 '+joinEv.length+'건(신규 '+_mNew+' · 재가입 '+_mRe+')'
+      +' + 요금제 상향 '+_mUp+'건 &nbsp;·&nbsp; 요금제 상향은 실적이지만 <b>가입 수를 늘리지는 않습니다</b>'
+      +'<br>「전체 가입 현황」·주간회의의 <b>플러스</b>는 <b>인사이트를 새로 가입한 달</b> 기준이라 세는 단위가 달라, '
+      +'이 실적 건수와 숫자가 다를 수 있습니다(같은 곳이 가입+상향이면 여기서는 2건).'
+      +'<br>위 두 표는 <b>채널이 지정된 건만</b> 셉니다 — 미지정 건은 실적 관리 탭에서 지정하면 바로 반영됩니다.'
+      +'</div>';
     return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:14px" class="ixInqPerf">'
       + t1 + t2
       + t4 + t3
-      + '</div>';
+      + '</div>' + _memo;
   }
 
   /* ② 발생 건 목록 — 세 탭 공통(문의·요금제변경·가입·해지 4종을 한 표에) */
@@ -10430,12 +10456,22 @@ window.spPaint=function(){
   window.pmView=function(v){ window.__pmF.view=v; renderPerfMg(); };
   function renderPerfMg(){
     const el=document.getElementById('s-perfmg'); if(!el)return;
-    /* v08.98 요청("실적관리 진입시 해당월만 보여주기") — 처음 열 때 등록일 기간을 기준월로 채운다.
+    /* v08.98 요청("실적관리 진입시 해당월만 보여주기") — 처음 열 때 등록일 기간을 한 달로 채운다.
        전체를 다 펼쳐 놓으면 이번 달에 처리해야 할 건이 묻힌다.
        한 번만 채우고(_initMo), 그 뒤로는 사용자가 바꾼 기간을 그대로 둔다.
-       기간을 지우면 전체를 볼 수 있다. */
+       기간을 지우면 전체를 볼 수 있다.
+       ══ v08.321 요청("실적관리탭 첫진입시 현재 월로 자동 세팅") ══
+       종전 기본값은 **기준월**(업로드 파일의 가장 늦은 날짜가 속한 달)이었다. 파일을 며칠 늦게
+       올리거나 자료가 지난달까지면 이번 달에 들어온 건이 화면에 안 보여 매번 기간을 손으로
+       옮겨야 했다. 이제 **오늘이 속한 달**로 연다. 파일 기준일이 더 뒤에 있는 예외(미래 날짜
+       자료)에는 기준월을 쓴다 — 그 달을 열어야 자료가 보인다. */
     if(!window.__pmF._initMo){
-      const ym=(typeof baseMonth==='function')?baseMonth():String(window.__baseDate||'').slice(0,7);
+      /* TODAY 상수는 이 코드보다 **아래에서** 선언되므로(파일 하단 const TODAY) 여기서는 쓸 수 없다 —
+         첫 렌더가 그 선언 전에 돌면 값이 비어 기준월로 떨어진다. 같은 값을 직접 만든다. */
+      const _n=new Date(), _p=function(x){return String(x).padStart(2,'0');};
+      const _today=_n.getFullYear()+'-'+_p(_n.getMonth()+1);
+      const _base=(typeof baseMonth==='function')?baseMonth():String(window.__baseDate||'').slice(0,7);
+      const ym=(/^\d{4}-\d{2}$/.test(_today)&&(!/^\d{4}-\d{2}$/.test(_base)||_base<=_today))?_today:_base;
       if(/^\d{4}-\d{2}$/.test(ym)){
         const last=new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate();
         window.__pmF.d1=ym+'-01';
@@ -12780,6 +12816,34 @@ window.pkgStartCount=function(s,e){
    종전에는 아래 표도 플러스 기준 모수를 써서 「전체」인데 플러스 관점으로 좁혀져 있었다
    (실데이터 2026 합계: 전체 92 vs 플러스 기준 160).
    kind: 'total' | 'pkg' | 'plus' | 'basic' · onlyRejoin=true면 재가입분만(세부 행용) */
+/* ══ v08.322 사용자 확정("실적으로 보는 기준은 가입(재가입포함)+요금제상향" · 중복은 "2건(사건 기준)") ══
+   채널 정산에서 말하는 「실적」의 정의를 이 함수 하나로 못 박는다.
+     실적 사건 = 신규가입 + 재가입 + **요금제 상향(플러스로 올라온 변경)**
+   · 한 곳이 같은 기간에 가입도 하고 상향도 했으면 **2건**으로 센다(사건 기준 — 사용자 확정).
+     joinSplitCount는 「사무소 수」를 세므로 행 하나에 1건이다 — 둘은 세는 단위가 다르다.
+   · 상향 판정은 joinSplitCount(v08.295)와 같은 규칙을 쓴다: 실적으로 보는 변경(planChgReal) 중
+     변경 전은 플러스가 아니고 변경 후가 플러스인 건.
+   ※ 요금제 상향은 **가입 수를 늘리지 않는다**(사용자 지적 2026-09-16: "요금제상향이 실적에
+     들어가는건 맞으나, 전체 가입이 늘어난건 아니잖아"). 그래서 이 함수는 채널 정산용 「실적」
+     화면에서만 쓰고, 「전체 가입 현황」·주간회의의 가입 집계는 종전 기준(joinSplitCount)을 그대로 둔다.
+   반환: [{row, kind:'신규가입'|'재가입'|'요금제상향', date}] */
+window.perfIsPlusPlan=function(v){ return /플러스/.test(String(v||'')); };
+window.perfIsUpgrade=function(x){
+  if(typeof window.planChgReal==='function'&&!window.planChgReal(x))return false;
+  return window.perfIsPlusPlan(x&&x.pl)&&!window.perfIsPlusPlan(x&&x.bf);
+};
+window.perfEvents=function(s,e){
+  const R=window.__xlOfficeRows||[];
+  if(!Array.isArray(R)||!R.length)return [];
+  const inR=officeInRange(s,e);
+  const out=[];
+  R.forEach(function(x){
+    if(inR(x.jn))out.push({row:x,kind:'신규가입',date:String(x.jn||'').slice(0,10)});
+    if(inR(x.rj))out.push({row:x,kind:'재가입',  date:String(x.rj||'').slice(0,10)});
+    if(inR(x.pc)&&window.perfIsUpgrade(x))out.push({row:x,kind:'요금제상향',date:String(x.pc||'').slice(0,10)});
+  });
+  return out;
+};
 window.joinSplitCount=function(kind,s,e,onlyRejoin,scope){
   const R=window.__xlOfficeRows||[];
   /* v08.294 개업세무사는 **프로모션 시작월** 기준이라 가입 모수와 별개로 센다 */
@@ -13222,6 +13286,10 @@ function planJoinNoteHtml(){
     +'<b>이미 플러스인 곳의 재가입·요금제 변경</b>은 어느 행에도 들어가지 않습니다 — 그만큼 합계가 「전체 가입」보다 작습니다. '
     +'<b>└ 개업세무사</b>는 플러스 안에 든 개업세무사 성장지원 패키지로, <b>프로모션 시작월</b>이 그 달인 곳입니다 — '
     +'플러스·리포트(가입일·재가입일 기준)와 세는 날짜가 달라 합계에는 더하지 않습니다. '
+    /* v08.322 사용자 요청("전체가입현황과 실적현황개수가 맞지 않을시 왜 차이가 나는지 알수있게 메모") */
+    +'<b>요금제 상향</b>은 실적이지만 <b>가입 수를 늘리지 않으므로</b> 이 표에는 가입으로 세지 않습니다 — '
+    +'실적 분석의 「가입채널별·최종실적별 실적(가입+상향)」은 <b>가입 + 요금제 상향</b>을 사건 단위로 세어 '
+    +'이 표보다 클 수 있습니다(같은 곳이 가입+상향이면 거기서는 2건). '
     +'※ 위 표·실적 분석 카드와 <b>같은 기준</b>이라 「플러스」 숫자는 세 화면이 항상 일치합니다'
     +((window.__xlOfficeCols||{}).pmNm&&(window.__xlOfficeCols||{}).pmS
         ?' (세무사무소목록의 프로모션 구분명·시작 연월 기준).'
@@ -14489,6 +14557,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u52',d:'2026-09-16',tt:'실적 분석 채널 표에 「요금제 상향」 포함',
+  b:'가입채널별·최종실적별 실적이 이제 가입(신규+재가입)에 요금제 상향까지 더해 셉니다. 한 곳이 같은 기간에 가입도 하고 상향도 했으면 2건입니다. 표 아래에 「실적 N건 = 가입 N건 + 요금제 상향 N건」 검산 메모가 붙어, 「전체 가입 현황」의 숫자와 왜 다른지 바로 확인할 수 있습니다(요금제 상향은 실적이지만 가입 수를 늘리지는 않습니다).'},
+ {id:'u51',d:'2026-09-16',tt:'실적 관리를 열면 이번 달로 시작',
+  b:'실적 관리 탭에 처음 들어가면 등록일 기간이 오늘이 속한 달로 맞춰집니다(종전에는 업로드 파일의 기준월이었습니다). 기간은 종전처럼 직접 바꾸거나 「전체 기간」으로 펼칠 수 있습니다.'},
  {id:'u50',d:'2026-09-16',tt:'통합현황 인사이트 사용현황에 「월별 사용건수」 표 추가',
   b:'그 달에 얼마나 썼는지를 업로드 스냅샷의 누적값 차이로 계산해 월별로 보여줍니다(인사이트 총·자금일보·전자세금계산서). 파일에는 누적값만 있어, 파일을 다른 날 한 번 더 올리면 그 달부터 표시됩니다.'},
  {id:'u49',d:'2026-09-16',tt:'정지업체 탭에 메모 추가',
