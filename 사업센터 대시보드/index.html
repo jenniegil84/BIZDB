@@ -3779,6 +3779,13 @@ function xlParseOffice(rows,hdr){
   })();
   if(typeof window.markUpload==='function')window.markUpload('office');
   setTimeout(function(){ if(typeof window.__syncMonthly==='function')window.__syncMonthly(); },0);
+  /* ══ v08.326 버그 수정 ══
+     v08.291부터 프로모션 종료 관리의 **1순위 원천이 이 파일(세무사무소목록)**인데, `__syncPromo()`는
+     청구대상 고객관리 파일을 올릴 때(그리고 페이지를 처음 열 때)만 불리고 있었다. 그래서
+     세무사무소목록만 올리면 「종료 관리 목록」·통합현황 「3개월 내 종료」가 **새로고침 전까지
+     옛 값 그대로**였다(실측: 방금 올린 파일 기준 216건인데 화면은 0건).
+     청구 파일 분기(위 markUpload('billing') 쪽)와 같은 순서로 여기서도 동기 호출한다. */
+  if(typeof window.__syncPromo==='function')window.__syncPromo();
   // v04.68 월별 역산: 가입일·해지일로 누적/신규/해지/순증 산출
   // v04.68 월별 역산: 재가입(복귀)을 반영해 누적 해지에서 차감 — 상태 기준 해지 수와 일치시킴
   const months={};
