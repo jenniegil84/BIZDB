@@ -860,8 +860,6 @@ table.t .na{color:#B6BCC6}
 .ww-col-h span{font-weight:500;opacity:.8;margin-left:7px;font-family:ui-monospace,Consolas,monospace;font-size:10px}
 .ww-col-h.now{background:#0F766E}
 .ww-col-h.next{background:#1F2937}
-/* v08.283 저번 주 칸 머리 — 이번 주(청록 강조)와 구분되는 진한 회색(옛 .next와 같은 톤) */
-.ww-col-h.prev{background:#1F2937}
 .ww-col-b{padding:12px 13px 16px}
 /* ══ v08.147 요청("글이 위아래로 너무 붙어있는데 주제별로 사이 여백이 추가되어서 구분이 되면 좋을듯") ══
    종전에는 과제 사이 간격이 4px뿐이라, 앞 과제의 실행기록 마지막 줄과 다음 과제 제목이 거의
@@ -2068,7 +2066,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.314';
+window.__APP_VER='v08.315';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -14406,6 +14404,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u45',d:'2026-09-16',tt:'주간 업무 현황을 「이번 주 / 다음 주」로 변경',
+  b:'팀별 주간 업무 현황 2단 표를 이번 주(왼쪽)·다음 주(오른쪽)로 바꿨습니다. 이 표는 그 주에 실제로 남긴 실행기록만 보여주므로, 다음 주 칸은 기록이 생기기 전까지 「항목 없음」으로 비어 있습니다.'},
  {id:'u44',d:'2026-09-10',tt:'플러스 실적 기준을 「인사이트 가입일」로 확정 (연간 83)',
   b:'그 달에 인사이트를 새로 가입한 곳만 플러스 실적으로 셉니다. 이미 플러스인 곳이 요금제를 올리거나(개업성장패키지 등) 재가입한 건은 새로 확보한 플러스가 아니라 결제 금액·수단의 차이여서 실적에서 뺐습니다(개업세무사 프로모션은 아래 블록에서 따로 관리). 2026 연간 89→83, 8월 19건.'},
  {id:'u43',d:'2026-09-10',tt:'플러스 실적에서 같은 곳의 중복 집계 제거 (연간 97 → 89)',
@@ -16268,12 +16268,13 @@ function byLabel(v){
   return s.split('@')[0];                             // 없으면 계정 앞부분만
 }
 function teamWeekTableHtml(team){
-  /* ══ v08.283 요청("주간업무현황은 저번 주와 이번 주를 보여줘") ══
-     종전에는 「이번 주 / 다음 주」 2단이었는데, 이 표는 그 주 구간에 실제로 찍힌 실행기록만
-     세므로(아래 v06.26 주석) 다음 주 칸은 사실상 늘 비어 있었다. 회의에서 실제로 보는 것은
-     「지난주에 무엇을 했고 이번 주에 무엇을 하고 있는지」라, 저번 주 → 이번 주 순서로 바꿨다.
-     색은 이번 주가 강조(청록)로 남고, 저번 주는 진한 회색(.prev)이다. */
-  const prevWk=addD(CURWK,-7);
+  /* ══ v08.315 요청("주간회의 주간업무현황을 이번주와 다음주로 보여줘") ══
+     v08.283에서 「저번 주 / 이번 주」로 바꿨던 것을 다시 **「이번 주 / 다음 주」** 로 되돌린다.
+     ※ 알아 둘 것: 이 표는 그 주 구간에 **실제로 찍힌 실행기록(LOG)** 만 센다(아래 v06.26 주석).
+       그래서 다음 주 칸은 그 주에 기록이 생기기 전까지 「항목 없음」으로 비어 있다 —
+       계획을 미리 보여주는 칸이 아니다(미래를 지어내지 않는다는 원칙).
+     색은 이번 주가 강조(청록 .now), 다음 주가 진한 회색(.next)이다. */
+  const nextWk=addD(CURWK,7);
   const dot=d=>String(d).replace(/-/g,'.').slice(0,10);
   const rowsFor=wk=>{
     const items=wkCardsFor(team.id,wk);
@@ -16296,10 +16297,10 @@ function teamWeekTableHtml(team){
     }).join('');
   };
   return '<div class="ww-cols">'
-   +'<div class="ww-col"><div class="ww-col-h prev">저번 주 <span>'+dot(prevWk)+' – '+dot(wkEndOf(prevWk)).slice(5)+'</span></div>'
-   +'<div class="ww-col-b">'+rowsFor(prevWk)+'</div></div>'
    +'<div class="ww-col"><div class="ww-col-h now">이번 주 <span>'+dot(CURWK)+' – '+dot(wkEndOf(CURWK)).slice(5)+'</span></div>'
    +'<div class="ww-col-b">'+rowsFor(CURWK)+'</div></div>'
+   +'<div class="ww-col"><div class="ww-col-h next">다음 주 <span>'+dot(nextWk)+' – '+dot(wkEndOf(nextWk)).slice(5)+'</span></div>'
+   +'<div class="ww-col-b">'+rowsFor(nextWk)+'</div></div>'
    +'</div>';
 }
 function issueBlockHtml(){
