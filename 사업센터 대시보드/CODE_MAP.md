@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.45
+- 버전: v01.46
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -58,13 +58,13 @@
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
 | 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
-| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **v08.318부터 가입 관련만 다룬다** — 표는 문의 · 요금제 · **가입채널 · 최종실적** 4열(유입경로 열·필터·세그먼트·일괄지정은 신청 관리로 이동), 「지정 필요」도 최종실적 기준. 툴바 패널 2개 — `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). ※ 하위 탭 「문의 없는 실적」(`pmOrphanHTML`)은 **유입경로 열을 그대로 둔다** — 문의가 없어 신청 관리에 대응 행이 없기 때문이다. |
-| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **v08.318부터 유입경로를 여기서 지정한다**(v08.98에서 실적 관리로 옮겼던 것을 되돌림) — 도입 문의 카드 오른쪽 드롭다운 + 상세 모달, 저장은 실적 관리와 같은 `IX_inqSet(fid,'inflow',v)`. 「유입경로 관리」 버튼·`inflowPanelHTML` 패널도 이 화면(목록 위)에 있다. |
+| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
+| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **조회 전용**이다(v08.98) — 유입경로·가입채널·최종실적 지정은 실적 관리에서 한다. v08.318에서 유입경로 지정을 여기로 옮겼다가 **v08.320에서 원복**했다(CLAUDE.md 8-13). |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
 | 해지·재가입 | `churn` | ① | `function churnRender(){` (`document.getElementById('s-churn')`) | `opsPage()` 공통 틀(카드+목록) 사용. |
-| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 위와 같은 `opsPage()` 틀. 목록은 `suspendRowsAll()`(마스터 상태='정지') → `spPaint()`가 그린다. 열은 **업체명 · 대표자 · 연락처 · 요금제 · 정지 사유 · 정지일 · 정지해제일**(v08.316 — 대표자 `ow`·연락처 `hp`는 마스터가 이미 담고 있던 값. 검색창에서도 찾히며 휴대폰은 숫자만 입력해도 매칭). |
+| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 위와 같은 `opsPage()` 틀. 목록은 `suspendRowsAll()`(마스터 상태='정지') → `spPaint()`가 그린다. 열은 **업체명 · 대표자 · 연락처 · 요금제 · 정지 사유 · 정지일 · 정지해제일 · 메모**(v08.320 — 메모는 `__spMemo`(STATE_MAP `sp_memo`)에 사업자번호 키로 저장, 입력 즉시 저장하고 목록은 다시 그리지 않는다)(v08.316 — 대표자 `ow`·연락처 `hp`는 마스터가 이미 담고 있던 값. 검색창에서도 찾히며 휴대폰은 숫자만 입력해도 매칭). |
 | 고객 검색 | `cust` | ① (변형) | `window.custRender=function(){` (`document.getElementById('s-cust')`) | 다른 IX 화면과 달리 `RENDER[]`가 아니라 `window.custRender`로 노출 — 탭을 다시 열 때 자동 재호출(`ixMount`)이 안 걸릴 수 있으니, 값이 안 바뀌면 이 차이부터 의심할 것. |
 | 데이터 업로드 | `data` | ① | `document.getElementById('s-data')` 를 채우는 IIFE (`xlPanelHTML()` 포함) | v08.272부터 사이드바 메뉴 자체가 `jennie.gil@roumit.com` 로그인일 때만 보임(`paintSide()`의 `DATA_UPLOAD_EMAIL` 필터). 엑셀 파서 본체는 `function xlParseOffice`/`xlParseBilling`/`xlParseMonitor`/`xlApplyInq`. |
 | 활동 타임라인 | `act` | ③ | `function actShell(){` / `function paintAct(){` | v08.275부터 사이드바 "안내" 섹션 소속(예전엔 "요약"). |
@@ -615,6 +615,7 @@
     미래 날짜가 파일에 들어 있다(2026-09-12 등).
   · 컬럼이 없는 항목은 `null`(0으로 지어내지 않는다). 최근 **36개**만 보관.
 - 저장: `STATE_MAP`의 `ins_snap` → `IX_saveToSheet('ins_snap',…)`, 복원은 `IX_loadFromSupabase`.
-- 표시: 통합현황 「인사이트 사용 현황」 3카드 안의 `_insSpark(key)` — SVG polyline + 마지막 점 강조,
+- 표시(월별): `_insMonthlyHTML()` — 3카드 아래 **「월별 사용건수」 표**(v08.320). 달별 마지막 스냅샷의 누적값 차이를 그 달 증가분으로 본다(첫 달은 비교 대상이 없어 넣지 않는다). 업로드를 거른 달이 있으면 그 구간이 합쳐지므로 비교한 두 기준일을 함께 적는다. 스냅샷이 1회뿐이면 표 대신 안내 문구.
+- 표시(추이): 통합현황 「인사이트 사용 현황」 3카드 안의 `_insSpark(key)` — SVG polyline + 마지막 점 강조,
   아래에 「▲ +34건 (+2.7%) 지난 업로드 2026-09-08 대비 · 스냅샷 4회(…~…)」.
   **스냅샷이 1개면 선을 그리지 않고** 「다른 날 파일을 한 번 더 올리면 그려집니다」로 둔다.
