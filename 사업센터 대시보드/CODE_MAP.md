@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.44
+- 버전: v01.45
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -58,8 +58,8 @@
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
 | 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
-| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. 툴바에 패널 3개가 붙어 있다 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단, v08.284). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). |
-| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | |
+| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **v08.318부터 가입 관련만 다룬다** — 표는 문의 · 요금제 · **가입채널 · 최종실적** 4열(유입경로 열·필터·세그먼트·일괄지정은 신청 관리로 이동), 「지정 필요」도 최종실적 기준. 툴바 패널 2개 — `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). ※ 하위 탭 「문의 없는 실적」(`pmOrphanHTML`)은 **유입경로 열을 그대로 둔다** — 문의가 없어 신청 관리에 대응 행이 없기 때문이다. |
+| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **v08.318부터 유입경로를 여기서 지정한다**(v08.98에서 실적 관리로 옮겼던 것을 되돌림) — 도입 문의 카드 오른쪽 드롭다운 + 상세 모달, 저장은 실적 관리와 같은 `IX_inqSet(fid,'inflow',v)`. 「유입경로 관리」 버튼·`inflowPanelHTML` 패널도 이 화면(목록 위)에 있다. |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
