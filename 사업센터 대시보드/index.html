@@ -2069,7 +2069,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.320';
+window.__APP_VER='v08.321';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -10430,12 +10430,22 @@ window.spPaint=function(){
   window.pmView=function(v){ window.__pmF.view=v; renderPerfMg(); };
   function renderPerfMg(){
     const el=document.getElementById('s-perfmg'); if(!el)return;
-    /* v08.98 요청("실적관리 진입시 해당월만 보여주기") — 처음 열 때 등록일 기간을 기준월로 채운다.
+    /* v08.98 요청("실적관리 진입시 해당월만 보여주기") — 처음 열 때 등록일 기간을 한 달로 채운다.
        전체를 다 펼쳐 놓으면 이번 달에 처리해야 할 건이 묻힌다.
        한 번만 채우고(_initMo), 그 뒤로는 사용자가 바꾼 기간을 그대로 둔다.
-       기간을 지우면 전체를 볼 수 있다. */
+       기간을 지우면 전체를 볼 수 있다.
+       ══ v08.321 요청("실적관리탭 첫진입시 현재 월로 자동 세팅") ══
+       종전 기본값은 **기준월**(업로드 파일의 가장 늦은 날짜가 속한 달)이었다. 파일을 며칠 늦게
+       올리거나 자료가 지난달까지면 이번 달에 들어온 건이 화면에 안 보여 매번 기간을 손으로
+       옮겨야 했다. 이제 **오늘이 속한 달**로 연다. 파일 기준일이 더 뒤에 있는 예외(미래 날짜
+       자료)에는 기준월을 쓴다 — 그 달을 열어야 자료가 보인다. */
     if(!window.__pmF._initMo){
-      const ym=(typeof baseMonth==='function')?baseMonth():String(window.__baseDate||'').slice(0,7);
+      /* TODAY 상수는 이 코드보다 **아래에서** 선언되므로(파일 하단 const TODAY) 여기서는 쓸 수 없다 —
+         첫 렌더가 그 선언 전에 돌면 값이 비어 기준월로 떨어진다. 같은 값을 직접 만든다. */
+      const _n=new Date(), _p=function(x){return String(x).padStart(2,'0');};
+      const _today=_n.getFullYear()+'-'+_p(_n.getMonth()+1);
+      const _base=(typeof baseMonth==='function')?baseMonth():String(window.__baseDate||'').slice(0,7);
+      const ym=(/^\d{4}-\d{2}$/.test(_today)&&(!/^\d{4}-\d{2}$/.test(_base)||_base<=_today))?_today:_base;
       if(/^\d{4}-\d{2}$/.test(ym)){
         const last=new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate();
         window.__pmF.d1=ym+'-01';
@@ -14489,6 +14499,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u51',d:'2026-09-16',tt:'실적 관리를 열면 이번 달로 시작',
+  b:'실적 관리 탭에 처음 들어가면 등록일 기간이 오늘이 속한 달로 맞춰집니다(종전에는 업로드 파일의 기준월이었습니다). 기간은 종전처럼 직접 바꾸거나 「전체 기간」으로 펼칠 수 있습니다.'},
  {id:'u50',d:'2026-09-16',tt:'통합현황 인사이트 사용현황에 「월별 사용건수」 표 추가',
   b:'그 달에 얼마나 썼는지를 업로드 스냅샷의 누적값 차이로 계산해 월별로 보여줍니다(인사이트 총·자금일보·전자세금계산서). 파일에는 누적값만 있어, 파일을 다른 날 한 번 더 올리면 그 달부터 표시됩니다.'},
  {id:'u49',d:'2026-09-16',tt:'정지업체 탭에 메모 추가',

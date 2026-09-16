@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.46
+- 버전: v01.47
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -58,7 +58,7 @@
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
 | 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
-| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
+| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **첫 진입 시 등록일 기간이 「오늘이 속한 달」로 채워진다**(v08.321 · `__pmF._initMo`로 한 번만, 그 뒤로는 사용자가 고른 기간 유지. 파일 기준일이 오늘보다 뒤면 그 기준월을 쓴다. ※ `TODAY` 상수는 이 코드보다 아래에서 선언되므로 여기서는 `new Date()`로 직접 만든다). 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
 | 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **조회 전용**이다(v08.98) — 유입경로·가입채널·최종실적 지정은 실적 관리에서 한다. v08.318에서 유입경로 지정을 여기로 옮겼다가 **v08.320에서 원복**했다(CLAUDE.md 8-13). |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
