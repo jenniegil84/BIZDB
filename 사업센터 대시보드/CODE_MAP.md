@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.41
+- 버전: v01.45
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -52,19 +52,19 @@
 
 | 사이드바 표시명 | tab id | 방식 | 실제 담당 함수 (찾는 법) | 비고 |
 |---|---|---|---|---|
-| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 해당 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281) — **기준은 보고 있는 주간회의 주(`CURWK`)이고 귀속 달은 주 종료일이 속한 달**(v08.304, 목~수 주간이라 7/30~8/5는 8월). `CURWK`가 없으면 오늘 날짜로 폴백한다, **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**저번 주 / 이번 주**, v08.283). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
+| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 해당 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281) — **기준은 보고 있는 주간회의 주(`CURWK`)이고 귀속 달은 주 종료일이 속한 달**(v08.304, 목~수 주간이라 7/30~8/5는 8월). `CURWK`가 없으면 오늘 날짜로 폴백한다, **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**이번 주 / 다음 주**, v08.315 · 과제 제목 옆 **📎는 그 카드의 `DOCS[카드id]` 링크**, v08.317 — v08.283의 「저번 주/이번 주」를 되돌림. 그 주에 실제로 찍힌 실행기록만 세므로 다음 주 칸은 기록이 생기기 전까지 비어 있다). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
 | 통합 현황 | `home` | ① | `RENDER['home']=render;` 바로 위 IIFE, `document.getElementById('s-home')` | 화면 아래쪽 `homeShell()`/`paintHome()`은 **죽은 코드**(호출 안 됨). |
 | 시장 현황 | `sales` | ② | `function salesMount(){` | |
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
 | 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
-| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. 툴바에 패널 3개가 붙어 있다 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단, v08.284). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). |
-| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | |
+| 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **v08.318부터 가입 관련만 다룬다** — 표는 문의 · 요금제 · **가입채널 · 최종실적** 4열(유입경로 열·필터·세그먼트·일괄지정은 신청 관리로 이동), 「지정 필요」도 최종실적 기준. 툴바 패널 2개 — `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). ※ 하위 탭 「문의 없는 실적」(`pmOrphanHTML`)은 **유입경로 열을 그대로 둔다** — 문의가 없어 신청 관리에 대응 행이 없기 때문이다. |
+| 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **v08.318부터 유입경로를 여기서 지정한다**(v08.98에서 실적 관리로 옮겼던 것을 되돌림) — 도입 문의 카드 오른쪽 드롭다운 + 상세 모달, 저장은 실적 관리와 같은 `IX_inqSet(fid,'inflow',v)`. 「유입경로 관리」 버튼·`inflowPanelHTML` 패널도 이 화면(목록 위)에 있다. |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
 | 해지·재가입 | `churn` | ① | `function churnRender(){` (`document.getElementById('s-churn')`) | `opsPage()` 공통 틀(카드+목록) 사용. |
-| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 위와 같은 `opsPage()` 틀. |
+| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 위와 같은 `opsPage()` 틀. 목록은 `suspendRowsAll()`(마스터 상태='정지') → `spPaint()`가 그린다. 열은 **업체명 · 대표자 · 연락처 · 요금제 · 정지 사유 · 정지일 · 정지해제일**(v08.316 — 대표자 `ow`·연락처 `hp`는 마스터가 이미 담고 있던 값. 검색창에서도 찾히며 휴대폰은 숫자만 입력해도 매칭). |
 | 고객 검색 | `cust` | ① (변형) | `window.custRender=function(){` (`document.getElementById('s-cust')`) | 다른 IX 화면과 달리 `RENDER[]`가 아니라 `window.custRender`로 노출 — 탭을 다시 열 때 자동 재호출(`ixMount`)이 안 걸릴 수 있으니, 값이 안 바뀌면 이 차이부터 의심할 것. |
 | 데이터 업로드 | `data` | ① | `document.getElementById('s-data')` 를 채우는 IIFE (`xlPanelHTML()` 포함) | v08.272부터 사이드바 메뉴 자체가 `jennie.gil@roumit.com` 로그인일 때만 보임(`paintSide()`의 `DATA_UPLOAD_EMAIL` 필터). 엑셀 파서 본체는 `function xlParseOffice`/`xlParseBilling`/`xlParseMonitor`/`xlApplyInq`. |
 | 활동 타임라인 | `act` | ③ | `function actShell(){` / `function paintAct(){` | v08.275부터 사이드바 "안내" 섹션 소속(예전엔 "요약"). |
@@ -437,6 +437,11 @@
 두 표 아래에 각각 기준 설명 문구가 있다 — 지금은 「세 화면의 플러스 숫자는 항상 일치한다」를
 밝히는 문구다(v08.303).
 `└ 개업세무사`는 두 표 모두 **프로모션 시작월** 기준(`pkgStartCount`)이라 모수와 무관하다.
+**그래서 월별로는 개업세무사가 그 달 플러스보다 클 수 있다**(2026-09-16 파일: 9월 플러스 3 vs
+개업세무사 4 — 현솔·리유세무회계가 인사이트 08-31·프로모션 09월). **2026-09-16 사용자 확정으로
+현행 유지 — 정합 오류로 보지 말 것.** 연간으로는 모순이 없어(전원 인사이트 가입이 2026년)
+「(플러스 내)」 표기와 포함 비율 바는 **연간 기준으로 읽는다**
+(사례는 `사업센터_데이터정합규칙_*.md`의 「의도된 차이」 절).
 
 
 계산은 `window.joinSplitCount(kind,s,e,onlyRejoin)` 한 함수만 쓴다(`kind` = `'total'|'plus'|'basic'|'pkg'`).

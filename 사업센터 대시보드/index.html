@@ -860,9 +860,10 @@ table.t .na{color:#B6BCC6}
 .ww-col-h span{font-weight:500;opacity:.8;margin-left:7px;font-family:ui-monospace,Consolas,monospace;font-size:10px}
 .ww-col-h.now{background:#0F766E}
 .ww-col-h.next{background:#1F2937}
-/* v08.283 저번 주 칸 머리 — 이번 주(청록 강조)와 구분되는 진한 회색(옛 .next와 같은 톤) */
-.ww-col-h.prev{background:#1F2937}
 .ww-col-b{padding:12px 13px 16px}
+/* v08.317 주간 업무 현황의 카드 링크(📎) — 팀 탭 카드에 등록된 자료 링크를 그 자리에서 연다 */
+.ww-clip{margin-left:5px;text-decoration:none;font-size:11px;line-height:1;opacity:.75}
+.ww-clip:hover{opacity:1}
 /* ══ v08.147 요청("글이 위아래로 너무 붙어있는데 주제별로 사이 여백이 추가되어서 구분이 되면 좋을듯") ══
    종전에는 과제 사이 간격이 4px뿐이라, 앞 과제의 실행기록 마지막 줄과 다음 과제 제목이 거의
    붙어 보였다. 실행기록이 2~3줄씩 달리면 어디서 과제가 바뀌는지 눈으로 못 따라간다.
@@ -2068,7 +2069,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.314';
+window.__APP_VER='v08.318';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -7507,7 +7508,11 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
      })()}
      <div class="sec-label">신청내용</div>
      <table class="tbl"><tbody>
-      <tr><td style="text-align:left;width:150px"><b>유입경로</b></td><td style="text-align:left">${_txt(M.inflow||eff)}${eff&&!M.inflow?' <span class="rtag tP3" style="font-size:8px">자동판정</span>':''}</td></tr>
+      <tr><td style="text-align:left;width:150px"><b>유입경로</b></td><td style="text-align:left">
+        <select onchange="IX_inqSet('${r.fid}','inflow',this.value)" style="font-size:11px;padding:4px 7px;border:1px solid var(--border);border-radius:6px;background:#fff;min-width:190px">
+          <option value="">${(eff&&!/^미분류/.test(eff))?('자동판정: '+IX_esc(String(eff).split(' > ').pop())):'미지정'}</option>
+          ${(typeof window.inflowOptions==='function')?window.inflowOptions(M.inflow||''):''}
+        </select>${eff&&!M.inflow?' <span class="rtag tP3" style="font-size:8px">자동판정</span>':''}</td></tr>
       <tr><td style="text-align:left"><b>실적보호</b></td><td style="text-align:left">${protectCell(r)}</td></tr>
       <tr><td style="text-align:left"><b>가입채널</b></td><td style="text-align:left">${_txt(M.joinCh)}</td></tr>
       <tr><td style="text-align:left"><b>최종실적</b></td><td style="text-align:left">${_txt(M.finalCh||_cur)}</td></tr>
@@ -7515,7 +7520,7 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
      </tbody></table>
      <div class="sec-label" style="margin-top:16px">가입내역</div>
      ${joinHtml}
-     <div class="notebox gray" style="margin-top:14px">조회 전용입니다. 유입경로·가입채널·최종실적 지정은 <b>실적 관리</b> 탭에서 합니다.
+     <div class="notebox gray" style="margin-top:14px">v08.318 — <b>유입경로는 이 화면에서</b> 지정합니다(목록·상세 모두). 가입채널·최종실적 지정은 <b>실적 관리</b> 탭에서 합니다.
        <span class="link" onclick="gotoTab('perfmg')" style="color:var(--teal-dk);font-weight:700">실적 관리 열기 →</span></div>
      <div style="margin-top:10px;font-size:10px;color:var(--gray-md)">상태·유형·제목·작성자·등록일 ${srcTag('flow')} · 담당자·유입경로·가입채널 ${srcTag('svc')} · 신청내용·가입내역(내용 컬럼 있는 파일만) ${srcTag('flow')}</div>`});
   }
@@ -7936,8 +7941,16 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
         return '<div style="min-width:110px"><div style="font-size:8.5px;color:var(--gray-md);margin-bottom:1px">'+h.l+'</div>'+h.f+'</div>';
       }).join('')
       +'</div>';
+    /* v08.318 유입경로 판정 규칙 패널도 이 화면으로 가져온다(실적 관리에서 이동) —
+       지정하는 화면과 규칙을 고치는 화면이 같아야 한다. 패널 자체(inflowPanelHTML)는
+       그대로 재사용하고, 여는 버튼만 여기에 둔다. */
+    const inflowMgr='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">'
+      +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleInflowPanel()" id="inflowBtn">유입경로 관리</button>'
+      +'<span style="font-size:9.5px;color:var(--gray-md)">유입경로는 이 화면에서 지정합니다 · 가입채널·최종실적은 <b>실적 관리</b> 탭</span>'
+      +'</div>'
+      +((typeof window.inflowPanelHTML==='function')?window.inflowPanelHTML():'');
     document.getElementById('inqList').innerHTML=
-     filterBar
+     inflowMgr+filterBar
      +'<div id="inqScrollBox" style="overflow:auto;max-height:560px;border:1px solid var(--border);border-radius:10px">'
      +(rows.length===0
        ? '<div style="padding:44px 20px;text-align:center;color:var(--gray-md);font-size:11px">조회 결과가 없습니다</div>'
@@ -7959,6 +7972,18 @@ lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의�
             +'<div style="font-size:10.5px;color:var(--gray-md);margin-top:3px">'+IX_esc(r.wr)+' · '+r.dt+(own?' · 담당 '+IX_esc(own):'')+'</div>'
             +'<div style="display:flex;gap:10px;margin-top:5px">'+stage('유입',_inflowOn)+stage('가입',_joinOn)+stage('최종',_finalOn)+'</div>'
             +'</div>'
+            /* ══ v08.318 요청("신청관리에 실적관리에 있는 유입경로를 가져오고") ══
+               유입경로를 이 화면에서 바로 지정한다(v08.98에서 실적 관리로 옮겼던 것을 되돌림).
+               · 저장 경로는 실적 관리와 같은 IX_inqSet — 두 화면이 같은 값을 본다
+               · 첫 옵션은 자동판정 값(수동 지정을 비우면 다시 자동판정으로 돌아간다)
+               · 카드 전체가 상세 열기 클릭이라, 드롭다운 영역은 stopPropagation으로 막는다
+               · 아직 미지정(자동판정도 미분류)이면 테두리를 청록으로 — 실적 관리와 같은 신호 */
+            +'<div style="flex-shrink:0;width:170px" onclick="event.stopPropagation()">'
+            +'<select onchange="IX_inqSet(\''+r.fid+'\',\'inflow\',this.value)" title="유입경로 지정"'
+            +' style="width:100%;font-size:10px;padding:4px 6px;border:1px solid '+(_inflowOn?'var(--border)':'var(--teal)')+';border-radius:6px;background:#fff">'
+            +'<option value="">'+(_inflowOn?('자동판정: '+IX_esc(String(_eff).split(' > ').pop())):'미지정')+'</option>'
+            +((typeof window.inflowOptions==='function')?window.inflowOptions(M.inflow||''):'')
+            +'</select></div>'
             +'<span class="rtag" style="background:'+c.bg+';color:'+c.fg+';border-color:transparent;flex-shrink:0;font-weight:700">'+r.st+'</span>'
             // v08.98 X 삭제 버튼 제거(요청) — 조회 전용이므로 목록에서 제외 기능도 두지 않는다
             +'</div>';
@@ -8535,7 +8560,11 @@ window.suspendRowsAll=function(){
   return R.filter(function(x){return String(x.st||'').trim()==='정지';})
     .map(function(x){
       const rs=String(x.spRs||'').trim();
-      return { nm:x.nm||'', pl:String(x.pl||'').trim()||'',
+      /* v08.316 요청("정지업체탭 — 대표자명, 휴대폰 번호 추가") — 마스터가 이미 담고 있는
+         값(`ow`=대표자명 · `hp`=대표자휴대폰번호)을 그대로 쓴다(새 파싱 없음).
+         '-'·'.'처럼 빈칸 대용 문자는 빈 값으로 본다 — 화면에서 「—」로 나간다. */
+      const blank=function(v){ const t=String(v||'').trim(); return (t&&t!=='-'&&t!=='.')?t:''; };
+      return { nm:x.nm||'', ow:blank(x.ow), hp:blank(x.hp), pl:String(x.pl||'').trim()||'',
         rs:(rs&&rs!=='-'&&rs!=='.')?rs:'', sp:x.sp||'', se:x.se||'', bz:x.bz||'' };
     });
 };
@@ -8571,7 +8600,7 @@ window.suspendPanelHTML=function(){
     +grp.map(function(g){ return card(g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
     +'</div>'
     +'<div class="filters" style="margin-bottom:10px">'
-    +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·사업자번호 검색" '
+    +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·대표자·연락처·사업자번호 검색" '
     +'oninput="spSet(\'q\',this.value)" style="width:200px">'
     +opt('pl','요금제',uniq(function(x){return x.pl;}),F.pl)
     +opt('rs','정지사유',uniq(function(x){return x.rs;}),F.rs)
@@ -8596,7 +8625,11 @@ window.spPaint=function(){
       lim=d.toISOString().slice(0,10); }
   }
   const L=window.suspendRowsAll().filter(function(x){
-    if(nq&&!(hit(x.nm)||hit(x.bz)))return false;
+    /* v08.316 대표자명·휴대폰도 검색 대상에 넣는다 — 표에 보이는 값은 검색도 되는 게 자연스럽다.
+       휴대폰은 숫자만 입력해도(하이픈 없이) 찾히도록 숫자 비교를 함께 쓴다. */
+    const digits=nq.replace(/[^0-9]/g,'');
+    if(nq&&!(hit(x.nm)||hit(x.bz)||hit(x.ow)||hit(x.hp)
+             ||(digits&&String(x.hp||'').replace(/[^0-9]/g,'').indexOf(digits)>=0)))return false;
     if(F.pl&&x.pl!==F.pl)return false;
     if(F.rs&&x.rs!==F.rs)return false;
     if(lim&&(!x.sp||x.sp<lim))return false;
@@ -8614,18 +8647,21 @@ window.spPaint=function(){
     return '<th'+(w?' style="width:'+w+'"':'')+' onclick="spSortBy(\''+key+'\')" style="cursor:pointer'+(w?';width:'+w:'')+'">'+label+arrow(key)+'</th>';
   };
   const na='<span class="na">—</span>';
+  /* v08.316 대표자·연락처 두 열 추가(업체명 바로 옆) — 정지 안내 전화를 이 화면에서 바로 건다 */
   box.innerHTML='<table class="tbl chTbl" style="table-layout:fixed;width:100%"><thead><tr>'
-    +th('nm','업체명')+th('pl','요금제','104px')
+    +th('nm','업체명')+th('ow','대표자','84px')+th('hp','연락처','116px')+th('pl','요금제','104px')
     +th('rs','정지 사유')+th('sp','정지일','96px')+th('se','정지해제일','96px')
     +'</tr></thead><tbody>'
     +(L.length?L.map(function(x){
       return '<tr><td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
+        +'<td>'+(x.ow?IX_esc(x.ow):na)+'</td>'
+        +'<td style="font-size:10.5px">'+(x.hp?IX_esc(x.hp):na)+'</td>'
         +'<td>'+(x.pl?IX_esc(x.pl):na)+'</td>'
         +'<td style="text-align:left;font-size:10.5px">'+(x.rs?IX_esc(x.rs):'<span class="na">미기재</span>')+'</td>'
         +'<td>'+(x.sp?IX_esc(x.sp):na)+'</td>'
         +'<td>'+(x.se?IX_esc(x.se):na)+'</td></tr>';
     }).join('')
-    :'<tr><td colspan="5" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
+    :'<tr><td colspan="7" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
     +'</tbody></table>';
   const cc=document.getElementById('spCnt');
   if(cc)cc.textContent='조회 '+L.length.toLocaleString()+'건 / 전체 '+window.suspendRowsAll().length.toLocaleString()+'건';
@@ -10037,7 +10073,7 @@ window.spPaint=function(){
       ? ((window.__pmF.d1||'처음')+' ~ '+(window.__pmF.d2||'끝'))
       : '전체 기간';
     const SUB={all:'현재 목록 기준 ('+per+')',
-               todo:'유입경로·최종실적 중 하나라도 미정인 건 ('+per+')',
+               todo:'최종실적이 미정인 건 ('+per+')',
                wemb:'실적보호 명단(사업자번호) 매칭 · 기간 무관 위멤버스 확정 ('+per+')',
                manual:'최종실적을 직접 지정한 건 ('+per+')'};
     const list=rows.filter(function(r){
@@ -10139,7 +10175,8 @@ window.spPaint=function(){
       /* v08.98 요청("실적관리에서 지정하는게 낫겠다") — 가입 유형으로 대상을 가리지 않는다.
          정지해제 영업 건처럼 마스터에 재가입일이 안 찍히는 케이스가 있어 문의 유형만으로는
          실적 대상 여부를 판단할 수 없다. 판단은 사람이 하고 화면은 지정만 열어 둔다. */
-      const todo=un(inflow)||un(finalV);
+      /* v08.318 유입경로 지정은 신청 관리로 옮겼다 — 실적 관리의 「지정 필요」는 최종실적만 본다 */
+      const todo=un(finalV);
       return {r:r, inflow:inflow, joinCh:joinCh, finalV:finalV, wemb:wemb, inside:inside, todo:todo, manualF:!!m.finalCh, isJoin:isJoin};
     }).filter(function(x){
       /* v08.98 「지정 필요」를 유입경로/최종실적으로 나눠 볼 수 있게 한다 — 무엇이 남았는지
@@ -10448,19 +10485,19 @@ window.spPaint=function(){
            return '<td style="text-align:left;font-size:10px">'
              +(pi.pl?IX_esc(pi.pl):'<span class="na">—</span>')+'</td>';
          })()
-        /* v08.279 — 실적보호업체(mark='wemb')는 세 칸 모두 빨간 테두리로 표시한다 */
-        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mark)+'</td>'
+        /* v08.318 유입경로 칸은 신청 관리로 옮겼다 — 여기는 가입 관련(가입채널·최종실적)만 둔다.
+           v08.279 실적보호업체(mark='wemb')는 남은 두 칸에 빨간 테두리로 표시한다 */
         /* v08.98 가입 문의가 아니면 잠근다(요청) — 신청만 들어온 건은 아직 실적이 아니다. */
         +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, mark, !x.isJoin)+'</td>'
         +'<td>'+sel(r.fid,'finalCh',(M[r.fid]||{}).finalCh||x.finalV, x.isJoin&&un(x.finalV), mark, !x.isJoin)+'</td>'
         +'<td style="white-space:nowrap"><span class="mgmt-badge" onclick="inqDetail(\''+r.fid+'\')">상세</span>'
         +' <span class="mgmt-badge" style="background:var(--red-lt);color:var(--red);border-color:transparent" onclick="pmDel(\''+r.fid+'\')" title="실적 관리·집계에서 제외">제외</span></td>'
         +'</tr>';
-    }).join('') : '<tr><td colspan="5" class="na" style="text-align:center;padding:20px">조회 결과가 없습니다</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="na" style="text-align:center;padding:20px">조회 결과가 없습니다</td></tr>';
     const seg=function(v,l){return '<button class="btn'+(window.__pmF.todo===v?'':' gh')+'" style="padding:4px 11px;font-size:10.5px" onclick="pmSet(\'todo\',\''+v+'\')">'+l+'</button>';};
     el.innerHTML=
       '<div class="blk"><div class="blk-hd"><span class="blk-ttl">실적 관리</span>'
-      +'<span class="blk-meta">유입경로·가입채널·최종실적을 여기서 지정합니다 · 신청 관리는 플로우 원본 조회 전용</span></div>'
+      +'<span class="blk-meta">가입 관련(가입채널·최종실적)을 여기서 지정합니다 · <b>유입경로는 신청 관리</b> 탭에서 지정합니다</span></div>'
       +((window.__pmF.view==='orp')
         /* v08.196 「문의 없는 실적」 탭에서는 그 목록의 숫자를 보여준다 — 문의 기준 카드를 그대로
            두면 문의가 없는 화면인데 「전체 문의 0건」이 떠 있어 무의미하다.
@@ -10482,7 +10519,7 @@ window.spPaint=function(){
       +'<div class="kpi D" onclick="pmDrill(\'all\')"><div class="kpi-l">전체 문의</div><div class="kpi-v">'+all.length.toLocaleString()+'건</div>'
       +'<div class="kpi-s" style="margin-top:6px">현재 목록 기준</div></div>'
       +'<div class="kpi D" onclick="pmDrill(\'todo\')"><div class="kpi-l">지정 필요</div><div class="kpi-v rc">'+nTodo.toLocaleString()+'건</div>'
-      +'<div class="kpi-s" style="margin-top:6px">유입 <b>'+nNoInflow.toLocaleString()+'</b> · 가입채널 <b>'+nNoJoin.toLocaleString()+'</b> · 최종 <b>'+nNoFinal.toLocaleString()+'</b> 미정</div></div>'
+      +'<div class="kpi-s" style="margin-top:6px">가입채널 <b>'+nNoJoin.toLocaleString()+'</b> · 최종실적 <b>'+nNoFinal.toLocaleString()+'</b> 미정</div></div>'   /* v08.318 유입경로는 신청 관리 소관 */
       /* v08.98 요청("실적보호업체 0건이 맞아?") — 0건이 나오는 이유가 두 가지라 화면에서 구분되게 한다.
          ① 실적보호 명단(wemb_protect)이 아직 안 올라옴 ② 문의 쪽 사업자번호가 없어 매칭 자체가 불가.
          명단 수와 사업자번호 보유 문의 수를 함께 보여주면 어느 쪽인지 바로 알 수 있다. */
@@ -10517,7 +10554,8 @@ window.spPaint=function(){
       +((window.__pmF.view==='orp')?pmOrphanHTML():(
        '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
-      +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')+seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
+      /* v08.318 「유입경로 미정」 버튼 제거 — 유입경로는 신청 관리에서 지정한다 */
+      +seg('all','전체')+seg('todo','지정 필요')+seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
       +'<input id="pmQ" value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="제목·작성자 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       /* v08.98 등록일 기간 필터 — 「7월까지」처럼 기간을 끊어 일괄 지정할 때 쓴다 */
@@ -10530,7 +10568,7 @@ window.spPaint=function(){
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       /* v08.98 기간을 한 번에 지우고 전체를 보는 버튼 — 진입 시 기준월로 좁혀 두므로 필요하다 */
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
-      +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleInflowPanel()" id="inflowBtn">유입경로 관리</button>'
+      /* v08.318 「유입경로 관리」 버튼·패널은 신청 관리로 옮겼다 — 지정하는 화면과 규칙 화면을 맞춘다 */
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleRefPanel()" id="refBtn">추천 정보 관리</button>'
       /* v08.284 실적확정 명단(위멤버스·로움) 관리 — 위 두 패널과 같은 방식 */
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleProtPanel()" id="protBtn">실적확정 명단</button>'
@@ -10541,7 +10579,6 @@ window.spPaint=function(){
       +'</div>'
       /* v08.98 판정 규칙 설정표를 신청 관리에서 이 탭으로 옮긴다(요청) — 신청 관리는 조회 전용이 됐다.
          inflowSave·refSave가 같은 id(#inflowPanel·#refPanel)를 찾아 갈아 끼우므로 동작은 그대로다. */
-      +((typeof window.inflowPanelHTML==='function')?window.inflowPanelHTML():'')
       +((typeof window.refPanelHTML==='function')?window.refPanelHTML():'')
       +((typeof window.protPanelHTML==='function')?window.protPanelHTML():'')
       /* v08.98 일괄 지정 — 유입경로·가입채널·최종실적을 한 번에 지정한다(요청).
@@ -10555,10 +10592,10 @@ window.spPaint=function(){
             +'<select id="'+id+'" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;min-width:170px">'
             +'<option value="">— 변경 안 함</option>'+opts+'</select></div>';
          };
-         const total=T.inflow.length+T.joinCh.length+T.finalCh.length;
+         const total=T.joinCh.length+T.finalCh.length;   /* v08.318 유입경로 제외 */
          return '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;padding:10px 12px;background:var(--gray-lt);border-radius:9px">'
           +'<b style="font-size:11px;color:var(--navy);padding-bottom:5px">일괄 지정</b>'
-          +one('pmBulkInflow','유입경로 미정',T.inflow.length)
+          /* v08.318 유입경로 일괄 지정은 신청 관리 소관이라 여기서는 뺀다(pmBulkSet은 칸이 없으면 건너뛴다) */
           +one('pmBulkJoin','가입채널 미지정',T.joinCh.length)
           +one('pmBulkCh','최종실적 미정',T.finalCh.length)
           +'<button class="btn'+(total?'':' gh')+'" style="padding:5px 14px;font-size:10.5px;margin-bottom:1px"'+(total?'':' disabled')+' onclick="pmBulkSet()">일괄 지정</button>'
@@ -10592,10 +10629,10 @@ window.spPaint=function(){
             +'<option value="">전체</option>'+opts+'</select></th>';
          };
          window.__pmCell=cell;
-         return cell('유입경로','fIn',optVals('inflow'),'18%')
-              + cell('가입채널','fJn',optVals('joinCh'),'18%');
+         /* v08.318 유입경로 열 제거(신청 관리로 이동) — 남은 두 열 폭을 넓힌다 */
+         return cell('가입채널','fJn',optVals('joinCh'),'26%');
        })()
-      +window.__pmCell('최종실적','fFn',optVals('finalV'),'22%')
+      +window.__pmCell('최종실적','fFn',optVals('finalV'),'29%')
       +'<th style="width:60px">관리</th>'
       +'</tr></thead><tbody>'+body+'</tbody></table></div>'
       +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:7px">노란 배경 = 지정 필요 · 지정하면 일별·월별·누적 집계에 바로 반영됩니다'
@@ -10603,7 +10640,7 @@ window.spPaint=function(){
       /* v08.279 범례도 테두리 색 신호로 바꾼다 — 위멤버스 실적확정=빨강, 로움 실적확정=파랑 */
       +' <span style="margin-left:8px;border:2px solid var(--red);border-radius:4px;padding:1px 5px">위멤버스 실적확정</span>'
       +' <span style="margin-left:6px;border:2px solid #3B82F6;border-radius:4px;padding:1px 5px">로움 실적확정</span>'
-      +'<div style="margin-top:3px">두 명단은 사업자번호가 일치할 때만 잡히며, 유입경로·가입채널·최종실적이 자동 확정됩니다(직접 바꿀 수도 있습니다)</div></div>'
+      +'<div style="margin-top:3px">두 명단은 사업자번호가 일치할 때만 잡히며, 유입경로·가입채널·최종실적이 자동 확정됩니다(직접 바꿀 수도 있습니다). 유입경로 지정·규칙 관리는 <b>신청 관리</b> 탭에 있습니다</div></div>'
       /* v08.197 요청("문의없는실적을 따로 탭으로 구분했으니 문의있는건 아래 문의없는 실적은 제거해도
          되지 않아?") — 여기 있던 「문의 없는 실적」 목록을 뺀다. v08.167에서 탭이 없던 시절 아래에
          덧붙였던 것인데, 지금은 상단 하위 탭(문의 있는 건 / 문의 없는 실적)으로 나뉘어 있어
@@ -14406,6 +14443,14 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u48',d:'2026-09-16',tt:'유입경로는 신청 관리에서, 실적 관리는 가입 관련만',
+  b:'유입경로 지정과 「유입경로 관리」(판정 규칙)를 신청 관리 탭으로 옮겼습니다 — 도입 문의 목록에서 바로 고르거나 상세 창에서 지정합니다. 실적 관리는 가입채널·최종실적만 다루며 「지정 필요」 숫자도 가입 관련만 셉니다(저장되는 값은 그대로라 기존 지정 내용은 유지됩니다).'},
+ {id:'u47',d:'2026-09-16',tt:'주간 업무 현황에 카드 링크(📎) 표시',
+  b:'팀 탭 카드에 등록해 둔 자료 링크를 주간 업무 현황의 과제 제목 옆에 📎로 보여줍니다. 마우스를 올리면 자료 이름이 뜨고, 누르면 새 탭에서 열립니다(URL이 없는 메모형 자료는 표시하지 않습니다).'},
+ {id:'u46',d:'2026-09-16',tt:'정지업체 탭에 대표자·연락처 추가',
+  b:'정지업체 목록에 대표자명과 휴대폰 번호를 업체명 옆에 표시합니다. 검색창에서도 대표자명·연락처로 찾을 수 있습니다(하이픈 없이 숫자만 입력해도 찾힙니다).'},
+ {id:'u45',d:'2026-09-16',tt:'주간 업무 현황을 「이번 주 / 다음 주」로 변경',
+  b:'팀별 주간 업무 현황 2단 표를 이번 주(왼쪽)·다음 주(오른쪽)로 바꿨습니다. 이 표는 그 주에 실제로 남긴 실행기록만 보여주므로, 다음 주 칸은 기록이 생기기 전까지 「항목 없음」으로 비어 있습니다.'},
  {id:'u44',d:'2026-09-10',tt:'플러스 실적 기준을 「인사이트 가입일」로 확정 (연간 83)',
   b:'그 달에 인사이트를 새로 가입한 곳만 플러스 실적으로 셉니다. 이미 플러스인 곳이 요금제를 올리거나(개업성장패키지 등) 재가입한 건은 새로 확보한 플러스가 아니라 결제 금액·수단의 차이여서 실적에서 뺐습니다(개업세무사 프로모션은 아래 블록에서 따로 관리). 2026 연간 89→83, 8월 19건.'},
  {id:'u43',d:'2026-09-10',tt:'플러스 실적에서 같은 곳의 중복 집계 제거 (연간 97 → 89)',
@@ -16268,12 +16313,13 @@ function byLabel(v){
   return s.split('@')[0];                             // 없으면 계정 앞부분만
 }
 function teamWeekTableHtml(team){
-  /* ══ v08.283 요청("주간업무현황은 저번 주와 이번 주를 보여줘") ══
-     종전에는 「이번 주 / 다음 주」 2단이었는데, 이 표는 그 주 구간에 실제로 찍힌 실행기록만
-     세므로(아래 v06.26 주석) 다음 주 칸은 사실상 늘 비어 있었다. 회의에서 실제로 보는 것은
-     「지난주에 무엇을 했고 이번 주에 무엇을 하고 있는지」라, 저번 주 → 이번 주 순서로 바꿨다.
-     색은 이번 주가 강조(청록)로 남고, 저번 주는 진한 회색(.prev)이다. */
-  const prevWk=addD(CURWK,-7);
+  /* ══ v08.315 요청("주간회의 주간업무현황을 이번주와 다음주로 보여줘") ══
+     v08.283에서 「저번 주 / 이번 주」로 바꿨던 것을 다시 **「이번 주 / 다음 주」** 로 되돌린다.
+     ※ 알아 둘 것: 이 표는 그 주 구간에 **실제로 찍힌 실행기록(LOG)** 만 센다(아래 v06.26 주석).
+       그래서 다음 주 칸은 그 주에 기록이 생기기 전까지 「항목 없음」으로 비어 있다 —
+       계획을 미리 보여주는 칸이 아니다(미래를 지어내지 않는다는 원칙).
+     색은 이번 주가 강조(청록 .now), 다음 주가 진한 회색(.next)이다. */
+  const nextWk=addD(CURWK,7);
   const dot=d=>String(d).replace(/-/g,'.').slice(0,10);
   const rowsFor=wk=>{
     const items=wkCardsFor(team.id,wk);
@@ -16286,20 +16332,33 @@ function teamWeekTableHtml(team){
         .map(g=>'<div class="ww-note">– '+esc(g.txt||'')+(g.by?' - <span class="ww-by">'+esc(byLabel(g.by))+'</span>':'')
           +(g.img?'<img class="ww-note-img" src="'+esc(g.img)+'" onclick="window.open(\''+esc(g.img)+'\',\'_blank\')" title="새 탭에서 보기">':'')
           +'</div>').join('');
+      /* ══ v08.317 요청("주간현황에 탭카드에 있는 링크도 가져오고 표시는 클립모양으로 넣어줘") ══
+         팀 탭 카드에 등록해 둔 자료 링크(DOCS[카드id] = [{nm,url,note}])를 그대로 가져와
+         제목 옆에 📎로 붙인다 — 새 데이터를 만들지 않고 이미 있는 것을 보여주기만 한다.
+         · URL이 없는 항목(메모만 있는 자료)은 열 곳이 없으므로 표시하지 않는다.
+         · 마우스를 올리면 자료 이름이 보이고(title), 눌러도 카드 이동(goTab)이 따라오지
+           않도록 stopPropagation을 건다. */
+      const clips=((typeof DOCS!=='undefined'&&DOCS[c.id])||[])
+        .filter(function(d){ return /^https?:\/\//i.test(String((d&&d.url)||'')); })
+        .map(function(d){
+          return '<a class="ww-clip" href="'+esc(d.url)+'" target="_blank" rel="noopener"'
+            +' title="'+esc(d.nm||'링크')+'" onclick="event.stopPropagation()">📎</a>';
+        }).join('');
       return '<div class="ww-item">'
        +'<div class="ww-line" onclick="goTab(\''+team.id+'\')">'
        +'<span class="ww-bul">•</span>'
        +'<span class="ww-code">'+esc(c.id)+'</span>'
        +'<span class="ww-nm">'+esc(c.nm)+'</span>'
-       +'<span class="ww-st '+(done?'done':'prog')+'">'+(done?'완료':'진행')+'</span></div>'
+       +'<span class="ww-st '+(done?'done':'prog')+'">'+(done?'완료':'진행')+'</span>'
+       +clips+'</div>'
        +logs+'</div>';
     }).join('');
   };
   return '<div class="ww-cols">'
-   +'<div class="ww-col"><div class="ww-col-h prev">저번 주 <span>'+dot(prevWk)+' – '+dot(wkEndOf(prevWk)).slice(5)+'</span></div>'
-   +'<div class="ww-col-b">'+rowsFor(prevWk)+'</div></div>'
    +'<div class="ww-col"><div class="ww-col-h now">이번 주 <span>'+dot(CURWK)+' – '+dot(wkEndOf(CURWK)).slice(5)+'</span></div>'
    +'<div class="ww-col-b">'+rowsFor(CURWK)+'</div></div>'
+   +'<div class="ww-col"><div class="ww-col-h next">다음 주 <span>'+dot(nextWk)+' – '+dot(wkEndOf(nextWk)).slice(5)+'</span></div>'
+   +'<div class="ww-col-b">'+rowsFor(nextWk)+'</div></div>'
    +'</div>';
 }
 function issueBlockHtml(){
