@@ -1138,15 +1138,6 @@ table.t .na{color:#B6BCC6}
 #ixHost .kpi-head.four .kh-v .pf-d{font-size:12px;margin-left:6px}
 #ixHost .kpi-head.four .kh-s{font-size:10px}
 @media (max-width:1200px){#ixHost .kpi-head.four{grid-template-columns:1fr 1fr}}
-/* v08.325 핵심 카드 5개(전체 문의·도입 문의·플러스 가입·플러스 전환·개업세무사 가입).
-   four보다 한 칸 더 좁아져 숫자를 한 단계 더 줄인다. 좁은 화면 접힘은 four와 같은 단계. */
-#ixHost .kpi-head.five{grid-template-columns:repeat(5,1fr)}
-#ixHost .kpi-head.five .kh-v{font-size:26px;letter-spacing:-1.2px}
-#ixHost .kpi-head.five .kh-v .pf-d{font-size:11px;margin-left:5px}
-#ixHost .kpi-head.five .kh-s{font-size:9.5px}
-@media (max-width:1320px){#ixHost .kpi-head.five{grid-template-columns:repeat(3,1fr)}}
-@media (max-width:980px){#ixHost .kpi-head.five{grid-template-columns:1fr 1fr}}
-@media (max-width:700px){#ixHost .kpi-head.five{grid-template-columns:1fr}}
 @media (max-width:700px){#ixHost .kpi-head.four{grid-template-columns:1fr}}
 /* v08.118 통합현황 이번 달 실적 — 도입 문의·플러스 가입 2개만 크게(two). 실적 분석의
    3개 배치(three)와 같은 컴포넌트를 쓰되 칸 수만 다르다. */
@@ -2085,7 +2076,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.331';
+window.__APP_VER='v08.334';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9094,19 +9085,16 @@ window.spPaint=function(){
        종전에는 가입 800·요금제변경 8까지 빼서 961건이었는데, 그 둘도 고객이 낸 신청이므로 포함한다.
        v08.98 판정은 isPerfTarget 하나로 통일 — 실적 관리 목록과 같은 기준을 쓴다. */
     const inq   = flow.filter(function(r){ return window.isPerfTarget(r); });
-    /* ══ v08.325 사용자 지적("이게 전체문의인거 같애 · 도입문의도 기존 기준에 맞춰서 추가해줘") ══
-       위 `inq`는 이름이 「문의」지만 실제로는 **테스트·공지·하위업무만 뺀 전체 문의**다
-       (v07.16에서 신규가입·재가입·요금제변경 유형까지 포함하도록 넓혔다). 그래서 카드 이름을
-       「전체 문의」로 바로잡고, 그 전의 뜻인 **순수 도입 문의**(가입·요금제 유형이 아닌 문의)를
-       따로 센다 — 판정은 이미 있는 `inqCls`의 'inq' 하나로 끝난다(새 규칙을 만들지 않는다).
-         전체 문의 = 도입 문의(inq) + 가입 유형(join) + 요금제 유형(plan) */
+    /* ══ v08.333 사용자 확정("신청이 도입문의가 맞아") ══
+       `inq`(테스트·공지·하위업무만 뺀 전량)가 곧 **도입문의**이자 이 화면의 「전체 문의」다 —
+       고객이 낸 신청은 유형 이름이 「신규가입」이든 「세모R 신청」이든 모두 여기에 들어간다.
+       주간 실적 요약의 「도입문의」와 **같은 기준·같은 값**이다.
+       무엇으로 이뤄졌는지만 세 갈래로 세어 카드 밑줄에 적는다(합 = 전체 문의).
+         전체 문의 = 일반 문의(inq) + 가입 신청(join) + 요금제 신청(plan) */
     const inqByCls={inq:0,join:0,plan:0};
     inq.forEach(function(r){
       const k=(typeof window.inqCls==='function')?window.inqCls(r):'inq';
       if(inqByCls[k]!=null)inqByCls[k]++;
-    });
-    const inqPure = inq.filter(function(r){
-      return ((typeof window.inqCls==='function')?window.inqCls(r):'inq')==='inq';
     });
     /* v08.98 요청("가입 정지 해지 재가입 모두 날짜기준으로 변경") — 누적도 기간 조회와 똑같이
        각 항목의 날짜 컬럼으로 센다. 종전에는 누적만 상태값(전체 행·상태='해지'·상태='정지')으로
@@ -9254,7 +9242,7 @@ window.spPaint=function(){
     const insNewN = insNew.length;
     /* v08.305 인사이트를 그 기간에 해지한 곳 — 발생 건 목록에 싣고, 「그중 당월 해지」 표기에 쓴다 */
     const insOut = offRows().filter(function(x){return inR(x.insCn,s,e);});
-    return { inq, inqPure, inqByCls, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
+    return { inq, inqByCls, plan, join, churn, rejoin, pause, unpause, planSrc: hasPc?'master':'flow', pauseSrc: pauseSrc, unpauseSrc: unpauseSrc,
              range: [s,e],                /* v08.289 카드 밑줄에서 모수를 다시 세는 데 쓴다 */
              churnNow: churnNow,          /* v08.305 종전 기준(해지일 + 현재 상태 해지) — 누적 화면 전용 */
              insNew: insNew, insOut: insOut,   /* v08.305 인사이트 가입·해지 행(발생 건 목록·표기용) */
@@ -9458,14 +9446,18 @@ window.spPaint=function(){
        종전 「도입 문의」 카드는 실제로는 **전체 문의**(테스트·공지·하위업무만 제외)였다 —
        이름을 값에 맞게 바로잡고, **기존 기준의 도입 문의**(가입·요금제 유형이 아닌 순수 문의)를
        카드로 따로 추가한다. 핵심 카드가 4개 → 5개가 되므로 그리드도 five를 쓴다. */
-    return '<div class="kpi-head five">'
-      /* v08.331 사용자 지적("도입문의 숫자 이상함") — 16건과 6건이 어떻게 갈렸는지 화면에서
-         보이지 않아 판단할 수 없었다. 값을 이루는 숫자를 밑줄에 그대로 적는다(설명 문장이 아니라
-         구성 숫자 — v08.179 「플러스 가입」 밑줄과 같은 방식). 셋의 합은 항상 전체 문의와 같다. */
+      /* ══ v08.333 사용자 확정 2단계 ══
+         ① "신청이 도입문의가 맞아" + 「16건 · 신청은 모두 도입문의」 — 고객이 낸 신청은 유형 이름이
+            무엇이든 모두 도입문의로 본다. 그래서 이 카드 값(`S.inq`)이 곧 주간 실적 요약의
+            「도입문의」와 **같은 값**이다(두 화면을 나란히 놓아도 숫자가 같다).
+         ② "여기서도 도입문의 빼자. 전체문의에 설명이 있으니까 굳이 필요없어" —
+            v08.325에서 만든 별도 「도입 문의」 카드를 **제거**하고 다시 4칸으로 돌아간다.
+            무엇으로 이뤄졌는지는 이 카드 밑줄이 그대로 말해 준다(합 = 이 카드 값).
+         밑줄 라벨은 「도입」 대신 「일반 문의」를 쓴다 — 「도입문의」가 전체를 가리키는 말이 되어
+         같은 단어를 두 뜻으로 쓰면 다시 헷갈린다. */
+    return '<div class="kpi-head four">'
       + hero('전체 문의', z(S.inq.length), 'tc', d('inq',1),
-             S.inqByCls?('도입 '+S.inqByCls.inq+' · 가입 유형 '+S.inqByCls.join+' · 요금제 유형 '+S.inqByCls.plan):'')
-      + hero('도입 문의', z(S.inqPure?S.inqPure.length:0), 'tc',
-             (P&&P.inqPure)?deltaBadge(S.inqPure.length,P.inqPure.length,1):'', '')
+             S.inqByCls?('일반 문의 '+S.inqByCls.inq+' · 가입 신청 '+S.inqByCls.join+' · 요금제 신청 '+S.inqByCls.plan):'')
       + hero('플러스 가입', S.plusInsN!=null?z(S.plusInsN):'—', 'oc',
              (P&&S.plusInsN!=null&&P.plusInsN!=null)?deltaBadge(S.plusInsN,P.plusInsN,1):'', plusNote)
       + hero('플러스 전환', z(S.plusConvN||0), 'oc',
@@ -9825,9 +9817,12 @@ window.spPaint=function(){
       +'<br>세 표 모두 <b>채널이 지정된 건만</b> 셉니다(미지정은 실적 관리 탭에서 지정하면 바로 반영). '
       +'하향·기타 요금제 변경은 아래 <b>세부 지표 「요금제 변경」</b>에서 봅니다.'
       +'</div>';
+    /* v08.332 요청("최종실적별 실적과 요금제 상향 채널별 실적 자리 바꿔") —
+       2행을 「최종실적별(왼쪽) · 요금제 상향 채널별(오른쪽)」로 둔다.
+       읽는 순서: 유입경로 → 가입채널 → 최종실적(합계) → 상향 내역. */
     return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:14px" class="ixInqPerf">'
       + t1 + t2
-      + t4 + t3
+      + t3 + t4
       + '</div>' + _memo;
   }
 
@@ -14129,6 +14124,7 @@ window.verWatchStart=function(){
      조치: 헤더가 정말 있을 때만 태그로 쓰고, 없거나 요청이 실패하면 **버전 문자열을 직접 읽어**
      지금 이 창이 돌고 있는 `window.__APP_VER`와 비교한다(가장 확실한 방법 — 헤더에 기대지 않는다). */
   const verByBody=function(){
+    window.__verWatch.lastBody=Date.now();
     return readVer().then(function(v){
       if(!v)return;                                                  // 못 읽으면 아무것도 하지 않는다
       const cur=String(window.__APP_VER||'');
@@ -14137,26 +14133,38 @@ window.verWatchStart=function(){
       window.verBar(v,v);
     });
   };
+  /* ══ v08.334 요청("화면이 열어져 있더라도 무조건 배포시 배포알림이 올수 있도록 해") ══
+     v08.328에서 감지 결함을 고쳤지만, 확실성을 더 높이기 위해 세 가지를 바꾼다.
+       ① 태그에 **Content-Length**를 더한다 — ETag를 안 주는 서버·CDN도 길이는 거의 항상 준다.
+          배포하면 파일 크기가 바뀌므로 이것만으로도 변경을 잡을 수 있다.
+       ② **안 보이는 탭도 건너뛰지 않는다** — 자리를 비운 사이 나간 배포를 놓치지 않는다
+          (브라우저가 배경 탭의 타이머를 알아서 늦추므로 부담은 크지 않다).
+       ③ **주기를 2분으로 줄이고**, 그와 별개로 **약 10분마다 버전 문자열을 직접 확인**한다
+          (`verByBody`) — 헤더가 무슨 이유로든 그대로여도 버전이 다르면 반드시 알린다.
+     HEAD는 본문을 받지 않아 가볍고, 본문 확인은 앞 256KB만 받는다. */
   const check=function(){
-    if(document.hidden)return;                                       // 안 보이는 탭은 건너뛴다
+    /* 시간 기준으로 정한다 — 호출 횟수로 세면 visibilitychange 같은 추가 호출 때문에 주기가
+       들쭉날쭉해진다. 마지막 본문 확인에서 5분이 지났으면 버전 문자열까지 확인한다. */
+    const deep=(Date.now()-(window.__verWatch.lastBody||0))>=5*60*1000;
     return fetch(url(),{method:'HEAD',cache:'no-store'}).then(function(r){
       if(!r||!r.ok)throw 0;
-      const et=String(r.headers.get('etag')||''), lm=String(r.headers.get('last-modified')||'');
-      if(!et&&!lm)throw 0;                                           // 헤더가 없다 → 버전 직접 읽기로
-      const tag=et+'|'+lm;
-      if(!window.__verWatch.base){ window.__verWatch.base=tag; return; }
-      if(tag===window.__verWatch.base)return;                        // 그대로 = 새 배포 없음
+      const et=String(r.headers.get('etag')||''),
+            lm=String(r.headers.get('last-modified')||''),
+            cl=String(r.headers.get('content-length')||'');
+      if(!et&&!lm&&!cl)throw 0;                                      // 판단할 헤더가 하나도 없다 → 버전 직접 읽기로
+      const tag=et+'|'+lm+'|'+cl;
+      if(!window.__verWatch.base){ window.__verWatch.base=tag; return deep?verByBody():undefined; }
+      if(tag===window.__verWatch.base)return deep?verByBody():undefined;   // 헤더는 그대로 — 그래도 가끔은 버전으로 재확인
       if(tag===window.__verWatch.dismissed)return;                   // 「나중에」를 누른 그 버전
       return readVer().then(function(v){ window.verBar(v,tag); });
     }).catch(function(){ return verByBody(); });
   };
   window.__verWatch.check=check;                 // 필요할 때(점검·테스트) 직접 한 번 돌릴 수 있게
   window.__verWatch.byBody=verByBody;            // 헤더 없이 버전만으로 확인(점검용)
-  const ms=+(window.__verWatch.ms||0)||5*60*1000;  // 확인 주기(기본 5분)
-  check();                                       // 기준값(ETag·Last-Modified) 먼저 확보
+  const ms=+(window.__verWatch.ms||0)||2*60*1000;  // 확인 주기(기본 2분)
+  check();                                       // 기준값 먼저 확보(+ 첫 회는 버전까지 확인)
   setInterval(check, ms);
-  /* v08.328 숨어 있던 탭은 check()를 건너뛴다 — 다시 보게 된 순간 한 번 확인해,
-     자리를 비운 사이에 나간 배포를 5분 더 기다리지 않게 한다. */
+  /* 다시 보게 된 순간에도 한 번 확인 — 주기를 기다리지 않는다 */
   document.addEventListener('visibilitychange',function(){ if(!document.hidden)check(); });
 };
 window.saveFail=function(on,kind,msg){
@@ -14760,6 +14768,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u62',d:'2026-09-16',tt:'배포 알림을 더 확실하게',
+  b:'화면을 열어 둔 채 배포가 나가면 반드시 알림 띠가 뜨도록 했습니다. 확인 주기를 2분으로 줄이고, 다른 창을 보고 있어도 건너뛰지 않으며, 10분마다 파일의 버전 번호를 직접 확인합니다. 자동 새로고침은 하지 않으니 입력 중이던 내용이 날아가지 않습니다.'},
+ {id:'u61',d:'2026-09-16',tt:'실적 분석 「도입 문의」 카드 정리 · 표 자리 변경',
+  b:'신청은 유형 이름과 상관없이 모두 도입문의로 보기로 확정해, 따로 두었던 「도입 문의」 카드를 없앴습니다. 「전체 문의」 카드 밑줄에 「일반 문의 N · 가입 신청 N · 요금제 신청 N」으로 구성이 적혀 있고, 이 값은 주간 실적 요약의 「도입문의」와 항상 같습니다. 채널 표는 「최종실적별」과 「요금제 상향 채널별」의 자리를 바꿨습니다.'},
  {id:'u60',d:'2026-09-16',tt:'통합현황 증감 안내 문구 정리 · 「증감 목록」 표 추가',
   b:'카드마다 붙던 「증감은 다른 날 파일을 한 번 더 올리면 표시됩니다」 같은 설명글을 모두 없앴습니다. 보여줄 값이 없으면 아무것도 표시하지 않습니다. 대신 화면 맨 아래에 「증감 목록」을 접이식 표로 두어, 지표별로 지난 업로드 값·지금 값·증감을 한눈에 볼 수 있습니다(기본은 접혀 있습니다).'},
  {id:'u59',d:'2026-09-16',tt:'주간 업무 현황의 링크(📎) 버튼에 색 입힘',
