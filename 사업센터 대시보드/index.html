@@ -970,6 +970,20 @@ table.t .na{color:#B6BCC6}
 .set-h{font-size:16px;font-weight:800;color:var(--tx1);display:flex;align-items:center;margin-bottom:14px}
 .set-x{margin-left:auto;cursor:pointer;color:var(--tx3);font-size:15px;font-weight:600}
 .set-x:hover{color:var(--tx1)}
+/* ══ v08.343 요청("정지업체 — 컨택한 곳과 컨택안한곳을 색으로 구분")
+      → v08.344 요청("컨택안한곳에 색칠")로 **칠하는 쪽을 뒤집었다** ══
+   기준은 **메모** — 그 칸은 v08.319부터 「정지 안내 통화 결과를 적는 자리」다. 메모가 있으면
+   한 번이라도 연락한 곳(컨택 완료), 비어 있으면 아직 안 한 곳으로 본다.
+     · **미컨택 = 연한 주황 배경 + 업체명 왼쪽 주황 막대** ← 아직 할 일이 남은 줄
+     · 컨택 완료 = 흰 배경 그대로(끝난 줄은 가라앉는다)
+   v08.343에서는 반대로 컨택한 쪽을 칠했다가 사용자 지시로 뒤집었다 — 이 화면은
+   「남은 곳에 전화를 거는」 화면이라 **남은 줄이 칠해져 있는 편**이 일하기 쉽다.
+   색만 쓰지 않고 막대를 함께 둔 이유 — 색을 구분하기 어려운 사람도 알아볼 수 있어야 한다.
+   ※ 색은 값을 직접 적는다 — `#ixHost` 안에서 색 변수가 재정의돼 있어 변수로 쓰면 다른 색이
+     나온다(v08.341·v08.343에서 연달아 걸린 함정). */
+#ixHost #s-suspend tr.sp-todo > td{background:#FFF8EC}
+#ixHost #s-suspend tr.sp-todo > td:first-child{box-shadow:inset 3px 0 0 #F5A623}
+#ixHost #s-suspend tr.sp-todo td b{color:#A85B00}
 /* v08.338 개선의견 알림 배지 — 상단바 버튼 안에 붙는 빨간 개수 */
 .idea-b{display:none;margin-left:5px;min-width:15px;height:15px;line-height:15px;padding:0 4px;
   border-radius:8px;background:#F1416C;color:#fff;font-size:9.5px;font-weight:800;font-style:normal;
@@ -2183,7 +2197,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.342';
+window.__APP_VER='v08.344';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8834,12 +8848,27 @@ window.__spF={q:'',pl:'',rs:'',mo:''};
    이 파일의 공통 규칙). 저장만 하고 화면은 그대로 둔다. */
 window.__spMemo=window.__spMemo||{};
 window.spMemoKey=function(x){ return String((x&&x.bz)||'').replace(/[^0-9]/g,'')||String((x&&x.nm)||''); };
-window.spMemoSet=function(key,v){
+window.spMemoSet=function(key,v,el){
   const t=String(v||'').trim();
   if(t)window.__spMemo[key]=t; else delete window.__spMemo[key];
   if(typeof IX_saveToSheet==='function')IX_saveToSheet('sp_memo',window.__spMemo);
+  /* ══ v08.343 요청("정지업체 — 컨택한 곳과 컨택안한곳을 색으로 구분") ══
+     메모를 적어 두면 그 자리에서 바로 색이 바뀌어야 한다. 다만 **목록 전체를 다시 그리면 안 된다**
+     (입력 칸이 새로 만들어져 커서·한글 조합이 끊긴다 — 공통 규칙). 그래서 **그 행의 class만** 바꾼다. */
+  try{
+    const tr=el&&el.closest?el.closest('tr'):null;
+    if(tr)tr.classList.toggle('sp-todo',!t);   /* v08.344 메모를 지우면 다시 「아직 안 한 곳」 색으로 */
+  }catch(e){}
   const c=document.getElementById('spMemoCnt');
-  if(c)c.textContent='메모 '+Object.keys(window.__spMemo).length.toLocaleString()+'건';
+  if(c)c.innerHTML=window.spCntHtml();
+};
+/* 컨택 현황 한 줄 — 「메모 N건」 대신 **컨택 / 미컨택**으로 적는다(색 구분의 범례 역할도 한다) */
+window.spCntHtml=function(){
+  const done=Object.keys(window.__spMemo||{}).length;
+  const all=(typeof window.suspendRowsAll==='function')?window.suspendRowsAll().length:0;
+  const left=Math.max(0,all-done);
+  return '<b style="color:var(--teal-dk)">컨택 '+done.toLocaleString()+'곳</b>'
+    +' · <b style="color:var(--orange)">미컨택 '+left.toLocaleString()+'곳</b>';
 };
 window.__spSort={k:'sp',dir:-1};
 window.suspendRowsAll=function(){
@@ -8958,7 +8987,9 @@ window.spPaint=function(){
     +th('memo','메모','190px')
     +'</tr></thead><tbody>'
     +(L.length?L.map(function(x){
-      return '<tr><td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
+      /* v08.344 메모가 **없으면** = 아직 연락하지 않은 곳 → 그 줄을 칠한다 */
+      const done=!!String(x.memo||'').trim();
+      return '<tr'+(done?'':' class="sp-todo"')+'><td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
         +'<td>'+(x.ow?IX_esc(x.ow):na)+'</td>'
         +'<td style="font-size:10.5px">'+(x.hp?IX_esc(x.hp):na)+'</td>'
         +'<td>'+(x.pl?IX_esc(x.pl):na)+'</td>'
@@ -8966,7 +8997,7 @@ window.spPaint=function(){
         +'<td>'+(x.sp?IX_esc(x.sp):na)+'</td>'
         +'<td>'+(x.se?IX_esc(x.se):na)+'</td>'
         +'<td><input value="'+IX_esc(x.memo).replace(/"/g,'&quot;')+'" placeholder="메모"'
-          +' onchange="spMemoSet(\''+IX_esc(window.spMemoKey(x)).replace(/'/g,"\\'")+'\',this.value)"'
+          +' onchange="spMemoSet(\''+IX_esc(window.spMemoKey(x)).replace(/'/g,"\\'")+'\',this.value,this)"'
           +' style="width:100%;font-size:10px;padding:3px 5px;border:1px solid var(--border);border-radius:5px"></td>'
         +'</tr>';
     }).join('')
@@ -8974,7 +9005,7 @@ window.spPaint=function(){
     +'</tbody></table>';
   const cc=document.getElementById('spCnt');
   if(cc)cc.innerHTML='조회 '+L.length.toLocaleString()+'건 / 전체 '+window.suspendRowsAll().length.toLocaleString()+'건'
-    +' <span id="spMemoCnt" style="margin-left:8px">메모 '+Object.keys(window.__spMemo||{}).length.toLocaleString()+'건</span>';
+    +' <span id="spMemoCnt" style="margin-left:8px">'+window.spCntHtml()+'</span>';
 };
 (function(){
   function suspendRender(){
@@ -14905,6 +14936,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u70',d:'2026-09-20',tt:'정지업체 — 아직 연락 안 한 곳을 색으로 표시',
+  b:'메모가 비어 있는 곳(= 아직 연락하지 않은 곳)이 연한 주황 배경에 업체명 왼쪽 주황 막대로 표시됩니다. 메모를 적으면 그 줄의 색이 즉시 사라져 처리한 곳이 한눈에 걸러집니다. 목록 위에 「컨택 N곳 · 미컨택 N곳」도 함께 나옵니다.'},
  {id:'u69',d:'2026-09-20',tt:'시장 현황도 같은 디자인으로',
   b:'시장 현황만 혼자 다른 모양(검은 배너·큰 제목·다른 카드)이었는데 나머지 화면과 같은 카드로 맞췄습니다. 맨 위 검은 띠도 흰 카드가 됩니다. 내용과 숫자는 그대로입니다.'},
  {id:'u68',d:'2026-09-20',tt:'정지업체 메모 열도 정렬 가능',
