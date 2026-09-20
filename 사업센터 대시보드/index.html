@@ -571,14 +571,14 @@ table.t .na{color:#B6BCC6}
    왼쪽 브랜드 색 띠 톤으로 맞췄다. */
 /* v07.55 화면 고정(sticky) 해제 — 스크롤할 때마다 따라다니며 칸반을 가려 불편했다(지적).
    대신 머리를 눌러 접을 수 있게 해, 자리를 차지하는 게 거슬리면 접어 두면 된다. */
-.keytask{border:1px solid var(--line);border-left:4px solid var(--teal);
+.keytask{border:1px solid var(--line);border-left:4px solid var(--flow-ac);
   border-radius:8px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:14px;padding:14px 16px}
 .kt-h{cursor:pointer;user-select:none;display:flex;align-items:center;gap:7px}
 .kt-h .kt-tg{margin-left:auto;font-size:10px;color:var(--tx3);font-weight:600}
 .keytask.fold .kt-grid{display:none}
 .keytask.fold{padding-bottom:11px}
 .keytask.fold .kt-h{margin-bottom:0}
-.keytask .kt-h{font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em;margin-bottom:10px}
+.keytask .kt-h{font-size:13px;font-weight:800;color:var(--flow-ti);letter-spacing:.02em;margin-bottom:10px}
 /* v06.94 팀 탭 「이달의 핵심과제」 — 본문 위계에 맞춰 한 단계 작게 */
 .kt-h.kt-h-sm{font-size:11.5px;margin-bottom:8px}
 .kt-h.kt-h-sm .mono{font-size:10px}
@@ -808,7 +808,7 @@ table.t .na{color:#B6BCC6}
 .bud input{width:126px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:700}
 .bud input.need{border-color:var(--amber);background:var(--b2)}
 .bud input.need::placeholder{color:var(--t2);font-weight:700}
-.bud .hd{background:var(--teal-lt);font-size:11px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em}
+.bud .hd{background:var(--teal-lt);font-size:11px;font-weight:800;color:var(--flow-ti);letter-spacing:.02em}
 .bud .bar{width:96px;height:8px;background:var(--gray-lt);border-radius:4px;overflow:hidden}
 .bud .bar i{display:block;height:100%;background:var(--teal)}
 .bud .bar i.over{background:var(--red)}
@@ -1117,58 +1117,76 @@ table.t .na{color:#B6BCC6}
 #ixHost .mprog .fl{height:100%;background:var(--teal);border-radius:3px}
 /* ══════════════════════════════════════════════════════════════════════════
    v08.339 요청("탭별로 상이한 디자인을 하나의 디자인으로 통일 — 기준은 주간회의탭 flow 스타일")
-   사용자 확정: **A안(CSS만 바꿔 모양 통일)** · 1단계 범위 **통합현황·월별·실적 관리 3개** ·
-   가져올 요소 **4가지 전부**(왼쪽 4px 청록 강조선 / 청록 굵은 제목 / 그림자·8px 모서리 /
-   블록을 흰 카드로 감싸기).
+   v08.341 요청("나머지 10개 화면도 확장해줘") — 범위를 `#ixHost .sect`로 넓혀 **IX 화면 전체**에 건다.
+   (1단계에서 통합현황·월별·실적 관리 3개로 먼저 확인받았고, 그 뒤 나머지로 확장한 것)
+
+   사용자 확정: **A안(CSS만 바꿔 모양 통일)** · 가져올 요소 **4가지 전부**
+   (왼쪽 4px 청록 강조선 / 청록 굵은 제목 / 그림자·8px 모서리 / 블록을 흰 카드로 감싸기).
 
    값은 주간회의의 `.keytask`·`.kt-h`에서 **그대로** 가져온다(새 값을 만들지 않는다):
-     카드 = 1px 테두리 + 왼쪽 4px var(--teal) + radius 8px + 0 2px 6px rgba(0,0,0,.06) + padding 14px 16px
-     제목 = 13px / 800 / var(--teal-dk) / letter-spacing .02em
+     카드 = 1px 테두리 + 왼쪽 4px #00C896 + radius 8px + 0 2px 6px rgba(0,0,0,.06) + padding 14px 16px
+     제목 = 13px / 800 / #00876A / letter-spacing .02em
+   ⚠ **색을 `var(--teal)`로 쓰지 않고 값을 직접 적는 이유** — `#ixHost`가 자기 안에서 `--teal`을
+     **#1BC5BD**(청록빛이 더 도는 색)로 다시 정의하고 있어, 변수로 쓰면 주간회의(#00C896)와
+     **다른 초록**이 나온다(v08.341에서 실측으로 확인: `rgb(27,197,189)`). 기준이 주간회의이므로
+     그 값을 직접 박는다. 아래 `--flow-*` 두 줄만 고치면 전체 색이 한 번에 바뀐다.
 
    **HTML·렌더 함수는 한 줄도 고치지 않는다** — 문제가 생기면 이 블록만 지우면 원래대로 돌아온다.
-   3개 화면(`#s-home`·`#s-monthly`·`#s-perfmg`)에만 걸어, 나머지 10개 화면은 종전 그대로다.
+   ※ `.sect`는 IX 화면(#s-home·#s-daily·#s-monthly·#s-cumul·#s-perfmg·#s-inq·#s-promo·#s-churn·
+     #s-suspend·#s-cust·#s-data 등)을 감싸는 공통 클래스다. 주간회의·팀 탭·세미나·활동 타임라인·
+     업데이트 내역은 `#ixHost` 밖이라 이 규칙이 닿지 않는다(그쪽은 이미 `.keytask` 계열을 쓴다).
    ────────────────────────────────────────────────────────────────────────── */
-#ixHost .flowui{}   /* (자리표시 — 아래 규칙들이 이 주석 묶음에 속함을 표시) */
+
+/* 기준색 — 주간회의와 같은 값. 여기 두 줄만 고치면 아래 규칙 전체에 반영된다. */
+#ixHost .sect{--flow-ac:#00C896;--flow-ti:#00876A}
 
 /* ① `.blk` — 이미 블록 단위 컨테이너라 여기에 카드 모양을 준다 */
-#ixHost #s-home .blk, #ixHost #s-monthly .blk, #ixHost #s-perfmg .blk{
-  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);
+#ixHost .sect .blk{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--flow-ac);
   border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.06);
   padding:14px 16px;margin:0 0 14px}
-#ixHost #s-home .blk-hd, #ixHost #s-monthly .blk-hd, #ixHost #s-perfmg .blk-hd{margin:0 0 10px}
-#ixHost #s-home .blk-ttl, #ixHost #s-monthly .blk-ttl, #ixHost #s-perfmg .blk-ttl{
-  font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em}
+#ixHost .sect .blk-hd{margin:0 0 10px}
+#ixHost .sect .blk-ttl{font-size:13px;font-weight:800;color:var(--flow-ti);letter-spacing:.02em}
 
 /* ② `.sec-label` + 바로 다음 형제 = 카드 한 장으로 묶는다.
       (제목과 내용이 형제로 나란히 놓인 구조라, 위/아래를 나눠 한 장처럼 보이게 한다.
        그림자는 아래쪽 요소에만 준다 — 둘 다 주면 맞닿는 선에 그림자가 보인다.) */
-#ixHost #s-home .sec-label, #ixHost #s-monthly .sec-label, #ixHost #s-perfmg .sec-label{
-  font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em;text-transform:none;
-  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);border-bottom:0;
+#ixHost .sect .sec-label{
+  font-size:13px;font-weight:800;color:var(--flow-ti);letter-spacing:.02em;text-transform:none;
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--flow-ac);border-bottom:0;
   border-radius:8px 8px 0 0;margin:0;padding:13px 16px 9px;gap:8px}
-#ixHost #s-home .sec-label::after, #ixHost #s-monthly .sec-label::after,
-#ixHost #s-perfmg .sec-label::after{display:none}      /* 회색 가로 구분선 제거 */
-#ixHost #s-home .sec-label + *, #ixHost #s-monthly .sec-label + *, #ixHost #s-perfmg .sec-label + *{
-  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);border-top:0;
+#ixHost .sect .sec-label::after{display:none}      /* 회색 가로 구분선 제거 */
+#ixHost .sect .sec-label + *{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--flow-ac);border-top:0;
   border-radius:0 0 8px 8px;box-shadow:0 2px 6px rgba(0,0,0,.06);
   padding:0 16px 14px;margin:0 0 14px}
 /* 위 묶음 안에 들어간 표·패널은 테두리를 두 번 그리지 않는다 */
-#ixHost #s-home .sec-label + * > .panel, #ixHost #s-monthly .sec-label + * > .panel,
-#ixHost #s-perfmg .sec-label + * > .panel,
-#ixHost #s-home .sec-label + .panel, #ixHost #s-monthly .sec-label + .panel,
-#ixHost #s-perfmg .sec-label + .panel{border:0;border-radius:0;box-shadow:none}
+#ixHost .sect .sec-label + * > .panel,
+#ixHost .sect .sec-label + .panel{border:0;border-radius:0;box-shadow:none}
 
 /* ③ 카드류 모서리를 8px로 맞춘다(주간회의와 같은 값) */
-#ixHost #s-home .kpi, #ixHost #s-monthly .kpi, #ixHost #s-perfmg .kpi,
-#ixHost #s-home .kcard, #ixHost #s-monthly .kcard, #ixHost #s-perfmg .kcard,
-#ixHost #s-home .panel, #ixHost #s-monthly .panel, #ixHost #s-perfmg .panel,
-#ixHost #s-home details.fold, #ixHost #s-monthly details.fold, #ixHost #s-perfmg details.fold{
+#ixHost .sect .kpi, #ixHost .sect .kcard, #ixHost .sect .panel, #ixHost .sect details.fold{
   border-radius:8px}
+/* ④ 제목 없이 화면에 통째로 놓인 패널(해지·재가입, 정지업체, 고객 검색, 신청 관리 등)도 같은 카드로.
+      `.sect`의 **직계 자식**만 골라, `.blk` 안이나 위 ② 묶음 안에 든 패널은 건드리지 않는다
+      (② 규칙이 더 구체적이라 그쪽이 이긴다 — 겹쳐도 테두리가 두 번 그려지지 않는다). */
+#ixHost .sect > .panel{
+  border-left:4px solid var(--flow-ac);box-shadow:0 2px 6px rgba(0,0,0,.06);margin:0 0 14px}
+
 /* 접이식 묶음(세부 지표 등)도 같은 카드로 — 주간회의의 접히는 블록과 결이 맞는다 */
-#ixHost #s-home details.fold, #ixHost #s-monthly details.fold, #ixHost #s-perfmg details.fold{
-  border-left:4px solid var(--teal);box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:14px}
-#ixHost #s-home details.fold > summary, #ixHost #s-monthly details.fold > summary,
-#ixHost #s-perfmg details.fold > summary{font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em}
+#ixHost .sect details.fold{
+  border-left:4px solid var(--flow-ac);box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:14px}
+#ixHost .sect details.fold > summary{font-size:13px;font-weight:800;color:var(--flow-ti);letter-spacing:.02em}
+
+/* ── v08.341 IX 화면 **밖**의 단순 화면도 같은 카드로 ──
+   세미나 운영(`.panel`)·활동 타임라인/업데이트 내역(`.act-list`)은 `#ixHost` 밖이라 위 규칙이
+   닿지 않는다. 표가 배경에 그냥 떠 있던 것을 주간회의와 같은 카드 안에 넣는다.
+   ※ **시장 현황(sales)과 팀 탭(마케팅·UX·영업)은 일부러 두었다** — 시장 현황은 독자적인
+     디자인 시스템을 통째로 이식한 화면이고, 팀 탭의 본체는 칸반 보드라 「블록 카드」 개념이
+     맞지 않는다(팀 탭의 「이달의 핵심과제」는 이미 주간회의와 같은 `.keytask`를 쓴다). */
+#page > .panel, #page .act-list{
+  background:#fff;border:1px solid var(--line);border-left:4px solid #00C896;
+  border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.06);margin:0 0 14px}
 
 /* KPI 카드 (블록 A·B 공용) */
 #ixHost .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
@@ -2142,7 +2160,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.340';
+window.__APP_VER='v08.341';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -14850,6 +14868,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u67',d:'2026-09-20',tt:'남은 화면도 주간회의 스타일로 통일',
+  b:'일별·누적·신청 관리·프로모션 종료·해지·재가입·정지업체·고객 검색·데이터 업로드, 그리고 세미나 운영·활동 타임라인·업데이트 내역까지 같은 카드 모양으로 맞췄습니다. 시장 현황과 팀 탭(칸반 보드)은 성격이 달라 그대로 두었습니다.'},
  {id:'u66',d:'2026-09-20',tt:'통합현황·월별·실적 관리 화면을 주간회의 스타일로 통일',
   b:'세 화면의 각 묶음을 주간회의처럼 왼쪽에 청록 세로선이 있는 흰 카드로 감싸고, 제목도 청록 굵은 글씨로 맞췄습니다. 숫자와 기능은 그대로이고 보이는 모양만 바뀌었습니다. 나머지 화면은 확인 후 차례로 적용합니다.'},
  {id:'u65',d:'2026-09-20',tt:'같은 버전인데 배포 알림이 뜨던 문제 수정',
