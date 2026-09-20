@@ -1115,6 +1115,61 @@ table.t .na{color:#B6BCC6}
 #ixHost .mprog{display:inline-flex;align-items:center;gap:6px;font-size:9.5px;color:var(--gray-md)}
 #ixHost .mprog .tr{width:64px;height:5px;background:var(--gray-lt);border-radius:3px;overflow:hidden}
 #ixHost .mprog .fl{height:100%;background:var(--teal);border-radius:3px}
+/* ══════════════════════════════════════════════════════════════════════════
+   v08.339 요청("탭별로 상이한 디자인을 하나의 디자인으로 통일 — 기준은 주간회의탭 flow 스타일")
+   사용자 확정: **A안(CSS만 바꿔 모양 통일)** · 1단계 범위 **통합현황·월별·실적 관리 3개** ·
+   가져올 요소 **4가지 전부**(왼쪽 4px 청록 강조선 / 청록 굵은 제목 / 그림자·8px 모서리 /
+   블록을 흰 카드로 감싸기).
+
+   값은 주간회의의 `.keytask`·`.kt-h`에서 **그대로** 가져온다(새 값을 만들지 않는다):
+     카드 = 1px 테두리 + 왼쪽 4px var(--teal) + radius 8px + 0 2px 6px rgba(0,0,0,.06) + padding 14px 16px
+     제목 = 13px / 800 / var(--teal-dk) / letter-spacing .02em
+
+   **HTML·렌더 함수는 한 줄도 고치지 않는다** — 문제가 생기면 이 블록만 지우면 원래대로 돌아온다.
+   3개 화면(`#s-home`·`#s-monthly`·`#s-perfmg`)에만 걸어, 나머지 10개 화면은 종전 그대로다.
+   ────────────────────────────────────────────────────────────────────────── */
+#ixHost .flowui{}   /* (자리표시 — 아래 규칙들이 이 주석 묶음에 속함을 표시) */
+
+/* ① `.blk` — 이미 블록 단위 컨테이너라 여기에 카드 모양을 준다 */
+#ixHost #s-home .blk, #ixHost #s-monthly .blk, #ixHost #s-perfmg .blk{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);
+  border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.06);
+  padding:14px 16px;margin:0 0 14px}
+#ixHost #s-home .blk-hd, #ixHost #s-monthly .blk-hd, #ixHost #s-perfmg .blk-hd{margin:0 0 10px}
+#ixHost #s-home .blk-ttl, #ixHost #s-monthly .blk-ttl, #ixHost #s-perfmg .blk-ttl{
+  font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em}
+
+/* ② `.sec-label` + 바로 다음 형제 = 카드 한 장으로 묶는다.
+      (제목과 내용이 형제로 나란히 놓인 구조라, 위/아래를 나눠 한 장처럼 보이게 한다.
+       그림자는 아래쪽 요소에만 준다 — 둘 다 주면 맞닿는 선에 그림자가 보인다.) */
+#ixHost #s-home .sec-label, #ixHost #s-monthly .sec-label, #ixHost #s-perfmg .sec-label{
+  font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em;text-transform:none;
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);border-bottom:0;
+  border-radius:8px 8px 0 0;margin:0;padding:13px 16px 9px;gap:8px}
+#ixHost #s-home .sec-label::after, #ixHost #s-monthly .sec-label::after,
+#ixHost #s-perfmg .sec-label::after{display:none}      /* 회색 가로 구분선 제거 */
+#ixHost #s-home .sec-label + *, #ixHost #s-monthly .sec-label + *, #ixHost #s-perfmg .sec-label + *{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--teal);border-top:0;
+  border-radius:0 0 8px 8px;box-shadow:0 2px 6px rgba(0,0,0,.06);
+  padding:0 16px 14px;margin:0 0 14px}
+/* 위 묶음 안에 들어간 표·패널은 테두리를 두 번 그리지 않는다 */
+#ixHost #s-home .sec-label + * > .panel, #ixHost #s-monthly .sec-label + * > .panel,
+#ixHost #s-perfmg .sec-label + * > .panel,
+#ixHost #s-home .sec-label + .panel, #ixHost #s-monthly .sec-label + .panel,
+#ixHost #s-perfmg .sec-label + .panel{border:0;border-radius:0;box-shadow:none}
+
+/* ③ 카드류 모서리를 8px로 맞춘다(주간회의와 같은 값) */
+#ixHost #s-home .kpi, #ixHost #s-monthly .kpi, #ixHost #s-perfmg .kpi,
+#ixHost #s-home .kcard, #ixHost #s-monthly .kcard, #ixHost #s-perfmg .kcard,
+#ixHost #s-home .panel, #ixHost #s-monthly .panel, #ixHost #s-perfmg .panel,
+#ixHost #s-home details.fold, #ixHost #s-monthly details.fold, #ixHost #s-perfmg details.fold{
+  border-radius:8px}
+/* 접이식 묶음(세부 지표 등)도 같은 카드로 — 주간회의의 접히는 블록과 결이 맞는다 */
+#ixHost #s-home details.fold, #ixHost #s-monthly details.fold, #ixHost #s-perfmg details.fold{
+  border-left:4px solid var(--teal);box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:14px}
+#ixHost #s-home details.fold > summary, #ixHost #s-monthly details.fold > summary,
+#ixHost #s-perfmg details.fold > summary{font-size:13px;font-weight:800;color:var(--teal-dk);letter-spacing:.02em}
+
 /* KPI 카드 (블록 A·B 공용) */
 #ixHost .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
 #ixHost .kpi{background:#fff;border:1px solid var(--border);border-radius:11px;padding:12px 13px;position:relative}
@@ -2087,7 +2142,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.338';
+window.__APP_VER='v08.340';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -14171,7 +14226,19 @@ window.verWatchStart=function(){
       if(!window.__verWatch.base){ window.__verWatch.base=tag; return deep?verByBody():undefined; }
       if(tag===window.__verWatch.base)return deep?verByBody():undefined;   // 헤더는 그대로 — 그래도 가끔은 버전으로 재확인
       if(tag===window.__verWatch.dismissed)return;                   // 「나중에」를 누른 그 버전
-      return readVer().then(function(v){ window.verBar(v,tag); });
+      /* ══ v08.340 버그 수정(사용자 신고: "최신 버전인데도 계속 배포버전 띠가 생김" —
+         띠에 「새 버전 v08.338이 배포되었습니다 — 지금 보고 있는 화면은 v08.338」로 같은 번호) ══
+         원인: 헤더(ETag·Last-Modified·Content-Length)가 달라지기만 하면 **버전을 확인하지 않고**
+         곧바로 띠를 띄웠다. CDN은 같은 파일이라도 엣지 노드·재검증에 따라 ETag를 다르게 줄 수 있어
+         (그리고 매번 붙이는 `?__v=` 때문에 캐시 키도 달라진다) 배포가 없어도 태그가 바뀐다.
+         조치: **버전 문자열이 실제로 다를 때만** 띄운다. 같으면 새 태그를 기준값으로 받아들이고
+         조용히 넘어간다 — 버전을 못 읽었을 때도 띄우지 않는다(확인 못 한 것으로 알리지 않는다).
+         이러면 다음 검사에서 그 태그는 「그대로」가 되어 같은 알림이 반복되지 않는다. */
+      return readVer().then(function(v){
+        const cur=String(window.__APP_VER||'');
+        if(!v||(cur&&v===cur)){ window.__verWatch.base=tag; return; }   // 헤더만 바뀐 것 — 같은 버전
+        window.verBar(v,tag);
+      });
     }).catch(function(){ return verByBody(); });
   };
   window.__verWatch.check=check;                 // 필요할 때(점검·테스트) 직접 한 번 돌릴 수 있게
@@ -14783,6 +14850,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u66',d:'2026-09-20',tt:'통합현황·월별·실적 관리 화면을 주간회의 스타일로 통일',
+  b:'세 화면의 각 묶음을 주간회의처럼 왼쪽에 청록 세로선이 있는 흰 카드로 감싸고, 제목도 청록 굵은 글씨로 맞췄습니다. 숫자와 기능은 그대로이고 보이는 모양만 바뀌었습니다. 나머지 화면은 확인 후 차례로 적용합니다.'},
+ {id:'u65',d:'2026-09-20',tt:'같은 버전인데 배포 알림이 뜨던 문제 수정',
+  b:'배포가 없었는데도 「새 버전이 배포되었습니다」 띠가 뜨고, 띠에 적힌 버전이 지금 화면과 같은 번호인 경우가 있었습니다. 이제 버전 번호가 실제로 다를 때만 알립니다.'},
  {id:'u64',d:'2026-09-16',tt:'개선의견이 등록되면 알려줍니다',
   b:'새 개선의견이 올라오거나 내 글에 상태·회신이 달리면 오른쪽 위 버튼에 빨간 숫자 배지가 붙고, 접속 직후 한 번 알림이 뜹니다. 개선의견 화면을 열면 읽음 처리되어 배지가 사라집니다(내가 쓴 글은 세지 않습니다).'},
  {id:'u63',d:'2026-09-16',tt:'개선의견 접수 기능 추가',
