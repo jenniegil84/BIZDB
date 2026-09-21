@@ -2197,7 +2197,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.344';
+window.__APP_VER='v08.345';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -6202,33 +6202,49 @@ function custToMg(c,step,status,problem,action,dmn){
     const snaps=(Array.isArray(window.__insSnap)?window.__insSnap:[])
       .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));})
       .slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
-    if(snaps.length<2)return '';
+    if(!snaps.length)return '';
+    /* ══ v08.345 요청("날짜별 지표를 보여줘") ══
+       종전에는 **마지막 두 기록**만 「그때 값 / 지금 값 / 증감」으로 보여줬다. 스냅샷이 여러 날
+       쌓이면 그 사이 흐름을 볼 수 없어, **날짜를 열로 펴서** 지표별 값을 한 표에 늘어놓는다.
+         · 행 = 지표 12종(고정) · 열 = 업로드한 날(최근 10개, 왼쪽이 오래된 날)
+         · 그 날 기록이 없는 칸은 「—」 — 0으로 지어내지 않는다(그 날 그 화면을 안 열었을 수 있다)
+         · 맨 오른쪽 「증감」은 그 지표의 **마지막 두 기록** 차이(카드에 뜨는 값과 같다)
+       값이 한 번도 없는 지표는 줄을 만들지 않는다. */
+    const DAYS=snaps.slice(-10);
     const fmt=function(v,dec){
       return (v==null)?'<span class="na">—</span>'
         : Number(v).toLocaleString(undefined,dec?{minimumFractionDigits:1,maximumFractionDigits:1}:undefined);
     };
-    const rows=[]; let prevD='';
+    const rows=[];
     SPEC.forEach(function(o){
       const has=snaps.filter(function(x){return typeof x[o.k]==='number'&&isFinite(x[o.k]);});
-      if(has.length<2)return;                          // 비교할 값이 없는 지표는 줄을 만들지 않는다
-      const last=has[has.length-1], prev=has[has.length-2];
-      if(!prevD)prevD=prev.d;
-      const d1=Math.round((last[o.k]-prev[o.k])*(o.dec?10:1))/(o.dec?10:1);
-      const col=(d1>0)?'var(--teal-dk)':((d1===0)?'var(--gray-md)':'var(--red)');
-      rows.push('<tr><td style="text-align:left">'+o.l+'</td>'
-        +'<td style="font-size:9.5px;color:var(--gray-md)">'+IX_esc(prev.d)+'</td>'
-        +'<td>'+fmt(prev[o.k],o.dec)+o.u+'</td>'
-        +'<td><b>'+fmt(last[o.k],o.dec)+o.u+'</b></td>'
-        +'<td style="color:'+col+';font-weight:700">'
-          +((d1>0)?'▲ +':((d1===0)?'— ':'▼ '))
-          +fmt(Math.abs(d1),o.dec)+(o.dec?'%p':o.u)+'</td></tr>');
+      if(!has.length)return;                        // 한 번도 기록된 적 없는 지표는 줄을 만들지 않는다
+      let cells='';
+      DAYS.forEach(function(x){
+        const v=(typeof x[o.k]==='number'&&isFinite(x[o.k]))?x[o.k]:null;
+        cells+='<td>'+fmt(v,o.dec)+'</td>';
+      });
+      let dcell='<span class="na">—</span>';
+      if(has.length>=2){
+        const last=has[has.length-1], prev=has[has.length-2];
+        const d1=Math.round((last[o.k]-prev[o.k])*(o.dec?10:1))/(o.dec?10:1);
+        const col=(d1>0)?'var(--teal-dk)':((d1===0)?'var(--gray-md)':'var(--red)');
+        dcell='<b style="color:'+col+'">'+((d1>0)?'▲ +':((d1===0)?'— ':'▼ '))
+          +fmt(Math.abs(d1),o.dec)+(o.dec?'%p':o.u)+'</b>';
+      }
+      rows.push('<tr><td style="text-align:left;white-space:nowrap">'+o.l
+        +'<span style="color:var(--gray-md);font-size:9px;margin-left:4px">('+o.u+')</span></td>'
+        +cells+'<td>'+dcell+'</td></tr>');
     });
     if(!rows.length)return '';
-    return '<details class="fold"><summary>증감 목록 <span class="fs">지난 업로드('
-      +IX_esc(prevD)+') 대비 · '+rows.length+'개 지표</span></summary>'
+    const head=DAYS.map(function(x){
+      const d=String(x.d);
+      return '<th style="width:82px;white-space:nowrap">'+IX_esc(d.slice(2).replace(/-/g,'.'))+'</th>';
+    }).join('');
+    return '<details class="fold"><summary>날짜별 지표 <span class="fs">업로드한 날 기준 · '
+      +rows.length+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
       +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
-      +'<th style="text-align:left;width:190px">지표</th><th style="width:90px">지난 업로드</th>'
-      +'<th style="width:110px">그때 값</th><th style="width:110px">지금 값</th><th style="width:110px">증감</th>'
+      +'<th style="text-align:left;width:180px">지표</th>'+head+'<th style="width:104px">증감</th>'
       +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div></details>';
   };
   const _srStat=(function(){
@@ -6424,7 +6440,7 @@ function custToMg(c,step,status,problem,action,dmn){
     </div>
   </div>
 
-  <!-- v08.330 증감 목록 — 지표별 「지난 업로드 대비」를 한 표로. 기본은 접혀 있다(요청). -->
+  <!-- v08.330 증감 목록 → v08.345 「날짜별 지표」 — 업로드한 날을 열로 편 표. 기본은 접혀 있다. -->
   ${_homeDeltaTable()}
 `;
   }
@@ -14936,6 +14952,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u71',d:'2026-09-21',tt:'통합현황 「증감 목록」을 「날짜별 지표」로',
+  b:'마지막 두 번만 비교해 보여주던 표를, 업로드한 날을 가로로 펴서 지표별 값이 날짜마다 어떻게 변해 왔는지 볼 수 있게 바꿨습니다(최근 10회). 그 날 기록이 없는 칸은 「—」로 둡니다. 맨 오른쪽 증감은 그 지표의 마지막 두 기록 차이입니다.'},
  {id:'u70',d:'2026-09-20',tt:'정지업체 — 아직 연락 안 한 곳을 색으로 표시',
   b:'메모가 비어 있는 곳(= 아직 연락하지 않은 곳)이 연한 주황 배경에 업체명 왼쪽 주황 막대로 표시됩니다. 메모를 적으면 그 줄의 색이 즉시 사라져 처리한 곳이 한눈에 걸러집니다. 목록 위에 「컨택 N곳 · 미컨택 N곳」도 함께 나옵니다.'},
  {id:'u69',d:'2026-09-20',tt:'시장 현황도 같은 디자인으로',
