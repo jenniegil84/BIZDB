@@ -2197,7 +2197,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.349';
+window.__APP_VER='v08.350';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3643,6 +3643,48 @@ function xlIdxLoose(hdr,names){
   return -1;
 }
 // 세무사무소목록 → 고객 현황 지표
+/* ══ v08.350 요청("증감은 최근 업데이트전과 후를 비교해줘") ══
+   종전 스냅샷(`__insSnap`)은 **하루에 한 칸**이었다 — 같은 날 두 번 올리면 먼저 기록해 둔
+   「업로드 전」 값을 덮어써 버려, 그 날의 변화를 되짚을 수 없었다(비교 상대가 어제 값이 된다).
+   이제 **값이 달라질 때마다 새 칸을 덧붙인다**(하루에 여러 칸이 생길 수 있다).
+     · 기록에 `t`(기록 시각 HH:MM)를 함께 남겨 같은 날 안에서도 순서를 알 수 있게 한다
+     · 정렬 키는 `d`+`t` — 날짜만으로 정렬하면 같은 날 순서가 보장되지 않는다
+     · 증감 = 그 지표의 **마지막 두 기록** 차이 = 「최근 업로드 직전 → 직후」
+   `__snapLatest`는 "지금까지 기록된 그 지표의 마지막 값"을 돌려준다 — 적립 지점이 두 곳
+   (세무사무소목록 업로드 / 통합현황 렌더)이고 서로 담는 필드가 달라, 레코드 하나가 아니라
+   **전체에서 그 필드를 가진 마지막 값**을 찾아야 바뀌었는지 판단할 수 있다. */
+window.__snapLatest=function(arr,key){
+  for(let k=(arr||[]).length-1;k>=0;k--){
+    const v=arr[k]&&arr[k][key];
+    if(typeof v==='number'&&isFinite(v))return v;
+  }
+  return null;
+};
+window.__snapNowT=function(){
+  const d=new Date(), z=function(n){return (n<10?'0':'')+n;};
+  return z(d.getHours())+':'+z(d.getMinutes());
+};
+window.__snapSort=function(arr){
+  return arr.sort(function(x,y){
+    return (String(x.d)+' '+String(x.t||'')).localeCompare(String(y.d)+' '+String(y.t||''));
+  });
+};
+/* 적립 지점이 두 곳(세무사무소목록 업로드 = 인사이트 3종 / 통합현황 렌더 = 통합현황 지표)인데,
+   업로드하면 곧바로 화면이 다시 그려져 **둘은 사실상 같은 한 번의 업데이트**다. 그냥 각각
+   칸을 만들면 같은 시각에 반쪽짜리 칸이 두 개 생겨 표가 읽히지 않는다.
+     · 마지막 칸이 **오늘 · 10분 이내 · 겹치는 값이 없다**면 → 그 칸에 필드를 더한다(같은 업데이트)
+     · 같은 필드를 **다른 값으로** 다시 쓰는 것이면 → 새 칸(= 새 업데이트) */
+window.__snapPush=function(arr,rec){
+  const now=Date.now(), last=arr.length?arr[arr.length-1]:null;
+  const keys=Object.keys(rec).filter(function(k){return k!=='d'&&k!=='t'&&k!=='ts';});
+  const mergeable=!!last&&last.d===rec.d&&typeof last.ts==='number'&&(now-last.ts)<=600000
+    &&keys.every(function(k){return last[k]===undefined||last[k]===rec[k];});
+  if(mergeable){ Object.assign(last,rec); last.ts=now; }
+  else { arr.push(Object.assign({},rec,{ts:now})); }
+  window.__snapSort(arr);
+  while(arr.length>60)arr.shift();
+  return arr;
+};
 function xlParseOffice(rows,hdr){
   const iNm=xlIdx(hdr,'이용기관명'), iSt=xlIdx(hdr,'상태',0), iPl=xlIdx(hdr,'이용요금제'),
         iRs=xlIdx(hdr,'해지사유');
@@ -3859,9 +3901,10 @@ function xlParseOffice(rows,hdr){
      · 점 하나 = **업로드한 날**(TODAY). 사용건수는 원천에서 매일 늘어나므로, 파일 기준일(파일 안의
        가장 늦은 날짜)로 키를 잡으면 그 날짜가 며칠씩 그대로일 때 점이 늘지 않는다. 파일 기준일은
        참고용으로 `bd`에 함께 담는다(오늘 이후 날짜는 제외 — 인사이트 해지일 등 미래 날짜가 있다)
-     · 같은 날 다시 올리면 덮어쓴다(하루에 여러 번 올려도 점은 하나)
+     · v08.350부터 **같은 날 다시 올려도 덮어쓰지 않는다** — 값이 달라졌으면 새 칸을 덧붙인다
+       (덮어쓰면 「업로드 전」 값이 사라져 그 날의 증감을 볼 수 없다). 값이 같으면 기록하지 않는다.
      · 컬럼이 없으면 그 항목만 null(0으로 지어내지 않는다)
-     · 최근 36개만 보관 */
+     · 최근 60개만 보관 */
   (function(){
     try{
       const C=window.__xlOfficeCols||{};
@@ -3889,10 +3932,14 @@ function xlParseOffice(rows,hdr){
                   tax:t.has?t.sum:null,  taxU:t.has?t.used:null };
       const arr=(Array.isArray(window.__insSnap)?window.__insSnap.slice():[])
         .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));});
-      const i=arr.map(function(x){return x.d;}).indexOf(rec.d);
-      if(i>=0)arr[i]=rec; else arr.push(rec);
-      arr.sort(function(x,y){return String(x.d).localeCompare(String(y.d));});
-      while(arr.length>36)arr.shift();
+      /* v08.350 — 세 지표 중 하나라도 지금까지의 마지막 값과 다를 때만 새 칸을 덧붙인다 */
+      const changed=['all','fund','tax'].some(function(k){
+        const v=rec[k];
+        return (typeof v==='number'&&isFinite(v))&&window.__snapLatest(arr,k)!==v;
+      });
+      if(!changed)return;
+      rec.t=window.__snapNowT();
+      window.__snapPush(arr,rec);
       window.__insSnap=arr; IX_saveToSheet('ins_snap',arr);
     }catch(e){ try{console.warn('[인사이트 스냅샷 적립 실패]',e);}catch(x){} }
   })();
@@ -6081,9 +6128,13 @@ function custToMg(c,step,status,problem,action,dmn){
        · 스냅샷이 1회뿐이면 표 대신 안내만 둔다
      업로드를 거른 달이 있으면 그 구간은 여러 달이 합쳐진 값이므로, 비교한 두 기준일을 함께 적는다. */
   const _insMonthlyHTML=function(){
+    /* v08.350 — 레코드가 「인사이트만 담긴 칸」과 「통합현황 지표만 담긴 칸」으로 나뉘게 되어,
+       달의 마지막 칸이 인사이트 값이 없는 칸일 수 있다. 인사이트 값이 든 칸만 추린다. */
     const raw=(Array.isArray(window.__insSnap)?window.__insSnap:[])
-      .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));})
-      .slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
+      .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''))
+        &&['all','fund','tax'].some(function(k){return typeof x[k]==='number'&&isFinite(x[k]);});})
+      .slice();
+    window.__snapSort(raw);
     const box=function(inner){return '<div style="margin-top:10px">'+inner+'</div>';};
     /* v08.330 — 보여줄 달이 없으면 표도 안내도 두지 않는다(설명글 제거 요청) */
     if(raw.length<2)return '';
@@ -6133,7 +6184,14 @@ function custToMg(c,step,status,problem,action,dmn){
      · 적립 위치: **이 화면을 그릴 때**(아래 `_homeSnapPut({...})`). 화면에 찍는 값 그대로를
        기록하므로 카드 숫자와 스냅샷이 구조적으로 어긋날 수 없다.
      · 저장 부담: 값이 **실제로 달라졌을 때만** 저장한다(렌더마다 쓰지 않는다).
-     · 그릇은 기존 `__insSnap`(STATE_MAP `ins_snap`)을 그대로 쓴다 — 같은 날 레코드에 필드만 더한다.
+     · 그릇은 기존 `__insSnap`(STATE_MAP `ins_snap`)을 그대로 쓴다.
+     · v08.350 — 같은 날 레코드에 **합치지 않는다**. 값이 달라졌으면 `{d,t,...}` 새 칸을 덧붙여
+       「업로드 전」 값을 남긴다(합치면 같은 날 두 번째 업로드 때 전 값이 지워진다).
+     · v08.350 — 「달라졌나」의 비교 대상도 **오늘 레코드가 아니라 지금까지의 마지막 값**이다.
+       종전에는 새 날이면 오늘 레코드가 없어 모든 값이 「달라짐」으로 잡혀, **값이 그대로여도
+       날마다 칸이 하나씩 생겼다**. 그래서 마지막 두 칸이 같은 값이 되고 증감이 늘 0으로 보였다
+       (사용자 지적: "증감은 최근 업데이트전과 후를 비교해줘"). 이제 실제로 값이 바뀐 때만
+       칸이 생기므로, 마지막 두 칸의 차이가 곧 「최근 업데이트 전 → 후」다.
      · 없는 값(null)은 기록하지 않는다 — 0으로 지어내면 다음 업로드에서 가짜 증감이 생긴다.
      · 이번 배포 이후 쌓이는 스냅샷부터 비교되므로 **처음 한 번은 「—」**로 나온다(안내 문구). */
   const _homeSnapPut=function(rec){
@@ -6141,18 +6199,16 @@ function custToMg(c,step,status,problem,action,dmn){
       if(!rec)return;
       const arr=(Array.isArray(window.__insSnap)?window.__insSnap.slice():[])
         .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));});
-      let i=-1; for(let k=0;k<arr.length;k++){ if(arr[k].d===TODAY)i=k; }
-      const rc=(i>=0)?Object.assign({},arr[i]):{d:TODAY};
-      let changed=false;
+      const rc={}; let changed=false;
       Object.keys(rec).forEach(function(k){
         const v=rec[k];
         if(typeof v!=='number'||!isFinite(v))return;     // 값이 없으면 기록하지 않는다
-        if(rc[k]!==v){ rc[k]=v; changed=true; }
+        rc[k]=v;
+        if(window.__snapLatest(arr,k)!==v)changed=true;  // 지금까지의 마지막 값과 다른가
       });
       if(!changed)return;                                 // 바뀐 게 없으면 저장하지 않는다
-      if(i>=0)arr[i]=rc; else arr.push(rc);
-      arr.sort(function(x,y){return String(x.d).localeCompare(String(y.d));});
-      while(arr.length>36)arr.shift();
+      rc.d=TODAY; rc.t=window.__snapNowT();
+      window.__snapPush(arr,rc);
       window.__insSnap=arr;
       if(typeof IX_saveToSheet==='function')IX_saveToSheet('ins_snap',arr);
     }catch(e){ try{console.warn('[통합현황 스냅샷 적립 실패]',e);}catch(x){} }
@@ -6161,10 +6217,11 @@ function custToMg(c,step,status,problem,action,dmn){
   /* onDark=true면 어두운 카드(플러스 전환율 hero) 위에 올라가므로 글자색을 밝게 바꾼다 —
      기본 회색(var(--gray-md))은 남색 배경에서 거의 읽히지 않는다. */
   const _homeDelta=function(key,unit,dec,onDark){
-    const arr=(Array.isArray(window.__insSnap)?window.__insSnap:[])
+    /* v08.350 — 같은 날에도 칸이 여러 개일 수 있어 날짜만으로 정렬하면 순서가 어긋난다(d+t로 정렬) */
+    const arr=window.__snapSort((Array.isArray(window.__insSnap)?window.__insSnap:[])
       .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''))
                              &&typeof x[key]==='number'&&isFinite(x[key]);})
-      .slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
+      .slice());
     const base=onDark?'rgba(255,255,255,.72)':'var(--gray-md)';
     /* v08.330 요청("증감은 다른 날 파일을 한번 더 올리면 표시됩니다 같은 설명글은 모두 제거해")
        — 비교할 스냅샷이 없으면 **아무것도 그리지 않는다**(카드 안 설명 문장 금지 규칙과도 맞는다). */
@@ -6199,17 +6256,19 @@ function custToMg(c,step,status,problem,action,dmn){
       {k:'srJn', l:'가입거래처수',     u:'곳'},
       {k:'srHj', l:'해지거래처수',     u:'곳'}
     ];
-    const snaps=(Array.isArray(window.__insSnap)?window.__insSnap:[])
+    const snaps=window.__snapSort((Array.isArray(window.__insSnap)?window.__insSnap:[])
       .filter(function(x){return x&&/^\d{4}-\d{2}-\d{2}$/.test(String(x.d||''));})
-      .slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
+      .slice());
     if(!snaps.length)return '';
     /* ══ v08.345 요청("날짜별 지표를 보여줘") ══
        종전에는 **마지막 두 기록**만 「그때 값 / 지금 값 / 증감」으로 보여줬다. 스냅샷이 여러 날
-       쌓이면 그 사이 흐름을 볼 수 없어, **날짜를 열로 펴서** 지표별 값을 한 표에 늘어놓는다.
-         · 행 = 지표 12종(고정) · 열 = 업로드한 날(최근 10개, 왼쪽이 오래된 날)
-         · 그 날 기록이 없는 칸은 「—」 — 0으로 지어내지 않는다(그 날 그 화면을 안 열었을 수 있다)
+       쌓이면 그 사이 흐름을 볼 수 없어, **기록을 열로 펴서** 지표별 값을 한 표에 늘어놓는다.
+         · 행 = 지표 12종(고정) · 열 = 업로드 회차(최근 10칸, 왼쪽이 오래된 것)
+         · 기록이 없는 칸은 「—」 — 0으로 지어내지 않는다(그때 그 화면을 안 열었을 수 있다)
          · 맨 오른쪽 「증감」은 그 지표의 **마지막 두 기록** 차이(카드에 뜨는 값과 같다)
-       값이 한 번도 없는 지표는 줄을 만들지 않는다. */
+       값이 한 번도 없는 지표는 줄을 만들지 않는다.
+       v08.350 — 열이 「날」이 아니라 「기록」이다. 같은 날 두 번 올리면 칸이 두 개 생기므로
+       머리글에 시각을 함께 적어 어느 칸끼리 비교한 것인지(= 맨 오른쪽 증감) 눈으로 따라갈 수 있다. */
     const DAYS=snaps.slice(-10);
     const fmt=function(v,dec){
       return (v==null)?'<span class="na">—</span>'
@@ -6237,14 +6296,21 @@ function custToMg(c,step,status,problem,action,dmn){
         +cells+'<td>'+dcell+'</td></tr>');
     });
     if(!rows.length)return '';
+    /* 같은 날이 두 칸 이상이면 그 날 칸들에만 시각을 덧붙인다 — 매번 시각을 적으면 지저분해진다 */
+    const dayCnt={};
+    DAYS.forEach(function(x){ dayCnt[String(x.d)]=(dayCnt[String(x.d)]||0)+1; });
     const head=DAYS.map(function(x){
-      const d=String(x.d);
-      return '<th style="width:82px;white-space:nowrap">'+IX_esc(d.slice(2).replace(/-/g,'.'))+'</th>';
+      const d=String(x.d), dup=dayCnt[d]>1;
+      return '<th style="width:82px;white-space:nowrap">'+IX_esc(d.slice(2).replace(/-/g,'.'))
+        +(dup&&x.t?'<div style="font-weight:400;color:var(--gray-md);font-size:9px">'+IX_esc(String(x.t))+'</div>':'')
+        +'</th>';
     }).join('');
-    return '<details class="fold"><summary>날짜별 지표 <span class="fs">업로드한 날 기준 · '
+    return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
       +rows.length+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
       +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
-      +'<th style="text-align:left;width:180px">지표</th>'+head+'<th style="width:104px">증감</th>'
+      +'<th style="text-align:left;width:180px">지표</th>'+head
+      +'<th style="width:112px">증감'
+      +'<div style="font-weight:400;color:var(--gray-md);font-size:9px">최근 업로드 전 → 후</div></th>'
       +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div></details>';
   };
   const _srStat=(function(){
@@ -14946,6 +15012,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u75',d:'2026-09-23',tt:'통합현황 증감 = 「최근 업데이트 전 → 후」',
+  b:'증감이 늘 「0」으로 보이던 것을 고쳤습니다. 종전에는 값이 그대로여도 화면을 열기만 하면 그 날 칸이 하나씩 생겨, 마지막 두 칸이 같은 값이 되는 일이 잦았습니다. 이제 **값이 실제로 달라졌을 때만** 칸이 생기고, **같은 날 두 번 올려도 앞 값을 덮어쓰지 않습니다**. 그래서 증감은 언제나 「가장 최근 업데이트 직전 → 직후」의 차이입니다. 「날짜별 지표」 표에서 같은 날이 두 칸 이상이면 머리글에 시각이 함께 나옵니다.'},
  {id:'u74',d:'2026-09-23',tt:'「전체 가입 현황」 첫 줄을 「총 가입수」로',
   b:'신규 가입과 재가입을 따로 세던 두 줄을, 둘을 합한 「총 가입수」 한 줄로 바꿨습니다(2026년 86+11=97건). 재가입만 따로 보고 싶을 때를 위해 바로 아래 「└ 재가입」 줄은 그대로 남겨, 시스템 「세무사무소현황」의 재가입수와도 계속 대조할 수 있습니다.'},
  {id:'u73',d:'2026-09-23',tt:'「전체 가입 현황」을 시스템 현황과 같은 네 줄로',
