@@ -2197,7 +2197,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.348';
+window.__APP_VER='v08.349';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -13591,18 +13591,24 @@ function planJoinTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   /* ══ v08.348 사용자 확정("전체가입현황은 가입수,재가입수,정지수,해지수를 보여줘") ══
-     이 표를 시스템에서 받는 **「세무사무소현황」 시트와 1:1로 같은 네 줄**로 맞춘다.
+     ══ v08.349 사용자 확정("재가입수를 가입수에 포함해서 총 가입수로 표현해줘") ══
+     v08.349부터 첫 줄은 **총 가입수 = 가입수 + 재가입수**(신규·재가입을 한 숫자로 본다).
+     재가입은 그 아래 「└ 재가입」 보조 줄로 남긴다 — 시스템 「세무사무소현황」의 재가입수와
+     그대로 대조할 수 있어야 하기 때문. 합계가 어긋나지 않도록 rows.jn+rows.rj를 **더해서**
+     만든다(joinSplitCount('join')은 한 달에 가입·재가입이 겹친 곳을 한 번만 세므로 쓰지 않음).
+     이 표를 시스템에서 받는 **「세무사무소현황」 시트와 1:1로 대조**할 수 있게 맞춘다.
      회의에서 두 자료를 나란히 놓고 그대로 대조할 수 있어야 한다는 뜻이다.
        가입수 = 가입일시 · 재가입수 = 재가입일시 · 정지수 = 정지일시 · 해지수 = 해지일시
      2026 실데이터 대조(2026-09-23 파일): 86 · 11 · 91 · 115 — 시스템과 전량 일치.
      ※ 플러스·리포트·개업세무사·요금제 상향은 **위 「월별 실적 현황」 표가 담당**한다.
        v08.346~v08.347에서 이 표에 얹었다가, 시스템과 맞대는 표라는 성격이 분명해져 덜어냈다.
      ※ 순증(가입+재가입−해지)은 요청에 없어 넣지 않았다 — 필요하면 한 줄만 더하면 된다. */
-  const rows={jn:{},rj:{},sp:{},cn:{}};
+  const rows={tj:{},jn:{},rj:{},sp:{},cn:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
     rows.jn[m]=future(m)?null:window.joinSplitCount('join_n',r[0],r[1]);
     rows.rj[m]=future(m)?null:window.joinSplitCount('join_r',r[0],r[1]);
+    rows.tj[m]=future(m)?null:(rows.jn[m]+rows.rj[m]);
     rows.sp[m]=future(m)?null:window.joinSplitCount('pause', r[0],r[1]);
     rows.cn[m]=future(m)?null:window.joinSplitCount('churn', r[0],r[1]);
   });
@@ -13616,19 +13622,20 @@ function planJoinTableHtml(){
   };
   const table='<table class="wk-mtbl" style="font-size:10.5px;table-layout:fixed">'+wkMonColgroup()+'<thead><tr><th style="text-align:left">구분</th>'
     +months.map(function(m){return '<th style="text-align:center'+wkMonHl(y,m,1)+'">'+m+'월</th>';}).join('')+'<th style="text-align:center">합계</th></tr></thead><tbody>'
-    +tr('가입수',rows.jn,'font-weight:700')
-    +tr('재가입수',rows.rj)
+    +tr('총 가입수',rows.tj,'font-weight:700')
+    +tr('&nbsp;&nbsp;└ 재가입',rows.rj,'color:var(--muted)')
     +tr('정지수',rows.sp,'color:var(--orange)')
     +tr('해지수',rows.cn,'color:var(--red)')
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>';
 }
 function planJoinNoteHtml(){
-  /* v08.348 — 표가 시스템 「세무사무소현황」과 같은 네 줄이 되었으므로 안내도 그에 맞춘다. */
+  /* v08.349 — 첫 줄이 「총 가입수」(가입+재가입)로 바뀌어 안내도 그에 맞춘다. */
   return ''
     +'시스템에서 받는 <b>「세무사무소현황」</b>의 가입수·재가입수·정지수·해지수와 <b>같은 기준</b>입니다 — '
     +'두 자료를 나란히 놓고 그대로 대조할 수 있습니다(2026-09-23 파일로 전량 확인). '
-    +'<br><b>가입수</b>는 가입일시, <b>재가입수</b>는 재가입일시, <b>정지수</b>는 정지일시, '
+    +'<br><b>총 가입수 = 가입수 + 재가입수</b>이고, 그중 재가입만 따로 본 것이 <b>「└ 재가입」</b> 줄입니다. '
+    +'<b>가입수</b>는 가입일시, <b>재가입수</b>는 재가입일시, <b>정지수</b>는 정지일시, '
     +'<b>해지수</b>는 해지일시가 그 달인 곳을 셉니다 — '
     +'<b>지금 상태로 걸러내지 않으므로</b> 그 뒤에 해지·재가입한 곳도 그 달에 그대로 남습니다. '
     +'<br>플러스·리포트·개업세무사·요금제 상향은 <b>위 「월별 실적 현황」 표</b>에서 봅니다.'
@@ -14939,6 +14946,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u74',d:'2026-09-23',tt:'「전체 가입 현황」 첫 줄을 「총 가입수」로',
+  b:'신규 가입과 재가입을 따로 세던 두 줄을, 둘을 합한 「총 가입수」 한 줄로 바꿨습니다(2026년 86+11=97건). 재가입만 따로 보고 싶을 때를 위해 바로 아래 「└ 재가입」 줄은 그대로 남겨, 시스템 「세무사무소현황」의 재가입수와도 계속 대조할 수 있습니다.'},
  {id:'u73',d:'2026-09-23',tt:'「전체 가입 현황」을 시스템 현황과 같은 네 줄로',
   b:'가입수·재가입수·정지수·해지수 네 줄만 남겨, 시스템에서 받는 「세무사무소현황」과 나란히 놓고 그대로 대조할 수 있게 했습니다(2026년 86·11·91·115로 전량 일치 확인). 플러스·리포트·개업세무사·요금제 상향은 위 「월별 실적 현황」 표에서 봅니다.'},
  {id:'u72',d:'2026-09-23',tt:'「전체 가입 현황」을 가입·상향으로 나눠 표시',
