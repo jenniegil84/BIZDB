@@ -2208,7 +2208,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.364';
+window.__APP_VER='v08.365';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3694,6 +3694,17 @@ window.__snapSort=function(arr){
      · 위 예에서는 916(지금) ↔ 914(9/20)를 견줘 **▲ +2**가 된다
      · 한 번도 바뀐 적이 없으면 비교 대상이 없으므로 「—」(0을 지어내지 않는다)
    옛 기록을 지우지 않고도 요청한 「최근 업데이트 전 → 후」가 바로 보인다. */
+/* v08.365 「날짜별 지표」 더보기 — 표를 다시 그리지 않고 그 자리에서 숨긴 줄만 토글한다
+   (다시 그리면 열려 있던 접이식·스크롤 위치가 흐트러진다). */
+window.snapMoreToggle=function(btn){
+  try{
+    const t=btn.closest('table'); if(!t)return;
+    const rs=t.querySelectorAll('tr.snap-more'); if(!rs.length)return;
+    const show=(rs[0].style.display==='none');
+    rs.forEach(function(r){ r.style.display=show?'':'none'; });
+    btn.textContent=show?('− 나머지 '+rs.length+'개 지표 접기'):('＋ 나머지 '+rs.length+'개 지표 더보기');
+  }catch(e){}
+};
 window.__snapChange=function(arr,key){
   const v=[];
   (arr||[]).forEach(function(x){
@@ -6274,16 +6285,20 @@ function custToMg(c,step,status,problem,action,dmn){
      · 비교할 스냅샷이 없으면 **블록 자체를 만들지 않는다**(빈 표·안내 문장 금지).
      · 값이 없는 지표(컬럼이 없어 기록되지 않은 것)는 줄을 만들지 않는다 — 지어내지 않는다. */
   const _homeDeltaTable=function(){
+    /* ══ v08.365 요청("인사이트 총 사용건수 / 자금일보 총 사용건수 / 전자세금계산서 총 사용건수
+       맨 위로 올리고 나머지는 더보기") ══
+       인사이트 사용건수 3종을 **맨 위 3줄**로 올리고, 나머지 9종은 **기본으로 접는다**(`top:1`이 위 3줄).
+       라벨도 사용자가 적은 대로 셋 다 「총 사용건수」로 통일한다. */
     const SPEC=[
+      {k:'all',  l:'인사이트 총 사용건수',     u:'건', top:1},
+      {k:'fund', l:'자금일보 총 사용건수',     u:'건', top:1},
+      {k:'tax',  l:'전자세금계산서 총 사용건수', u:'건', top:1},
       {k:'hTot', l:'누적 가입',        u:'곳'},
       {k:'hChu', l:'누적 해지',        u:'곳'},
       {k:'hPau', l:'누적 정지',        u:'곳'},
       {k:'hNor', l:'현재 정상',        u:'곳'},
       {k:'hPlus',l:'플러스 (요금제 기준)', u:'곳'},
       {k:'hPlusR',l:'플러스 전환율',   u:'%', dec:1},
-      {k:'all',  l:'인사이트 총 사용건수', u:'건'},
-      {k:'fund', l:'자금일보 사용건수',   u:'건'},
-      {k:'tax',  l:'전자세금계산서 사용건수', u:'건'},
       {k:'srTot',l:'총거래처수',       u:'곳'},
       {k:'srJn', l:'가입거래처수',     u:'곳'},
       {k:'srHj', l:'해지거래처수',     u:'곳'}
@@ -6306,7 +6321,7 @@ function custToMg(c,step,status,problem,action,dmn){
       return (v==null)?'<span class="na">—</span>'
         : Number(v).toLocaleString(undefined,dec?{minimumFractionDigits:1,maximumFractionDigits:1}:undefined);
     };
-    const rows=[];
+    const rows=[]; let moreN=0;
     SPEC.forEach(function(o){
       const has=snaps.filter(function(x){return typeof x[o.k]==='number'&&isFinite(x[o.k]);});
       if(!has.length)return;                        // 한 번도 기록된 적 없는 지표는 줄을 만들지 않는다
@@ -6328,11 +6343,20 @@ function custToMg(c,step,status,problem,action,dmn){
           +IX_esc(String(ch.prev.d).slice(5).replace('-','.'))+' → '
           +IX_esc(String(ch.last.d).slice(5).replace('-','.'))+'</div>';
       }
-      rows.push('<tr><td style="text-align:left;white-space:nowrap">'+o.l
+      /* v08.365 — 위 3줄(top)이 아니면 `snap-more` 클래스를 달아 기본으로 숨긴다(더보기로 펼침) */
+      rows.push('<tr'+(o.top?'':' class="snap-more" style="display:none"')+'>'
+        +'<td style="text-align:left;white-space:nowrap">'+o.l
         +'<span style="color:var(--gray-md);font-size:9px;margin-left:4px">('+o.u+')</span></td>'
         +cells+'<td>'+dcell+'</td></tr>');
+      if(!o.top)moreN++;
     });
     if(!rows.length)return '';
+    const metricN=rows.length;      /* v08.365 아래 더보기 줄을 넣기 전의 「지표 수」(요약 배지용) */
+    /* 더보기 줄 — 숨긴 지표가 있을 때만. 화면을 다시 그리지 않고 그 자리에서 접었다 폈다 한다
+       (다시 그리면 열려 있던 접이식과 스크롤 위치가 흐트러진다). */
+    if(moreN)rows.push('<tr><td colspan="'+(DAYS.length+2)+'" style="text-align:center;padding:7px">'
+      +'<button class="btn gh" onclick="snapMoreToggle(this)" style="font-size:10.5px">'
+      +'＋ 나머지 '+moreN+'개 지표 더보기</button></td></tr>');
     /* 같은 날이 두 칸 이상이면 그 날 칸들에만 시각을 덧붙인다 — 매번 시각을 적으면 지저분해진다 */
     const dayCnt={};
     DAYS.forEach(function(x){ dayCnt[String(x.d)]=(dayCnt[String(x.d)]||0)+1; });
@@ -6343,7 +6367,7 @@ function custToMg(c,step,status,problem,action,dmn){
         +'</th>';
     }).join('');
     return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
-      +rows.length+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
+      +metricN+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
       +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
       +'<th style="text-align:left;width:180px">지표</th>'+head
       +'<th style="width:118px">증감'
@@ -15208,6 +15232,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u83',d:'2026-09-23',tt:'날짜별 지표 — 사용건수 3종을 맨 위로',
+  b:'통합현황 「날짜별 지표」에서 **인사이트 총 사용건수 · 자금일보 총 사용건수 · 전자세금계산서 총 사용건수** 세 줄이 맨 위에 보이고, 나머지 9개 지표(누적 가입·해지·정지·현재 정상·플러스·전환율·거래처 3종)는 **[＋ 나머지 9개 지표 더보기]**를 눌러야 나옵니다.'},
  {id:'u82',d:'2026-09-23',tt:'핵심 이슈 — 칸 안에서 스크롤하지 않습니다',
   b:'주간회의 「③ 이번 주 핵심 이슈」의 내용·원인·시사점·후속 Action 칸이 **내용만큼 늘어납니다**. 종전에는 칸 높이가 고정이라 긴 글은 칸 안에서 스크롤해야 읽을 수 있었습니다. 타이핑하는 동안에도 칸이 따라 늘어나고, 직접 끌어서 줄이는 것도 그대로 됩니다.'},
  {id:'u81',d:'2026-09-23',tt:'통합현황 증감이 계속 0으로 보이던 것 수정',
