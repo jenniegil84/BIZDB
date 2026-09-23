@@ -2202,7 +2202,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.355';
+window.__APP_VER='v08.356';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -6704,6 +6704,10 @@ function custToMg(c,step,status,problem,action,dmn){
 // 추가 폼 · 인라인 수정/저장/취소 · 삭제 · Supabase 저장이 동일한 목록 섹션이 12개 필요해,
 // 섹션마다 같은 코드를 복사하지 않고 설정(cols)만 바꿔 재사용하는 공통 컴포넌트로 구현한다.
 window.__LS=window.__LS||{}; window.__lsIn=window.__lsIn||{}; window.__lsOpen=window.__lsOpen||{};
+/* v08.356 요청("논의사항에는 당장 논의할 내용만 보이고 보류만 모아서 따로 볼수 있게함")
+   섹션 설정에 `hold:'보류'`(+`holdF`, 기본 'st')를 주면 그 상태인 행을 본 표에서 빼고
+   아래 접이식 「보류 N건」으로 따로 모은다. 열림 상태는 섹션별로 기억한다(기본 닫힘). */
+window.__lsHold=window.__lsHold||{};
 function lsReg(cfg){ window.__LS[cfg.id]=cfg;
   // v05.07 seed: 최초 1회만 적용 — 이후 사용자가 편집·삭제한 결과는 Supabase 복원값이 우선
   window[cfg.sv]=window[cfg.sv]||(cfg.seed?cfg.seed.map((r,i)=>Object.assign({id:cfg.id.toUpperCase()+i},r)):[]);
@@ -6725,6 +6729,7 @@ function lsView(id){ const c=window.__LS[id], A=lsArr(id);
 window.lsView=lsView;
 function lsRe(id){ const c=window.__LS[id]; if(typeof RENDER!=='undefined'&&RENDER[c.tab])RENDER[c.tab](); }
 window.lsToggle=function(id){ window.__lsOpen[id]=!window.__lsOpen[id]; lsRe(id); };
+window.lsHoldToggle=function(id){ keepScroll(function(){ window.__lsHold[id]=!window.__lsHold[id]; lsRe(id); }); };
 window.lsAdd=function(id){
   const c=window.__LS[id], msg=document.getElementById(id+'_msg');
   const g=f=>{const e=document.getElementById(id+'_n_'+f);return e?String(e.value).trim():'';};
@@ -6821,7 +6826,12 @@ function mmSpanLs(sid,rid){ return '<span class="mm-td" style="display:inline-bl
 function lsHTML(id){
   // v05.17 주간회의 섹션 제목에 출처 배지(수동) — 자동 집계 블록과 한눈에 구분(결정)
   const SRCB=(window.__LS[id]&&window.__LS[id].tab==='week'&&typeof window.sbM==='function')?(' '+window.sbM()):'';
-  const c=window.__LS[id], A=lsView(id), IN=window.__lsIn[id], OP=window.__lsOpen[id];
+  const c=window.__LS[id], A0=lsView(id), IN=window.__lsIn[id], OP=window.__lsOpen[id];
+  /* v08.356 보류 분리 — `hold` 설정이 있는 섹션만. 없으면 종전과 완전히 같다(A=A0). */
+  const HF=c.holdF||'st', HV=c.hold||'';
+  const AH=HV?A0.filter(function(r){return String(r[HF]||'')===HV;}):[];
+  const A =HV?A0.filter(function(r){return String(r[HF]||'')!==HV;}):A0;
+  const HOPEN=!!window.__lsHold[id];
   // v05.13 주간회의 탭 읽기 모드 — 편집 중이 아니면 등록 버튼·관리 열·상태 드롭다운을 감추고 주간보고 형태로만 보여준다
   // (결정: "편집중일때만 추가버튼 노출. 편집중이 아닐때에는 주간보고 형식"). 그 외 탭은 종전과 동일.
   const RO=(c.tab==='week' && !window.__wkEdit);
@@ -6836,13 +6846,25 @@ function lsHTML(id){
     if(cl.b)return `<td style="text-align:left"><b>${IX_esc(v||'—')}</b></td>`;
     return `<td style="text-align:left;white-space:normal;font-size:10px;color:var(--gray-md)">${IX_esc(v||'—')}</td>`;
   };
-  const rows=A.length?A.map(r=>{
+  /* v08.356 같은 행 HTML을 본 표와 「보류」 표가 함께 쓰도록 함수로 뺀다(코드 중복 없음) */
+  const mkRows=function(list,emptyTx){
+    return list.length?list.map(r=>{
     if(IN===r.id)return '<tr style="background:#EFF6FF">'+c.cols.map(cl=>`<td>${lsField(id,'e',cl,r[cl.f])}</td>`).join('')
       +`<td style="white-space:nowrap"><span class="mgmt-badge" onclick="lsSave('${id}','${r.id}')">저장</span> <span class="mgmt-badge" style="background:var(--gray-lt);color:var(--gray-md);border-color:var(--border)" onclick="lsCancel('${id}')">취소</span></td></tr>`;
     // v05.12 관리 열은 전 탭 ⋯ 메뉴로 통일(결정: "관리는 무조건 점 세개로 통일")
     return '<tr>'+c.cols.map(cl=>cell(r,cl)).join('')+(RO?'':mmCellLs(id,r.id))+'</tr>';
   }).join('')
-  :`<tr><td colspan="${c.cols.length+(RO?0:1)}" class="na" style="text-align:center;padding:20px">${IX_esc(c.empty||'등록된 내용이 없습니다')}${RO?'':' — 위 <b>＋ '+IX_esc(c.btn||'추가')+'</b>로 등록하세요'}</td></tr>`;
+  :`<tr><td colspan="${c.cols.length+(RO?0:1)}" class="na" style="text-align:center;padding:20px">${emptyTx}</td></tr>`;
+  };
+  const rows=mkRows(A,`${IX_esc(c.empty||'등록된 내용이 없습니다')}${RO?'':' — 위 <b>＋ '+IX_esc(c.btn||'추가')+'</b>로 등록하세요'}`);
+  /* 보류 블록 — 있을 때만 만든다. 기본은 닫혀 있고, 버튼을 눌러야 표가 나온다. */
+  const holdHTML=(!HV||!AH.length)?'':(
+    `<div style="margin:-8px 0 16px">
+      <button class="btn gh" onclick="lsHoldToggle('${id}')" style="font-size:11px">${HOPEN?'▲':'▼'} ${IX_esc(HV)} ${AH.length}건 ${HOPEN?'숨기기':'보기'}</button>
+      ${HOPEN?`<div class="panel" style="margin-top:8px"><div style="overflow:auto"><table class="tbl"><thead><tr>
+        ${c.cols.map(cl=>`<th${cl.b?' style="text-align:left"':''}>${IX_esc(cl.l)}</th>`).join('')}${RO?'':'<th style="width:46px">관리</th>'}
+      </tr></thead><tbody>${mkRows(AH,'')}</tbody></table></div></div>`:''}
+    </div>`);
   // v05.10 view:'card' — 내용·원인·시사점처럼 긴 문장이 여러 개인 섹션은 표 대신 카드로 표시
   const cards=(c.view!=='card')?'':(A.length?A.map(function(r){
     if(IN===r.id)return '<div class="ls-card edit">'+c.cols.map(function(cl){
@@ -6863,7 +6885,7 @@ function lsHTML(id){
       <span id="${id}_msg" style="font-size:10.5px;color:var(--teal-dk)"></span>
     </div></div></div>`:''}
     <div style="margin-bottom:16px">${cards}</div>`;
-  return `<div class="sec-label">${IX_esc(c.title)}${SRCB} <span class="sec-tag t">${A.length}건${c.tag?' · '+c.tag(A):''}</span></div>
+  return `<div class="sec-label">${IX_esc(c.title)}${SRCB} <span class="sec-tag t">${A.length}건${c.tag?' · '+c.tag(A):''}${(HV&&AH.length)?' · '+IX_esc(HV)+' '+AH.length:''}</span></div>
     ${(c.desc&&!RO)?`<div style="font-size:10px;color:var(--gray-md);margin:-4px 0 8px">${c.desc}</div>`:''}
     ${RO?'':`<div style="margin-bottom:10px"><button class="btn${OP?' gh':''}" onclick="lsToggle('${id}')" style="font-size:12px">${OP?'▲ 닫기':'＋ '+IX_esc(c.btn||'추가')}</button></div>`}
     ${(OP&&!RO)?`<div class="panel" style="margin-bottom:10px"><div class="panel-body"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -6873,7 +6895,7 @@ function lsHTML(id){
     </div></div></div>`:''}
     <div class="panel" style="margin-bottom:16px"><div style="overflow:auto"><table class="tbl"><thead><tr>
       ${c.cols.map(cl=>`<th${cl.b?' style="text-align:left"':''}>${IX_esc(cl.l)}</th>`).join('')}${RO?'':'<th style="width:46px">관리</th>'}
-    </tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    </tr></thead><tbody>${rows}</tbody></table></div></div>${holdHTML}`;
 }
 // ── 섹션 정의 (요청: 민드맵 대비 미반영(X) 항목 전부 반영) ──
 const ST4=['준비중','진행중','완료','보류'], STT={'완료':'t정상','진행중':'tP2','보류':'tP1','준비중':'tP3'};
@@ -6915,7 +6937,9 @@ lsReg({id:'mktDoc',tab:'mkt',kind:'mkt_docs',sv:'__mktDocs',title:'산출물·�
    {nm:'안내장',kind:'안내장',own:'케빈',url:'',note:'사전 홍보 시점 논의 중(한 달 전 제안)'}
   ]});
 lsReg({id:'mktIssue',tab:'mkt',kind:'mkt_issues',sv:'__mktIssues',title:'논의사항',btn:'안건 등록',
-  empty:'등록된 논의사항이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
+  /* v08.356 요청 — 「보류」는 본 표에서 빼고 아래 접이식으로 따로 모은다 */
+  hold:'보류',
+  empty:'지금 논의할 안건이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
   cols:[{f:'tt',l:'안건',b:1,w:200},{f:'who',l:'제기자',w:70},
    {f:'st',l:'상태',t:'sel',opts:['논의중','결정','보류','종결'],live:1,tone:{'결정':'t정상','논의중':'tP2','보류':'tP1','종결':'tP3'}},
    {f:'res',l:'결론·후속',w:200},{f:'dt',l:'등록일',t:'date'}],
@@ -6957,7 +6981,9 @@ lsReg({id:'uxReq',tab:'ux',kind:'ux_requests',sv:'__uxRequests',title:'요구사
    {tt:'컨설팅 신규유입 1차 컨택 처리 기준',kind:'프로세스',body:'방문요청 시 / 카카오 채널 연동 요청 시 위멤버스X세모 플로우채널 활용',st:'접수',own:'',note:'카카오 채널 연동 5만원 비용부담(로움) · 위멤버스 도입문의 확인 → 세모리포트 유입 현황 공유, 케빈 초대'}
   ]});
 lsReg({id:'uxIssue',tab:'ux',kind:'ux_issues',sv:'__uxIssues',title:'논의사항',btn:'안건 등록',
-  empty:'등록된 논의사항이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
+  /* v08.356 요청 — 「보류」는 본 표에서 빼고 아래 접이식으로 따로 모은다 */
+  hold:'보류',
+  empty:'지금 논의할 안건이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
   cols:[{f:'tt',l:'안건',b:1,w:200},{f:'who',l:'제기자',w:70},
    {f:'st',l:'상태',t:'sel',opts:['논의중','결정','보류','종결'],live:1,tone:{'결정':'t정상','논의중':'tP2','보류':'tP1','종결':'tP3'}},
    {f:'res',l:'결론·후속',w:200},{f:'dt',l:'등록일',t:'date'}]});
@@ -6991,7 +7017,9 @@ lsReg({id:'bizDoc',tab:'biz',kind:'biz_docs',sv:'__bizDocs',title:'영업자료�
    {nm:'이용가이드',kind:'이용가이드',st:'제작중',own:'',url:'',note:''}
   ]});
 lsReg({id:'bizIssue',tab:'biz',kind:'biz_issues',sv:'__bizIssues',title:'논의사항',btn:'안건 등록',
-  empty:'등록된 논의사항이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
+  /* v08.356 요청 — 「보류」는 본 표에서 빼고 아래 접이식으로 따로 모은다 */
+  hold:'보류',
+  empty:'지금 논의할 안건이 없습니다', tag:A=>'논의중 '+A.filter(x=>x.st==='논의중').length+'건',
   cols:[{f:'tt',l:'안건',b:1,w:200},{f:'who',l:'제기자',w:70},
    {f:'st',l:'상태',t:'sel',opts:['논의중','결정','보류','종결'],live:1,tone:{'결정':'t정상','논의중':'tP2','보류':'tP1','종결':'tP3'}},
    {f:'res',l:'결론·후속',w:200},{f:'dt',l:'등록일',t:'date'}]});
@@ -15094,6 +15122,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u78',d:'2026-09-23',tt:'논의사항 — 보류는 따로 모아서 접어 둡니다',
+  b:'팀 탭(마케팅·UX·영업)의 「논의사항」 표에 **지금 논의할 안건만** 보입니다. 상태를 **「보류」**로 바꾸면 그 줄은 표에서 빠지고, 바로 아래 **「보류 N건 보기」** 버튼 안으로 모입니다(기본은 닫힘). 다시 「논의중」 등으로 바꾸면 원래 표로 돌아옵니다. 지워지는 것이 아니라 자리만 옮기는 것입니다.'},
  {id:'u77',d:'2026-09-23',tt:'개업세무사 가입을 주간으로 · 전체 가입 현황에 「순증」 추가',
   b:'주간 실적 요약의 「개업세무사 가입」이 그동안 그 주가 속한 **달 전체** 값이었습니다(원천에 프로모션 시작 「월」만 있어서). 이제 사무소별로 그 달의 가입·재가입·요금제변경·인사이트가입 날짜 중 프로모션 시작월과 같은 달인 날을 시작일로 잡아 **주 단위로 셉니다**(월 합계는 종전과 같습니다). 라벨의 「(월)」도 뗐습니다. 더불어 「전체 가입 현황」 맨 아래에 **순증**(총 가입수 − 해지수) 줄을 추가했습니다.'},
  {id:'u75',d:'2026-09-23',tt:'통합현황 증감 = 「최근 업데이트 전 → 후」',
