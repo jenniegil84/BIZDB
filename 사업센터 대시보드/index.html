@@ -2202,7 +2202,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.358';
+window.__APP_VER='v08.359';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -13435,6 +13435,22 @@ window.joinSplitCount=function(kind,s,e,onlyRejoin,scope){
        사용자에게 알린 사항이며, 필요하면 별도 줄로 살릴 수 있게 `plus_upsell`은 그대로 둔다
        (주간회의 월별 표에 **참고 줄**로 계속 보여준다). */
   if(kind==='plus') return rows.filter(function(x){return isPlus(x)&&(inR(x.jn)||inR(x.rj));}).length;
+  /* ══ v08.359 — 「플러스 가입에도 들어간 개업세무사」를 실제로 센다 ══
+     v08.358에서 플러스 가입을 신규+재가입으로 좁히면서, 「개업세무사는 플러스 안에 포함」이라던
+     v08.307의 전제가 깨졌다(개업세무사는 **프로모션 시작월** 기준이라 가입 여부를 보지 않는다).
+     실측 2026: 개업세무사 16건 중 플러스 가입에 들어간 것은 **4건**뿐이고 12건은 밖에 있다
+     (7월은 플러스 가입 0인데 개업세무사 5 — 화면에서 「0건 안에 5건 포함」으로 보였다).
+     겹침을 지어내지 않고 이 함수로 **실제 교집합**을 세어 화면에 그대로 적는다. */
+  if(kind==='plus_pkg'){
+    const ym=function(v){ return String(v||'').replace(/[^0-9]/g,'').slice(0,6); };
+    const sYM=ym(s), eYM=ym(e);
+    return rows.filter(function(x){
+      if(!(isPlus(x)&&(inR(x.jn)||inR(x.rj))))return false;
+      if(!((typeof isPromo190==='function')&&isPromo190(x.pmNm)))return false;
+      const pm=ym(x.pmS);
+      return !!pm&&pm>=sYM&&pm<=eYM;
+    }).length;
+  }
   if(kind==='plus_new')   return rows.filter(function(x){return isPlus(x)&&inR(x.jn);}).length;
   if(kind==='plus_rejoin')return rows.filter(function(x){return isPlus(x)&&!inR(x.jn)&&inR(x.rj);}).length;
   if(kind==='plus_upsell')return rows.filter(function(x){return isPlus(x)&&!inR(x.jn)&&!inR(x.rj);}).length;
@@ -13520,7 +13536,7 @@ function monPerfTableHtml(){
   const months=[1,2,3,4,5,6,7,8,9,10,11,12];
   const future=m=>(y>curY)||(y===curY&&m>curM);
   const num=v=>(v!==''&&v!=null)?+v:null;
-  const rows={newT:{},newA:{},pnA:{},rejA:{},upsA:{},pkgT:{},pkgA:{}};
+  const rows={newT:{},newA:{},pnA:{},rejA:{},upsA:{},pkgT:{},pkgA:{},pkgIn:{}};
   months.forEach(function(m){
     const tv=num(T.new[m]); rows.newT[m]=tv;
     /* v08.242 요청("신규가입을 가입으로 바꾸고 재가입 실적도 포함할것") — "가입 실적"이
@@ -13552,11 +13568,13 @@ function monPerfTableHtml(){
     /* v08.289 개업세무사 실적은 **프로모션 시작일(월) 기준**(스펙 v2) — 아래 표의 개업세무사
        행과 같은 함수를 쓴다(joinSplitCount('pkg') → pkgJoinCountRange). */
     rows.pkgA[m]=future(m)?null:window.joinSplitCount('pkg',monRangeOf(y,m)[0],monRangeOf(y,m)[1]);
+    /* v08.359 그중 실제로 「플러스 가입」에도 잡힌 곳(교집합) — 아래 비율 바에서 쓴다 */
+    rows.pkgIn[m]=future(m)?null:window.joinSplitCount('plus_pkg',_r[0],_r[1]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const newTSum=sum(rows.newT), newASum=sum(rows.newA);
   const pnASum=sum(rows.pnA), rejASum=sum(rows.rejA), upsASum=sum(rows.upsA);
-  const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA);
+  const pkgTSum=sum(rows.pkgT), pkgASum=sum(rows.pkgA), pkgInSum=sum(rows.pkgIn);
   const rate=(a,t)=>(t>0)?Math.round(a/t*100)+'%':'—';
   const targetCell=function(kind,m){
     return '<input type="number" value="'+esc(T[kind][m]||'')+'" style="width:44px;font-size:10.5px;text-align:center;border:1px solid var(--border);border-radius:4px" '
@@ -13619,7 +13637,8 @@ function monPerfTableHtml(){
     +tr('달성률',months.map(function(m){return td(rateCell(rows.newA[m],rows.newT[m]),m);}),
         '<span style="color:'+(newTSum>0&&(newASum/newTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(newASum,newTSum)+'</span>')
     /* v08.288 이름 변경(사용자 스펙) — 「프로모션」 → 「개업세무사」(= 개업세무사 성장지원 패키지) */
-    +pkgTr('개업세무사 가입 목표<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (플러스 내)</span>',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
+    /* v08.359 — 「(플러스 내)」는 v08.358 이후 사실이 아니다(16건 중 4건만 겹친다). 기준을 적는다. */
+    +pkgTr('개업세무사 가입 목표<span style="font-weight:400;color:var(--gray-md);font-size:9px"> (프로모션 시작월 기준)</span>',function(m){return targetCell('pkg',m);},pkgTSum,true,false)
     +pkgTr('개업세무사 가입 실적',function(m){return actCell(rows.pkgA[m]);},pkgASum,false,false)
     +pkgTr('달성 실적',function(m){return deltaCell(rows.pkgA[m],rows.pkgT[m]);},
         pkgTSum>0?('<span style="color:'+((pkgASum-pkgTSum)<0?'var(--red)':'var(--teal-dk)')+'">'+((pkgASum-pkgTSum)>0?'+':'')+(pkgASum-pkgTSum)+'</span>'):'—',
@@ -13638,28 +13657,37 @@ function monPerfTableHtml(){
     +'<div class="wk-kpi"><div class="wk-kl">개업세무사 가입 최종 달성률</div><div style="font-size:20px;font-weight:800;color:'+(pkgTSum>0&&(pkgASum/pkgTSum*100)<100?'var(--red)':'var(--teal-dk)')+'">'+rate(pkgASum,pkgTSum)+'</div>'
     +'<div style="font-size:10px;color:var(--gray-md)">연간 목표 '+pkgTSum+' · 실적 '+pkgASum+'</div></div>'
     +'</div>'
-    /* ══ v08.307 요청("개업세무사가 플러스 안에 있는 프로모션이라는걸 UI적으로 잘 표현할수 있는방법
-       없나?") — 사용자 확정: **포함 비율 바**. 표 행으로 같은 숫자를 두 번 쓰지 않고(v08.306에서
-       뺀 이유), 플러스 실적 전체 길이 안에 개업세무사 몫을 색으로 채워 「안에 들어 있다」를 그림으로
-       보여준다. 목표가 아니라 **실적끼리**의 포함 관계다(목표는 위 두 카드에서 본다).
-       ※ 개업세무사는 프로모션 시작월 기준이라 이론상 플러스 실적을 넘을 수 있어, 폭은 100%로 묶고
-         숫자는 실제 값을 그대로 적는다. 실적이 아직 0이면 바 자체를 만들지 않는다(빈 바를 두지 않는다). */
+    /* ══ v08.307 → v08.359 「포함」이 아니라 「겹침」을 보여준다 ══
+       v08.307은 **개업세무사가 플러스 실적 안에 들어 있다**는 전제로 포함 비율 바를 그렸다.
+       v08.358에서 플러스 가입을 신규+재가입으로 좁히면서 그 전제가 깨졌다 — 개업세무사는
+       **프로모션 시작월** 기준이라 이미 이용 중이던 곳도 잡히기 때문이다.
+       실측 2026: 개업세무사 16건 중 플러스 가입에 든 것은 **4건**, 나머지 12건은 밖에 있다.
+       7월은 플러스 가입 0인데 개업세무사 5라서, 종전 문구가 **「0건 안에 5건 포함」**이라는
+       말이 안 되는 문장을 찍고 있었다(사용자 지적: "이 숫자는 왜 이러는거야").
+       이제 교집합(`plus_pkg`)을 실제로 세어 **세 숫자를 그대로** 적고, 바는 플러스 가입을
+       「개업세무사와 겹침 / 그 외」로 나눈다. 겹치지 않는 개업세무사는 따로 한 줄로 밝힌다. */
     +(function(){
-        if(!(newASum>0))return '';
-        const pct=Math.min(100, Math.round(pkgASum/newASum*1000)/10);
-        const rest=Math.max(0, newASum-pkgASum);
+        if(!(newASum>0||pkgASum>0))return '';
+        const inN=Math.min(pkgInSum,newASum), out=Math.max(0,pkgASum-inN);
+        const rest=Math.max(0,newASum-inN);
+        const pct=newASum>0?Math.round(inN/newASum*1000)/10:0;
         const dot=function(c){return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+';margin-right:4px;vertical-align:-1px"></span>';};
         return '<div style="border:1px solid #DBEAFE;background:#F8FBFF;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
           +'<div style="font-size:10.5px;margin-bottom:6px">'
-          +'<b>플러스 가입 실적 '+newASum+'건</b> <span style="color:var(--gray-md)">안에 '
-          +'<b style="color:'+pkgBorder+'">개업세무사 프로모션 '+pkgASum+'건</b>이 포함돼 있습니다'
-          +(newASum>0?(' <b>('+pct+'%)</b>'):'')+'</span></div>'
-          +'<div style="display:flex;height:13px;border-radius:7px;overflow:hidden;background:#E5E7EB">'
+          +'<b>플러스 가입 '+newASum+'건</b> <span style="color:var(--gray-md)">과 </span>'
+          +'<b style="color:'+pkgBorder+'">개업세무사 프로모션 '+pkgASum+'건</b>'
+          +'<span style="color:var(--gray-md)">이 겹치는 곳은 </span><b>'+inN+'건</b>'
+          +(newASum>0?('<span style="color:var(--gray-md)"> ('+pct+'%)</span>'):'')+'</div>'
+          +(newASum>0?('<div style="display:flex;height:13px;border-radius:7px;overflow:hidden;background:#E5E7EB">'
           +'<div style="width:'+pct+'%;background:'+pkgBorder+'"></div>'
-          +'<div style="flex:1;background:#7FD8D2"></div></div>'
+          +'<div style="flex:1;background:#7FD8D2"></div></div>'):'')
           +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px">'
-          +dot(pkgBorder)+'개업세무사 프로모션 '+pkgASum+'건'
-          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 '+rest+'건</span></div>'
+          +dot(pkgBorder)+'개업세무사이면서 플러스 가입 '+inN+'건'
+          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 가입 '+rest+'건</span></div>'
+          +(out>0?('<div style="font-size:9.5px;color:var(--gray-md);margin-top:4px">'
+            +'※ 개업세무사 <b>'+out+'건</b>은 <b>이미 이용 중이던 곳</b>이 프로모션을 시작한 것이라 '
+            +'플러스 <b>가입</b>에는 들어가지 않습니다 — 두 지표는 기준일이 다릅니다'
+            +'(플러스 가입 = 가입일 · 개업세무사 = 프로모션 시작월).</div>'):'')
           +'</div>';
       })()
     +'<div style="overflow:auto">'+table+'</div>'
@@ -13679,8 +13707,10 @@ function monPerfNoteHtml(){
     +'그중 <b>요금제가 플러스로 올라간 건</b>은 실적 분석의 <b>「플러스 전환」</b> 카드에서 셉니다. '
     +'<b>요금제는 그대로인데 인사이트만 추가한 곳</b>은 두 카드 어디에도 들어가지 않습니다(2026년 39건) — '
     +'따로 세야 하면 줄을 하나 더 만들 수 있습니다. '
-    +'<b>개업세무사</b>는 <b>플러스 요금제에 얹히는 프로모션</b>이라 위 플러스 실적에 <b>이미 포함</b>돼 있습니다 — '
-    +'아래 파란 블록이 그 프로모션만 목표 대비로 관리하는 자리입니다(프로모션 시작월이 그 달인 곳). '
+    +'<br><b>개업세무사</b>는 <b>프로모션 시작월</b>로 세므로 위 플러스 가입과 <b>기준일이 다릅니다</b> — '
+    +'이미 이용 중이던 곳이 프로모션을 시작하면 개업세무사에는 잡히지만 플러스 <b>가입</b>에는 들어가지 않습니다 '
+    +'(2026년 16건 중 겹치는 곳 4건). 위 파란 띠가 두 지표가 겹치는 정도를 보여주고, '
+    +'아래 파란 블록이 그 프로모션만 목표 대비로 관리하는 자리입니다. '
     /* v08.358 — 「전체 가입 현황」의 플러스 행은 v08.347에서 없어졌다(그 표는 시스템 현황과 맞대는 네 줄).
        남은 비교 대상은 실적 분석 카드뿐이라 문구를 그에 맞춘다. */
     +'※ 실적 분석 카드의 <b>플러스 가입</b>은 이 실적과 <b>같은 값</b>입니다(같은 함수를 씁니다)'
@@ -15144,6 +15174,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u80',d:'2026-09-23',tt:'개업세무사는 「플러스 안에 포함」이 아니라 「겹침」으로',
+  b:'「플러스 가입 27건 안에 개업세무사 16건이 포함」이라는 문구가 사실과 달랐습니다(7월은 플러스 가입 0인데 개업세무사 5로, 「0건 안에 5건 포함」으로 보였습니다). 두 지표는 **기준일이 다릅니다** — 플러스 가입은 가입일, 개업세무사는 프로모션 시작월. 이제 **실제로 겹치는 곳(2026년 4건)**을 세어 그대로 보여주고, 겹치지 않는 12건은 「이미 이용 중이던 곳이 프로모션을 시작한 것」이라고 밝힙니다. 파란 블록 라벨도 「(플러스 내)」 → 「(프로모션 시작월 기준)」으로 바꿨습니다.'},
  {id:'u79',d:'2026-09-23',tt:'「플러스 가입」 = 신규 + 재가입 (업셀 제외)',
   b:'종전에는 **업셀**(이미 우리 고객이던 곳이 인사이트를 추가하거나 요금제를 플러스로 올린 것)까지 「플러스 가입」에 더했습니다. 가입이 아니므로 **뺐습니다**. 이제 「플러스 가입」 = **신규 플러스 + 재가입**입니다(2026-09: 5 → **1건**, 2026 합계 86 → **27건**). 업셀은 주간회의 월별 표에 **「업셀(참고 · 실적 제외)」** 줄로 계속 보이고, 그중 요금제가 플러스로 올라간 건은 **「플러스 전환」** 카드에서 셉니다. 요금제는 그대로인데 인사이트만 추가한 곳(2026년 39건)은 두 카드 어디에도 들어가지 않습니다 — 따로 세야 하면 줄을 하나 더 만들 수 있습니다.'},
  {id:'u78',d:'2026-09-23',tt:'논의사항 — 보류는 따로 모아서 봅니다',
