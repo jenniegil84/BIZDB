@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.79
+- 버전: v01.83
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -52,7 +52,7 @@
 
 | 사이드바 표시명 | tab id | 방식 | 실제 담당 함수 (찾는 법) | 비고 |
 |---|---|---|---|---|
-| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 해당 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281) — **기준은 보고 있는 주간회의 주(`CURWK`)이고 귀속 달은 주 종료일이 속한 달**(v08.304, 목~수 주간이라 7/30~8/5는 8월). `CURWK`가 없으면 오늘 날짜로 폴백한다, **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**이번 주 / 다음 주**, v08.315 · 과제 제목 옆 **📎는 그 카드의 `DOCS[카드id]` 링크**, v08.317 — v08.283의 「저번 주/이번 주」를 되돌림. 그 주에 실제로 찍힌 실행기록만 세므로 다음 주 칸은 기록이 생기기 전까지 비어 있다). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
+| 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 해당 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281) — **기준은 보고 있는 주간회의 주(`CURWK`)이고 귀속 달은 주 종료일이 속한 달**(v08.304, 목~수 주간이라 7/30~8/5는 8월). `CURWK`가 없으면 오늘 날짜로 폴백한다, **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**이번 주 / 다음 주**, v08.315 · 과제 제목 옆 **📎는 그 카드의 `DOCS[카드id]` 링크**, v08.317 — v08.283의 「저번 주/이번 주」를 되돌림. 그 주에 실제로 찍힌 실행기록만 세므로 다음 주 칸은 기록이 생기기 전까지 비어 있다). **③ 이번 주 핵심 이슈**는 `issueBlockHtml()`(`.wk-issue` / `.wk-issue-g`) — 내용·원인·시사점·후속 Action 네 칸이 `textarea`다. **v08.363부터 칸 안에서 스크롤하지 않고 내용만큼 늘어난다**: CSS `overflow:hidden` + `window.wkGrowIssue(el)`(`height='auto'` 후 `scrollHeight`로 재설정)를 `oninput`에 걸고, `paintWeek()` 끝에서 `wkGrowIssuesAll()`로 렌더 직후 한 번 맞춘다(`innerHTML`로 막 붙인 textarea는 높이가 기본값이라 렌더 후 한 번이 꼭 필요하다). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
 | 통합 현황 | `home` | ① | `RENDER['home']=render;` 바로 위 IIFE, `document.getElementById('s-home')` | 화면 아래쪽 `homeShell()`/`paintHome()`은 **죽은 코드**(호출 안 됨). |
 | 시장 현황 | `sales` | ② | `function salesMount(){` | |
 | 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
@@ -60,7 +60,7 @@
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
 | 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **첫 진입 시 등록일 기간이 「오늘이 속한 달」로 채워진다**(v08.321 · `__pmF._initMo`로 한 번만, 그 뒤로는 사용자가 고른 기간 유지. 파일 기준일이 오늘보다 뒤면 그 기준월을 쓴다. ※ `TODAY` 상수는 이 코드보다 아래에서 선언되므로 여기서는 `new Date()`로 직접 만든다). 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
 | 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **조회 전용**이다(v08.98) — 유입경로·가입채널·최종실적 지정은 실적 관리에서 한다. v08.318에서 유입경로 지정을 여기로 옮겼다가 **v08.320에서 원복**했다(CLAUDE.md 8-13). |
-| 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`(168px ≈ 9줄)를 덧붙여 기본 높이를 키웠다**(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
+| 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`를 덧붙여 기본 높이를 키웠다**(v08.355 168px → **v08.364 104px** — 사용자 확정 「개요의 두 배」, 52×2)(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
 | 해지·재가입 | `churn` | ① | `function churnRender(){` (`document.getElementById('s-churn')`) | `opsPage()` 공통 틀(카드+목록) 사용. |
@@ -834,7 +834,36 @@ v08.358에서 플러스 가입을 신규+재가입으로 좁히면서 그 전제
   있어, 달의 마지막 칸을 잡기 전에 **인사이트 값이 든 칸만** 추린다(안 그러면 월별 표가 「—」가 된다).
 - **`_homeDelta`·`_homeDeltaTable` 정렬도 `__snapSort`로 통일** — 날짜만 비교하던 것을 `d`+`t`로.
 - 표 머리글: 같은 날이 두 칸 이상일 때만 그 칸들에 **시각**을 덧붙인다(매번 적으면 지저분).
-  증감 열 머리글 아래에 「최근 업로드 전 → 후」를 적어 무엇과 무엇을 비교한 값인지 밝힌다.
+
+#### v08.362 — 증감은 「마지막 두 칸」이 아니라 **「값이 바뀐 마지막 두 지점」**
+
+v08.350은 **앞으로 쌓이는 칸**만 손봤다. 이미 쌓여 있던 칸(값이 같아도 날마다 하나씩 생기던
+시절의 기록)은 그대로라, 배포 후에도 증감이 계속 **0**으로 보였다 — 사용자 지적
+*"증감 요구사항 반영안됐는데?"*. 실제 화면: 누적 가입 9/16~9/20 모두 914, 9/21~9/23 모두 916
+→ 마지막 두 칸(916·916) 차이 = **0**.
+
+```js
+window.__snapChange(arr, key)   // 끝에서부터 훑어 「지금 값과 다른 가장 최근 값」을 찾는다
+                                 // → {prev:{d,t,n}, last:{d,t,n}} 또는 null(한 번도 안 바뀜)
+```
+
+- `_homeDelta`(카드 밑줄)·`_homeDeltaTable`(날짜별 지표 표) **둘 다 이 함수를 쓴다**.
+- 위 예에서 916 ↔ 914를 견줘 **▲ +2**가 나온다. **옛 기록을 지우지 않고** 요청이 바로 보인다.
+- 표의 증감 칸에는 **어느 날과 견줬는지**(`09.20 → 09.23`)를 작은 글씨로 함께 적는다.
+- 열 머리글 문구: 「최근 업로드 전 → 후」 → **「값이 바뀐 마지막 시점」**.
+
+#### v08.365 — 사용건수 3종을 맨 위로, 나머지는 더보기
+
+사용자 요청. `SPEC` 배열에서 **`all`·`fund`·`tax`를 맨 앞으로** 옮기고 `top:1`을 달았다.
+라벨도 셋 다 **「… 총 사용건수」**로 통일(사용자가 적은 표기).
+
+- `top`이 없는 9줄은 `class="snap-more" style="display:none"`으로 **기본 숨김**.
+- 표 맨 아래에 **[＋ 나머지 N개 지표 더보기]** 버튼 줄(`colspan`) — `window.snapMoreToggle(btn)`이
+  **표를 다시 그리지 않고** 그 자리에서 `display`만 토글한다(다시 그리면 열려 있던 접이식과
+  스크롤 위치가 흐트러진다).
+- ⚠ 요약 배지의 「N개 지표」는 **더보기 줄을 넣기 전 개수**(`metricN`)를 쓴다 —
+  `rows.length`를 그대로 쓰면 버튼 줄까지 세어 **13개**로 나온다(실제로 한 번 그렇게 나왔다).
+- 한 번도 바뀐 적이 없으면 `null` → 표는 「—」, 카드는 아무것도 그리지 않는다(0을 지어내지 않는다).
 - 검증(실측 4종): ①업로드 1회 → 칸 1개(인사이트+통합현황 합쳐짐) ②화면만 3회 더 그려도 칸 그대로
   ③같은 파일 재업로드 → 칸 그대로 ④병합창을 지나 값이 다른 파일 업로드 → 같은 날 두 번째 칸 생성,
   증감이 그 두 칸의 차이.
