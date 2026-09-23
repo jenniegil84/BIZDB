@@ -2197,7 +2197,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.353';
+window.__APP_VER='v08.354';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -13076,7 +13076,7 @@ const WKKPI_PERF=['도입문의','순증','플러스 가입','신규가입','재
    대표(hero) 카드로 올린다. */
 const WKKPI_HERO=['도입문의','플러스 가입','플러스 전환','개업성장패키지 가입'];
 /* v08.288 화면에 보이는 이름만 바꾸는 표 — 저장 키(위 배열 값)는 그대로 둬야 직접 입력분이 살아 있다 */
-const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입(월)'};   /* v08.305 (월) = 프로모션 시작 연월 기준이라 주 단위로 나눌 수 없다 */
+const WKKPI_LABEL={'개업성장패키지 가입':'개업세무사 가입'};   /* v08.354 주 단위 집계가 되면서 「(월)」 표기를 뗐다(pkgStartCountWeek) */
 /* ══ v08.129 요청("플러스해지와 해지는 다른건이야") ══
    두 항목이 같은 「해지」라는 말로 나란히 있어 같은 것으로 읽히기 쉬웠다. 실제로는
      · 플러스 해지 = 요금제 변경일 기준, 플러스 → 다른 요금제. 고객은 그대로 남는다.
@@ -13220,6 +13220,45 @@ window.pkgStartCount=function(s,e){
   const AB=window.__billAllRows;
   if(Array.isArray(AB)&&AB.length&&typeof pkgJoinCountRange==='function')return pkgJoinCountRange(s,e);
   return null;
+};
+/* ══ v08.354 요청("주간회의-주간실적요약-개업세무사 가입은 주간으로 반영해") ══
+   원천의 **프로모션 시작월은 YYYYMM뿐**이라 그대로는 주로 쪼갤 수 없었다(그래서 v08.305에서
+   이 칸만 「(월)」로 표시했다). 그런데 실데이터를 보면 **프로모션 시작월은 항상 그 사무소의
+   어떤 사건이 일어난 달과 같다** — 2026-09-23 파일 기준 개업세무사 16곳 전수:
+     시작월 = 가입월 4 · 재가입월 1 · 요금제변경월 10 · 인사이트가입월 1 · **어느 것도 아닌 곳 0**
+   그래서 **그 달 안에서 시작월과 같은 달의 사건 날짜**를 프로모션 시작일로 못 박으면 주 단위로
+   나눌 수 있다. 우선순위는 가입 > 재가입 > 요금제변경 > 인사이트가입(가입 계열이 더 확실하다).
+     · 못 박은 날짜는 **항상 시작월 안**에 있으므로 **월 합계는 종전과 똑같다**(주 합 = 월 값)
+     · 어느 사건과도 안 맞는 곳이 생기면 날짜를 지어내지 않고 **주간 집계에서 뺀다**(null이 아니라
+       그 곳만 제외 — 화면 숫자가 0으로 무너지지 않게). 그런 곳이 있으면 콘솔에 남긴다.
+   월별 화면(주간회의 월별 표·실적 관리 카드)은 **종전 `pkgStartCount`(월 기준)를 그대로 쓴다** —
+   이 함수는 주간 카드 전용이다(월 기준 호출부가 `em+'-28'` 같은 관용구를 쓰고 있어, 그쪽을
+   날짜 비교로 바꾸면 29~31일이 빠진다). */
+window.pkgStartDay=function(x){
+  const ym=function(v){ return String(v||'').replace(/[^0-9]/g,'').slice(0,6); };
+  const d10=function(v){ const t=String(v||'').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(t)?t:''; };
+  const p=ym(x&&x.pmS); if(!p)return '';
+  const cands=[x.jn,x.rj,x.pc,x.insJn];
+  for(let i=0;i<cands.length;i++){
+    const t=d10(cands[i]);
+    if(t&&ym(t)===p)return t;
+  }
+  return '';
+};
+window.pkgStartCountWeek=function(s,e){
+  const OC=window.__xlOfficeCols||{};
+  if(!(OC.pmNm&&OC.pmS))return null;               // 마스터에 컬럼이 없으면 주 단위로 셀 수 없다
+  const R=window.__xlOfficeRows||[];
+  let miss=0, n=0;
+  R.forEach(function(x){
+    if(!((typeof isPromo190==='function')&&isPromo190(x.pmNm)))return;
+    if(!String(x.pmS||'').trim())return;
+    const t=window.pkgStartDay(x);
+    if(!t){ miss++; return; }                      // 날짜를 못 박은 곳 — 지어내지 않고 뺀다
+    if(t>=String(s).slice(0,10)&&t<=String(e).slice(0,10))n++;
+  });
+  if(miss)try{console.warn('[개업세무사 주간] 프로모션 시작일을 못 박은 곳 '+miss+'곳 — 주간 집계에서 제외됨');}catch(z){}
+  return n;
 };
 /* ══ v08.300 → v08.303에서 되돌림 ══
    v08.300에서는 두 표의 모수를 달리 했다(위=기본 / 아래=scope='join'). 그러나 같은 이름의
@@ -13687,7 +13726,7 @@ function planJoinTableHtml(){
      ※ 플러스·리포트·개업세무사·요금제 상향은 **위 「월별 실적 현황」 표가 담당**한다.
        v08.346~v08.347에서 이 표에 얹었다가, 시스템과 맞대는 표라는 성격이 분명해져 덜어냈다.
      ※ 순증(가입+재가입−해지)은 요청에 없어 넣지 않았다 — 필요하면 한 줄만 더하면 된다. */
-  const rows={tj:{},jn:{},rj:{},sp:{},cn:{}};
+  const rows={tj:{},jn:{},rj:{},sp:{},cn:{},nt:{}};
   months.forEach(function(m){
     const r=monRangeOf(y,m);
     rows.jn[m]=future(m)?null:window.joinSplitCount('join_n',r[0],r[1]);
@@ -13695,10 +13734,27 @@ function planJoinTableHtml(){
     rows.tj[m]=future(m)?null:(rows.jn[m]+rows.rj[m]);
     rows.sp[m]=future(m)?null:window.joinSplitCount('pause', r[0],r[1]);
     rows.cn[m]=future(m)?null:window.joinSplitCount('churn', r[0],r[1]);
+    /* v08.354 요청("맨 마지막에 순증개수를 추가해") — 순증 = 총 가입수 − 해지수.
+       이 파일이 쓰는 순증 산식(신규가입 + 재가입 − 해지, wkAutoPerf·실적 분석과 동일)과 같다.
+       **정지는 빼지 않는다** — 정지는 되돌아올 수 있어 종전부터 순증에 넣지 않았다. */
+    rows.nt[m]=future(m)?null:(rows.tj[m]-rows.cn[m]);
   });
   const sum=obj=>months.reduce(function(s,m){return s+(obj[m]!=null?obj[m]:0);},0);
   const actCell=function(v){return v==null?'<span class="na">—</span>':v;};
   const td=function(v,m){return '<td style="text-align:center'+wkMonHl(y,m)+'">'+v+'</td>';};
+  /* 순증 전용 셀 — 부호를 붙이고 플러스/마이너스를 색으로 가른다(0은 회색) */
+  const netCell=function(v){
+    if(v==null)return '<span class="na">—</span>';
+    const c=(v>0)?'var(--teal-dk)':((v<0)?'var(--red)':'var(--gray-md)');
+    return '<span style="color:'+c+';font-weight:700">'+(v>0?'+':'')+v+'</span>';
+  };
+  const netRow=function(){
+    const t=sum(rows.nt);
+    return '<tr style="border-top:2px solid var(--border)">'
+      +'<td style="text-align:left;white-space:nowrap;font-weight:700">순증</td>'
+      +months.map(function(m){return td(netCell(rows.nt[m]),m);}).join('')
+      +'<td style="text-align:center">'+netCell(t)+'</td></tr>';
+  };
   const tr=function(label,obj,style){
     return '<tr><td style="text-align:left;white-space:nowrap'+(style?';'+style:'')+'">'+label+'</td>'
       +months.map(function(m){return td(actCell(obj[m]),m);}).join('')
@@ -13710,6 +13766,7 @@ function planJoinTableHtml(){
     +tr('&nbsp;&nbsp;└ 재가입',rows.rj,'color:var(--muted)')
     +tr('정지수',rows.sp,'color:var(--orange)')
     +tr('해지수',rows.cn,'color:var(--red)')
+    +netRow()
     +'</tbody></table>';
   return '<div style="overflow:auto">'+table+'</div>';
 }
@@ -13722,6 +13779,8 @@ function planJoinNoteHtml(){
     +'<b>가입수</b>는 가입일시, <b>재가입수</b>는 재가입일시, <b>정지수</b>는 정지일시, '
     +'<b>해지수</b>는 해지일시가 그 달인 곳을 셉니다 — '
     +'<b>지금 상태로 걸러내지 않으므로</b> 그 뒤에 해지·재가입한 곳도 그 달에 그대로 남습니다. '
+    +'<br><b>순증 = 총 가입수 − 해지수</b>입니다(이 대시보드가 쓰는 순증 산식과 같습니다). '
+    +'<b>정지는 빼지 않습니다</b> — 정지는 되돌아올 수 있는 상태라서입니다. '
     +'<br>플러스·리포트·개업세무사·요금제 상향은 <b>위 「월별 실적 현황」 표</b>에서 봅니다.'
   ;
 }
@@ -15030,6 +15089,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u77',d:'2026-09-23',tt:'개업세무사 가입을 주간으로 · 전체 가입 현황에 「순증」 추가',
+  b:'주간 실적 요약의 「개업세무사 가입」이 그동안 그 주가 속한 **달 전체** 값이었습니다(원천에 프로모션 시작 「월」만 있어서). 이제 사무소별로 그 달의 가입·재가입·요금제변경·인사이트가입 날짜 중 프로모션 시작월과 같은 달인 날을 시작일로 잡아 **주 단위로 셉니다**(월 합계는 종전과 같습니다). 라벨의 「(월)」도 뗐습니다. 더불어 「전체 가입 현황」 맨 아래에 **순증**(총 가입수 − 해지수) 줄을 추가했습니다.'},
  {id:'u75',d:'2026-09-23',tt:'통합현황 증감 = 「최근 업데이트 전 → 후」',
   b:'증감이 늘 「0」으로 보이던 것을 고쳤습니다. 종전에는 값이 그대로여도 화면을 열기만 하면 그 날 칸이 하나씩 생겨, 마지막 두 칸이 같은 값이 되는 일이 잦았습니다. 이제 **값이 실제로 달라졌을 때만** 칸이 생기고, **같은 날 두 번 올려도 앞 값을 덮어쓰지 않습니다**. 그래서 증감은 언제나 「가장 최근 업데이트 직전 → 직후」의 차이입니다. 「날짜별 지표」 표에서 같은 날이 두 칸 이상이면 머리글에 시각이 함께 나옵니다.'},
  {id:'u74',d:'2026-09-23',tt:'「전체 가입 현황」 첫 줄을 「총 가입수」로',
@@ -16372,19 +16433,14 @@ function wkAutoPerf(wk){
           /* v08.288 가입일 기준으로 통일(두 표·실적 분석 카드와 같은 함수).
              저장 키는 그대로 둔다 — 직접 입력해 둔 값이 키로 보관돼 있어 이름을 바꾸면 사라진다.
              화면에 보이는 이름만 WKKPI_LABEL로 「개업세무사 가입」으로 바꾼다. */
-          /* ══ v08.305 버그 수정(사용자 질문: "플러스가입에 플러스전환 개업세무사 모두 포함된거야?") ══
-             개업세무사는 **프로모션 시작 연월(YYYYMM)** 로만 판정할 수 있어 주 단위로 쪼갤 수 없다.
-             종전에는 주 시작일~종료일을 그대로 넘겨, 주가 두 달에 걸치면 **두 달 전체가 합산**됐다
-             (2026-08-27~09-02 주 = 8월 5 + 9월 2 = 7건 — 그 주에 7건이 시작된 것처럼 보였다).
-             주간회의가 이미 쓰는 귀속 규칙(**주 종료일이 속한 달**)대로 그 달 한 달만 센다.
-             ※ 그래서 이 칸은 주간 값이 아니라 **그 주가 속한 달의 값**이다 — 라벨에 「(월)」을 붙여
-               화면에서 구분되게 했다(WKKPI_LABEL). 시작 연월만 있는 원천 데이터의 한계다. */
-          '개업성장패키지 가입':(function(){
-             if(typeof window.joinSplitCount!=='function')return null;
-             const em=String(e||'').slice(0,7);
-             if(!/^\d{4}-\d{2}$/.test(em))return null;
-             return window.joinSplitCount('pkg', em+'-01', em+'-28');
-           })()};
+          /* ══ v08.305 → v08.354 이 칸은 이제 **진짜 주간 값**이다 ══
+             v08.305에서는 프로모션 시작월(YYYYMM)만으로는 주를 가를 수 없어, 주 종료일이 속한
+             **그 달 전체**를 세고 라벨에 「(월)」을 붙였다(주가 두 달에 걸칠 때 두 달이 합산되던
+             버그를 막는 임시 처리였다). v08.354에서 `pkgStartDay()`로 **프로모션 시작일을 못 박아**
+             주 단위로 셀 수 있게 됐다 — 자세한 근거는 그 함수 위 주석 참고.
+             못 박은 날짜는 항상 시작월 안이므로 **월 합계는 종전과 같다**(주 합 = 월 값). */
+          '개업성장패키지 가입':(typeof window.pkgStartCountWeek==='function')
+             ? window.pkgStartCountWeek(s,e) : null};
 }
 /* ══ v06.84 주간회의 ①-2 기간별 발생 건 목록 ══
    ①의 5개 숫자가 어떤 건들로 이뤄졌는지 그 자리에서 확인할 수 있게, 같은 주 기간의 발생 건을
