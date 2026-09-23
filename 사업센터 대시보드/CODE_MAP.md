@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.81
+- 버전: v01.82
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -60,7 +60,7 @@
 | 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
 | 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **첫 진입 시 등록일 기간이 「오늘이 속한 달」로 채워진다**(v08.321 · `__pmF._initMo`로 한 번만, 그 뒤로는 사용자가 고른 기간 유지. 파일 기준일이 오늘보다 뒤면 그 기준월을 쓴다. ※ `TODAY` 상수는 이 코드보다 아래에서 선언되므로 여기서는 `new Date()`로 직접 만든다). 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
 | 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **조회 전용**이다(v08.98) — 유입경로·가입채널·최종실적 지정은 실적 관리에서 한다. v08.318에서 유입경로 지정을 여기로 옮겼다가 **v08.320에서 원복**했다(CLAUDE.md 8-13). |
-| 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`(168px ≈ 9줄)를 덧붙여 기본 높이를 키웠다**(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
+| 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`를 덧붙여 기본 높이를 키웠다**(v08.355 168px → **v08.364 104px** — 사용자 확정 「개요의 두 배」, 52×2)(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
 | 해지·재가입 | `churn` | ① | `function churnRender(){` (`document.getElementById('s-churn')`) | `opsPage()` 공통 틀(카드+목록) 사용. |

@@ -510,10 +510,12 @@ table.t .na{color:#B6BCC6}
 .sc-h .r:hover{color:var(--tx)}
 .ta{width:100%;font-size:11.5px;line-height:1.6;min-height:52px;resize:vertical}
 /* v08.355 요청("팀카드에서 진행방식 기본칸을 좀더 늘려줘") — 「진행 방식」은 단계·순서를
-   여러 줄로 적는 칸이라 기본 3줄(52px)로는 매번 드래그해 늘려야 했다. 기본을 약 9줄로 둔다.
+   여러 줄로 적는 칸이라 기본 3줄(52px)로는 매번 드래그해 늘려야 했다.
+   v08.364 — 168px(약 9줄)로 뒀더니 사용자가 "너무 크다, **개요의 두 배 정도**가 적당"이라고
+   확정 → `.ta`의 52px × 2 = **104px**로 낮춘다.
    `.ta`의 resize:vertical은 그대로라 더 줄이거나 늘릴 수 있다.
    「개요」(같은 `.ta`)는 한두 줄 요약이라 종전 높이를 유지한다 — 이 클래스를 붙이지 않는다. */
-.ta.ta-lg{min-height:168px}
+.ta.ta-lg{min-height:104px}
 .row{display:flex;gap:8px;align-items:flex-start;padding:5px 2px;border-bottom:1px solid var(--line2)}
 .row:last-of-type{border-bottom:none}
 .row .d{font-size:10px;color:var(--tx2);width:54px;flex-shrink:0;padding-top:3px;font-family:ui-monospace,Consolas,monospace}
@@ -2206,7 +2208,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.363';
+window.__APP_VER='v08.364';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
