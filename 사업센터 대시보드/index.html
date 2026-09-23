@@ -739,8 +739,12 @@ table.t .na{color:#B6BCC6}
 .wk-it:focus{border-color:var(--acc);background:#fff}
 .wk-issue-g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .wk-issue-g label{display:block;font-size:9.5px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:3px}
+/* v08.363 요청("주간회의 이번주 핵심이슈 - 스크롤없이 내용보여줘") — 칸 안에서 스크롤하지 않고
+   **내용만큼 칸이 늘어난다**. 높이는 아래 wkGrowIssue()가 scrollHeight로 맞춘다.
+   · overflow:hidden — 스크롤바 자체를 없앤다(높이를 맞추므로 잘릴 일이 없다)
+   · resize:vertical은 그대로 둔다 — 직접 줄이고 싶을 때를 위해 */
 .wk-issue-g textarea{width:100%;min-height:52px;font-size:11.5px;font-family:inherit;border:1px solid var(--line);
-  border-radius:6px;padding:6px 8px;resize:vertical}
+  border-radius:6px;padding:6px 8px;resize:vertical;overflow:hidden}
 @media (max-width:760px){.wk-issue-g{grid-template-columns:1fr}}
 /* v06.23 주간 업무 현황 — 자동 집계 KPI(입력칸 아님, 그냥 숫자) + 이번 주/다음 주 2단.
    원본의 "이번 주 초록 헤더 / 다음 주 진한 헤더" 톤을 그대로 따름. */
@@ -2202,7 +2206,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.362';
+window.__APP_VER='v08.363';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -15202,6 +15206,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u82',d:'2026-09-23',tt:'핵심 이슈 — 칸 안에서 스크롤하지 않습니다',
+  b:'주간회의 「③ 이번 주 핵심 이슈」의 내용·원인·시사점·후속 Action 칸이 **내용만큼 늘어납니다**. 종전에는 칸 높이가 고정이라 긴 글은 칸 안에서 스크롤해야 읽을 수 있었습니다. 타이핑하는 동안에도 칸이 따라 늘어나고, 직접 끌어서 줄이는 것도 그대로 됩니다.'},
  {id:'u81',d:'2026-09-23',tt:'통합현황 증감이 계속 0으로 보이던 것 수정',
   b:'증감을 **마지막 두 기록**이 아니라 **값이 마지막으로 바뀐 두 지점**과 견주도록 바꿨습니다. 종전에는 값이 그대로여도 날마다 칸이 하나씩 쌓이던 시절의 기록이 남아 있어, 마지막 두 칸이 같은 값이면 계속 「0」으로 보였습니다(예: 누적 가입이 9/21에 916으로 오른 뒤 9/22·9/23도 916이라 0). 이제 **916 ↔ 914를 견줘 ▲ +2**로 나오고, 어느 날과 비교한 값인지도 증감 칸에 함께 적습니다.'},
  {id:'u80',d:'2026-09-23',tt:'개업세무사는 「플러스 안에 포함」이 아니라 「겹침」으로',
@@ -17191,10 +17197,20 @@ function teamWeekTableHtml(team){
    +'<div class="ww-col-b">'+rowsFor(nextWk)+'</div></div>'
    +'</div>';
 }
+/* v08.363 textarea 하나를 내용 높이에 맞춘다 — 렌더 직후(wkGrowIssuesAll)와 입력 중(oninput) 모두 쓴다.
+   auto로 한 번 줄였다 scrollHeight를 읽어야 **지웠을 때도** 높이가 따라 줄어든다. */
+window.wkGrowIssue=function(el){
+  if(!el)return;
+  try{ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }catch(e){}
+};
+window.wkGrowIssuesAll=function(){
+  try{ document.querySelectorAll('.wk-issue-g textarea').forEach(window.wkGrowIssue); }catch(e){}
+};
 function issueBlockHtml(){
   const w=getWeek(CURWK);
   /* v06.88 라벨(내용·원인·시사점·후속 Action)이 이미 있어 placeholder 설명은 중복 — 제거 */
-  const f=(i,key,ph,it)=>'<textarea onchange="wkSetIssue('+i+',\''+key+'\',this.value)">'+esc(it[key])+'</textarea>';
+  /* v08.363 — 타이핑하는 동안에도 칸이 따라 늘어난다(입력칸을 다시 그리지 않으므로 커서가 튀지 않는다) */
+  const f=(i,key,ph,it)=>'<textarea oninput="wkGrowIssue(this)" onchange="wkSetIssue('+i+',\''+key+'\',this.value)">'+esc(it[key])+'</textarea>';
   const rows=w.issues.length?w.issues.map((it,i)=>'<div class="wk-issue">'
     +'<div class="wk-issue-h"><input class="wk-it" placeholder="이슈 제목" value="'+esc(it.title)+'" onchange="wkSetIssue('+i+',\'title\',this.value)">'
     +'<button class="cb" onclick="wkDelIssue('+i+')" title="삭제">×</button></div>'
@@ -17377,6 +17393,8 @@ function paintWeek(){
    +'<div class="keytask" style="position:static"><div class="kt-h">④ VOC · 고객센터</div>'+kpiGridHtml('voc',WKKPI_VOC)+'</div>'
    +'<div class="keytask" style="position:static"><div class="kt-h">⑤ 공유사항</div>'+lineListHtml('shared','공유할 내용')+'</div>'
    +'<div class="keytask" style="position:static"><div class="kt-h">⑥ 결정사항</div>'+lineListHtml('decisions','결정된 내용')+'</div>';
+  /* v08.363 — innerHTML로 막 붙인 textarea는 높이가 기본값이라, 그린 직후 한 번 내용에 맞춘다 */
+  if(typeof window.wkGrowIssuesAll==='function')window.wkGrowIssuesAll();
 }
 
 /* ══ v06.39 통합 현황(home) — 원본 index.html 통합현황을 이식(요청: "기존 index파일의 통합현황 가져와").
