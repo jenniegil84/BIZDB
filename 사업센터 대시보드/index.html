@@ -2208,7 +2208,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.365';
+window.__APP_VER='v08.367';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -10036,8 +10036,19 @@ window.spPaint=function(){
        유입경로별(t1)은 종전대로 문의 기준이다 — 「문의가 어디서 왔나」를 보는 표라 문의를 세는 게 맞다.
        두 표가 서로 다른 것을 센다는 것을 제목에 적어 헷갈리지 않게 한다. */
     const nrm=function(v){return String(v||'').replace(/[^0-9]/g,'');};
+    /* ══ v08.367 버그 수정 — 「먼저 나온 문의」가 아니라 「가장 이른 문의」를 쓴다 ══
+       종전에는 `!inqByBiz[b]`로 **배열에서 먼저 나온 것 하나**를 잡았다. `flowRows()`는 시트에
+       실린 순서 그대로라 날짜순이 아니다. 그래서 같은 사업자번호에 문의가 둘이면
+       (예: 9/16 세모R 신청 = 홈페이지, 9/30 신규가입 = 유입경로 미확인) **뒤 건이 먼저 실려 있으면
+       가입 실적이 「미확인」으로 귀속**됐다(사용자 화면에서 실제로 그렇게 보였다).
+       유입경로는 「처음 어디서 들어왔나」이므로 **가장 이른 문의**가 맞다. */
     const inqByBiz={};
-    S.inq.forEach(function(r){ const b=nrm(r.bz); if(b&&!inqByBiz[b])inqByBiz[b]=r; });
+    const _dt10=function(r){return String((r&&r.dt)||'').slice(0,10);};
+    S.inq.forEach(function(r){
+      const b=nrm(r.bz); if(!b)return;
+      const cur=inqByBiz[b];
+      if(!cur||_dt10(r)<_dt10(cur))inqByBiz[b]=r;
+    });
     const PMM=window.__pmMaster||{};
     /* 구분·일자는 어느 목록에서 왔는지로 정한다 — 재가입 행에도 가입일이 함께 들어 있어
        행의 값만 보고 판단하면 「문의 없는 실적」에서 만든 키와 어긋난다(그 키는 구분·일자를 쓴다). */
@@ -10097,8 +10108,25 @@ window.spPaint=function(){
          · t4 상향 채널별 = 요금제 상향만
          · t3 최종실적별  = 위 둘의 합 (= 실적 전체) */
     const perfEv=joinEv.concat(upEv);
+    /* ══ v08.367 사용자 확정("신청이 먼저 꽂히고 나중에 가입이 될때도 꽂혀서 유입경로가 중복") ══
+       같은 사무소가 신청 → 가입으로 두 번 글을 남기면 유입경로가 **두 번 세어졌다**.
+       유입경로는 「그 고객이 처음 어디서 들어왔나」이므로 **같은 사업자번호는 가장 이른 문의 1건만** 센다.
+       · 사업자번호가 없는 건은 묶을 수 없으므로 **그대로 센다**(임의로 이름으로 묶지 않는다).
+       · 「전체 문의」 카드는 종전대로 **전량**이다(v08.333 확정) — 그래서 이 표 합계가 더 작을 수 있고,
+         그 차이는 표 아래 메모에 건수로 적는다. */
+    const _inqOne=(function(){
+      const first={}, noBz=[];
+      S.inq.forEach(function(r){
+        const b=nrm(r.bz);
+        if(!b){ noBz.push(r); return; }
+        const cur=first[b];
+        if(!cur||_dt10(r)<_dt10(cur))first[b]=r;
+      });
+      return Object.keys(first).map(function(k){return first[k];}).concat(noBz);
+    })();
+    const _inqDup=S.inq.length-_inqOne.length;   /* 뒤따른 신청 = 유입경로 집계에서 뺀 건수 */
     const t1=perfTbl2('유입경로별 실적 (문의 기준)', '',
-        perfGroup2(S.inq, byInflow));
+        perfGroup2(_inqOne, byInflow));
     /* ══ v08.171 요청("가입채널 최종실적 비활성화 개수는 빼") ══
        채널이 아직 지정되지 않은 건(미분류)은 두 표에서 뺀다. 「어느 채널에서 나왔나」를 보는
        표인데 미지정이 21건씩 쌓여 있으면 실제 채널 비중이 그 밑에 묻힌다.
@@ -10120,11 +10148,15 @@ window.spPaint=function(){
         '채널이 지정된 실적이 없습니다');
     /* v08.175 요금제 변경은 별도 표 — 가입과 성격이 달라 섞으면 「가입 몇 건」이 흐려진다.
        최종실적(귀속 채널) 기준으로 본다 — 요금제 변경에는 「가입채널」이라는 개념이 없다. */
-    /* v08.176 대분류는 채널, 소분류는 변경 전 → 변경 후 */
+    /* ══ v08.366 요청("요금제 상향 채널별 실적 — 영업채널에 내부영업과 영업채널1을 분리해서 보여줘") ══
+       v08.176에서 이 표만 **소분류를 「변경 전 → 변경 후」**로 썼다(대분류만 채널). 그래서 옆의
+       세 표(t1·t2·t3)는 「영업 > 내부영업 / 영업채널1」로 갈라 보이는데 이 표만 영업이 한 덩어리로
+       묶여, 같은 화면에서 채널별로 견줄 수가 없었다.
+       이제 **다른 세 표와 똑같이 세부 채널(`finalV` 전체)을 소분류로 쓴다.**
+       ※ 「변경 전 → 변경 후」 내역은 실적 관리 탭의 **발생 건 목록**에서 건별로 그대로 볼 수 있다
+         (그 화면이 요금제 변경의 원건을 담당한다). 이 표는 「어느 채널에서 올라왔나」를 본다. */
     const t4=perfTbl2('요금제 상향 채널별 실적 (상향만)', '',
-        perfGroup2(evP, function(x){
-          return String(x.finalV||'미분류').split(' > ')[0]+' > '+x.pat;
-        }),
+        perfGroup2(evP, function(x){return x.finalV;}),
         '채널이 지정된 요금제 상향이 없습니다');
     /* v08.200 요청("최종실적별 실적을 요금제변경 채널별 실적 오른편에 배치") — 2열 그리드로 바꿔
        1행에 유입경로별·가입채널별, 2행에 요금제변경 채널별·최종실적별을 나란히 둔다. */
@@ -10136,6 +10168,13 @@ window.spPaint=function(){
        · 「전체 가입 현황」은 **인사이트 신규 가입월** 기준(플러스)이라 세는 단위가 다르다
        표 밖(그리드 아래)에 두어 2열 그리드가 깨지지 않게 한다(v08.173에서 겪은 문제). */
     const _mNew=S.join.length, _mRe=S.rejoin.length, _mUp=upEv.length;
+    /* v08.367 — 유입경로별에서 뺀 「뒤따른 신청」이 있으면 그 사실을 건수로 밝힌다(0이면 적지 않는다) */
+    const _dupTx=_inqDup>0
+      ? ('<br><b>유입경로별</b>은 같은 사무소가 신청 → 가입으로 두 번 글을 남긴 경우 '
+         +'<b>가장 이른 신청 1건만</b> 셉니다 — 이번 기간에 <b>'+_inqDup+'건</b>이 그렇게 빠졌습니다'
+         +'(<b>전체 문의 '+S.inq.length+'건</b> → 유입경로별 '+_inqOne.length+'건). '
+         +'뒤따른 신청은 앞 신청의 유입경로를 그대로 물려받습니다.')
+      : '';
     const _memo='<div style="margin:-6px 0 14px;font-size:10.5px;color:var(--muted);line-height:1.7">'
       +'<b>실적 '+(joinEv.length+_mUp)+'건</b> = 가입 '+joinEv.length+'건(신규 '+_mNew+' · 재가입 '+_mRe+')'
       +' + 요금제 상향 '+_mUp+'건 &nbsp;·&nbsp; <b>가입채널별</b>은 가입만, '
@@ -10144,6 +10183,7 @@ window.spPaint=function(){
       +'「전체 가입 현황」·주간회의의 <b>플러스</b>는 <b>인사이트를 새로 가입한 달</b> 기준이라 세는 단위가 달라 숫자가 다를 수 있습니다.'
       +'<br>세 표 모두 <b>채널이 지정된 건만</b> 셉니다(미지정은 실적 관리 탭에서 지정하면 바로 반영). '
       +'하향·기타 요금제 변경은 아래 <b>세부 지표 「요금제 변경」</b>에서 봅니다.'
+      +_dupTx
       +'</div>';
     /* v08.332 요청("최종실적별 실적과 요금제 상향 채널별 실적 자리 바꿔") —
        2행을 「최종실적별(왼쪽) · 요금제 상향 채널별(오른쪽)」로 둔다.
@@ -11056,11 +11096,39 @@ window.spPaint=function(){
         +'border:'+bd+';'+bar+'border-radius:5px;background:#fff">'
         +'<option value="">—</option>'+opt(cur)+'</select>';
     };
+    /* ══ v08.367 「후속 신청」 배지 ══
+       같은 사무소가 신청 → 가입으로 두 번 글을 남기면 목록에 두 줄로 뜬다. 어느 쪽이 처음이고
+       어느 쪽이 뒤따른 것인지 화면에서 구분되지 않아, 유입경로를 어디에 지정해야 할지 헷갈렸다
+       (사용자 질문 "유입경로가 중복되는데 이런건은 어떻게 처리하는게 좋을까?").
+       유입경로별 실적은 **가장 이른 신청 1건만** 세므로, 뒤따른 줄에 그 사실을 적어 둔다.
+       · 판정 원천은 **화면에 보이는 목록이 아니라 플로우 전량**(`__ixLiveFlow`)이다 —
+         기간을 좁혀 보면 앞 신청이 화면 밖에 있을 수 있어, 목록 안에서만 비교하면 틀린다. */
+    const _firstInq=(function(){
+      const first={};
+      const L=(typeof window.__ixLiveFlow==='function')?window.__ixLiveFlow():[];
+      L.forEach(function(r){
+        if(typeof window.isPerfTarget==='function'&&!window.isPerfTarget(r))return;
+        const b=String(r.bz||'').replace(/[^0-9]/g,''); if(!b)return;
+        const d=String(r.dt||'').slice(0,10); if(!d)return;
+        const cur=first[b];
+        if(!cur||d<String(cur.dt||'').slice(0,10))first[b]=r;
+      });
+      return first;
+    })();
     const body=all.length? all.slice(0,300).map(function(x){
       const r=x.r;
       const mark=x.wemb?'wemb':(x.inside?'inside':(x.manualF?'manual':''));
+      const _fb=String(r.bz||'').replace(/[^0-9]/g,'');
+      const _f=_fb?_firstInq[_fb]:null;
+      const _isDup=!!(_f&&String(_f.fid)!==String(r.fid));
+      const _dupBadge=_isDup
+        ? ('<span title="같은 사무소의 앞선 신청이 있습니다 — 유입경로별 실적은 가장 이른 신청 1건만 셉니다"'
+           +' style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:9px;'
+           +'background:var(--gray-lt);color:var(--gray-md);vertical-align:1px">후속 · 최초 '
+           +IX_esc(String(_f.dt||'').slice(5,10))+'</span>')
+        : '';
       return '<tr'+(x.todo?' style="background:#FFFBEB"':'')+'>'
-        +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(r.tt)+'</div>'
+        +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(r.tt)+_dupBadge+'</div>'
         +'<div style="font-size:9px;color:var(--gray-md)">'+IX_esc(r.wr)+' · '+String(r.dt||'').slice(0,10)+' · '+IX_esc(r.tp||'')+'</div></td>'
         /* v08.187 요금제 — 변경 건은 「전 → 후」, 그 외는 현재 요금제 */
         +(function(){
@@ -15232,6 +15300,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u85',d:'2026-09-30',tt:'같은 사무소가 두 번 신청해도 유입경로는 한 번만',
+  b:'신청 → 가입으로 같은 사무소가 플로우에 글을 두 번 남기면 **유입경로가 두 번 세어지던 것**을 고쳤습니다. 이제 「유입경로별 실적」은 **가장 이른 신청 1건만** 셉니다(표 아래에 몇 건이 그렇게 빠졌는지 적힙니다). 뒤따른 신청은 앞 신청의 유입경로를 그대로 물려받아 **「미확인」으로 남지 않습니다**. 실적 관리 목록에서는 뒤따른 줄에 **「후속 · 최초 09-16」** 배지가 붙어 어느 쪽이 처음인지 바로 보입니다. 「전체 문의」 건수는 종전과 같습니다.'},
+ {id:'u84',d:'2026-09-29',tt:'요금제 상향 채널별 실적 — 세부 채널로 분리',
+  b:'이 표만 소분류가 「변경 전 → 변경 후」여서 영업이 한 덩어리로 묶여 있었습니다. 이제 옆의 세 표와 똑같이 **세부 채널**(내부영업 · 영업채널1 등)로 갈라 보입니다 — 네 표를 같은 기준으로 나란히 견줄 수 있습니다. 「변경 전 → 변경 후」 내역은 실적 관리 탭의 **발생 건 목록**에서 건별로 그대로 볼 수 있습니다.'},
  {id:'u83',d:'2026-09-23',tt:'날짜별 지표 — 사용건수 3종을 맨 위로',
   b:'통합현황 「날짜별 지표」에서 **인사이트 총 사용건수 · 자금일보 총 사용건수 · 전자세금계산서 총 사용건수** 세 줄이 맨 위에 보이고, 나머지 9개 지표(누적 가입·해지·정지·현재 정상·플러스·전환율·거래처 3종)는 **[＋ 나머지 9개 지표 더보기]**를 눌러야 나옵니다.'},
  {id:'u82',d:'2026-09-23',tt:'핵심 이슈 — 칸 안에서 스크롤하지 않습니다',
