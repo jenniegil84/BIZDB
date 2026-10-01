@@ -2208,7 +2208,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.368';
+window.__APP_VER='v08.369';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3712,9 +3712,14 @@ window.__snapChange=function(arr,key){
     if(typeof n==='number'&&isFinite(n))v.push({d:x.d,t:x.t,n:n});
   });
   if(v.length<2)return null;
-  const last=v[v.length-1];
-  for(let i=v.length-2;i>=0;i--){ if(v[i].n!==last.n)return {prev:v[i], last:last}; }
-  return null;                                   // 값이 한 번도 바뀐 적 없음
+  /* ══ v08.369 사용자 확정("증감비교는 직전 업로드 개수와 비교해") ══
+     v08.362에서는 **값이 마지막으로 바뀐 지점**까지 거슬러 올라가 견줬다. 그때는 옛 기록
+     (값이 같아도 날마다 칸이 생기던 시절)이 남아 있어 직전 칸과 비교하면 늘 0이었기 때문이다.
+     v08.350 이후로는 **값이 바뀔 때만 칸이 생기므로** 그 사정이 없어졌고, 사용자는
+     **직전 업로드와의 차이**를 원한다(값이 그대로면 0이 맞다 — 예: 자금일보 09.29 35 → 10.01 35 = 0).
+     ※ 그 지표에 값이 없는 칸(「—」)은 건너뛴다 — 「직전 업로드」가 아니라
+       **그 지표가 기록된 직전 칸**과 견준다(다른 지표 때문에 생긴 칸은 비교 대상이 아니다). */
+  return {prev:v[v.length-2], last:v[v.length-1]};
 };
 window.__snapPush=function(arr,rec){
   const now=Date.now(), last=arr.length?arr[arr.length-1]:null;
@@ -6371,7 +6376,7 @@ function custToMg(c,step,status,problem,action,dmn){
       +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
       +'<th style="text-align:left;width:180px">지표</th>'+head
       +'<th style="width:118px">증감'
-      +'<div style="font-weight:400;color:var(--gray-md);font-size:9px">값이 바뀐 마지막 시점</div></th>'
+      +'<div style="font-weight:400;color:var(--gray-md);font-size:9px">직전 업로드 대비</div></th>'
       +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div></details>';
   };
   const _srStat=(function(){
@@ -15366,6 +15371,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u87',d:'2026-10-01',tt:'증감 = 직전 업로드 대비',
+  b:'「날짜별 지표」의 증감을 **바로 앞 칸(직전 업로드)**과 견주도록 바꿨습니다. 값이 그대로면 **0**으로 나옵니다(예: 자금일보 09.29 35 → 10.01 35 = 0건). 종전에는 값이 마지막으로 바뀐 시점까지 거슬러 올라가 비교했습니다. 그 지표에 값이 없는 칸(「—」)은 건너뛰고, 그 지표가 기록된 직전 칸과 견줍니다.'},
  {id:'u86',d:'2026-09-30',tt:'사업자번호가 없는 문의도 같은 사무소로 묶습니다',
   b:'「고객센터 도입/문의」처럼 **신청 폼이 아닌 글에는 사업자번호가 없어** 앞선 문의로 잡히지 않았습니다(예: 9/03 세무법인인하누리 부천4지점 ↔ 9/17 세무법인인하누리부천제4지점). 이제 번호가 없으면 **사무소명으로** 잇습니다 — 「(125개,1명)」 꼬리, 「_260917」 접미사, 띄어쓰기, 「부천제4지점 ↔ 부천4지점」의 「제」를 걷어내고 비교합니다. **같은 이름에 사업자번호가 둘 이상 걸리면 묶지 않습니다**(동명 사무소 오인 방지). 가입 건이 유입경로를 찾을 때도 번호로 못 찾으면 이름으로 한 번 더 찾습니다.'},
  {id:'u85',d:'2026-09-30',tt:'같은 사무소가 두 번 신청해도 유입경로는 한 번만',
