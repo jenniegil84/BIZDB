@@ -2212,7 +2212,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.378';
+window.__APP_VER='v08.379';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3698,17 +3698,9 @@ window.__snapSort=function(arr){
      · 위 예에서는 916(지금) ↔ 914(9/20)를 견줘 **▲ +2**가 된다
      · 한 번도 바뀐 적이 없으면 비교 대상이 없으므로 「—」(0을 지어내지 않는다)
    옛 기록을 지우지 않고도 요청한 「최근 업데이트 전 → 후」가 바로 보인다. */
-/* v08.365 「날짜별 지표」 더보기 — 표를 다시 그리지 않고 그 자리에서 숨긴 줄만 토글한다
-   (다시 그리면 열려 있던 접이식·스크롤 위치가 흐트러진다). */
-window.snapMoreToggle=function(btn){
-  try{
-    const t=btn.closest('table'); if(!t)return;
-    const rs=t.querySelectorAll('tr.snap-more'); if(!rs.length)return;
-    const show=(rs[0].style.display==='none');
-    rs.forEach(function(r){ r.style.display=show?'':'none'; });
-    btn.textContent=show?('− 나머지 '+rs.length+'개 지표 접기'):('＋ 나머지 '+rs.length+'개 지표 더보기');
-  }catch(e){}
-};
+/* v08.379 — 「날짜별 지표」 더보기(window.snapMoreToggle, v08.365)를 제거했다.
+   사용건수 3종이 「월별 사용건수」 쪽으로 올라가(요청 "날짜별 지표 세개를 월별 사용건수로 올려")
+   날짜별 지표에는 나머지 9종만 남았고, 숨길 줄이 없어 더보기 버튼 자체가 필요 없어졌다. */
 window.__snapChange=function(arr,key){
   const v=[];
   (arr||[]).forEach(function(x){
@@ -6302,11 +6294,17 @@ function custToMg(c,step,status,problem,action,dmn){
      · 이 화면이 이미 쓰는 접이식 컴포넌트(`details.fold`)를 그대로 쓴다 — 기본은 **닫힘**.
      · 비교할 스냅샷이 없으면 **블록 자체를 만들지 않는다**(빈 표·안내 문장 금지).
      · 값이 없는 지표(컬럼이 없어 기록되지 않은 것)는 줄을 만들지 않는다 — 지어내지 않는다. */
-  const _homeDeltaTable=function(){
+  /* ══ v08.379 요청("날짜별 지표 세개를 월별 사용건수로 올려") ══
+     인사이트 사용건수 3종(`top:1`)을 **「월별 사용건수」 블록 쪽으로 올린다.** 같은 함수를
+     `only='ins'`로 한 번 더 불러 그 3줄만 뽑아 쓰고, 기본 호출은 **나머지 9종만** 그린다 —
+     표를 그리는 코드를 두 벌로 만들지 않기 위해서다(두 벌이면 한쪽만 고치는 사고가 난다).
+       · `only==='ins'` → 3줄 · 접이식 없이 바로 보임 · 「날짜별 사용건수」 라벨
+       · 기본           → 9줄 · 종전처럼 접이식(`details.fold`) 「날짜별 지표」
+     v08.365에서 두던 「나머지 N개 더보기」는 숨길 줄이 없어져 함께 제거했다. */
+  const _homeDeltaTable=function(only){
     /* ══ v08.365 요청("인사이트 총 사용건수 / 자금일보 총 사용건수 / 전자세금계산서 총 사용건수
        맨 위로 올리고 나머지는 더보기") ══
-       인사이트 사용건수 3종을 **맨 위 3줄**로 올리고, 나머지 9종은 **기본으로 접는다**(`top:1`이 위 3줄).
-       라벨도 사용자가 적은 대로 셋 다 「총 사용건수」로 통일한다. */
+       라벨은 사용자가 적은 대로 셋 다 「총 사용건수」로 통일한다(`top:1`이 그 3종). */
     const SPEC=[
       {k:'all',  l:'인사이트 총 사용건수',     u:'건', top:1},
       {k:'fund', l:'자금일보 총 사용건수',     u:'건', top:1},
@@ -6339,8 +6337,8 @@ function custToMg(c,step,status,problem,action,dmn){
       return (v==null)?'<span class="na">—</span>'
         : Number(v).toLocaleString(undefined,dec?{minimumFractionDigits:1,maximumFractionDigits:1}:undefined);
     };
-    const rows=[]; let moreN=0;
-    SPEC.forEach(function(o){
+    const rows=[];
+    SPEC.filter(function(o){ return only==='ins' ? !!o.top : !o.top; }).forEach(function(o){
       const has=snaps.filter(function(x){return typeof x[o.k]==='number'&&isFinite(x[o.k]);});
       if(!has.length)return;                        // 한 번도 기록된 적 없는 지표는 줄을 만들지 않는다
       let cells='';
@@ -6361,20 +6359,13 @@ function custToMg(c,step,status,problem,action,dmn){
           +IX_esc(String(ch.prev.d).slice(5).replace('-','.'))+' → '
           +IX_esc(String(ch.last.d).slice(5).replace('-','.'))+'</div>';
       }
-      /* v08.365 — 위 3줄(top)이 아니면 `snap-more` 클래스를 달아 기본으로 숨긴다(더보기로 펼침) */
-      rows.push('<tr'+(o.top?'':' class="snap-more" style="display:none"')+'>'
+      rows.push('<tr>'
         +'<td style="text-align:left;white-space:nowrap">'+o.l
         +'<span style="color:var(--gray-md);font-size:9px;margin-left:4px">('+o.u+')</span></td>'
         +cells+'<td>'+dcell+'</td></tr>');
-      if(!o.top)moreN++;
     });
     if(!rows.length)return '';
-    const metricN=rows.length;      /* v08.365 아래 더보기 줄을 넣기 전의 「지표 수」(요약 배지용) */
-    /* 더보기 줄 — 숨긴 지표가 있을 때만. 화면을 다시 그리지 않고 그 자리에서 접었다 폈다 한다
-       (다시 그리면 열려 있던 접이식과 스크롤 위치가 흐트러진다). */
-    if(moreN)rows.push('<tr><td colspan="'+(DAYS.length+2)+'" style="text-align:center;padding:7px">'
-      +'<button class="btn gh" onclick="snapMoreToggle(this)" style="font-size:10.5px">'
-      +'＋ 나머지 '+moreN+'개 지표 더보기</button></td></tr>');
+    const metricN=rows.length;
     /* 같은 날이 두 칸 이상이면 그 날 칸들에만 시각을 덧붙인다 — 매번 시각을 적으면 지저분해진다 */
     const dayCnt={};
     DAYS.forEach(function(x){ dayCnt[String(x.d)]=(dayCnt[String(x.d)]||0)+1; });
@@ -6384,13 +6375,20 @@ function custToMg(c,step,status,problem,action,dmn){
         +(dup&&x.t?'<div style="font-weight:400;color:var(--gray-md);font-size:9px">'+IX_esc(String(x.t))+'</div>':'')
         +'</th>';
     }).join('');
-    return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
-      +metricN+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
-      +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
+    const tbl='<div style="overflow:auto"><table class="tbl"><thead><tr>'
       +'<th style="text-align:left;width:180px">지표</th>'+head
       +'<th style="width:118px">증감'
       +'<div style="font-weight:400;color:var(--gray-md);font-size:9px">직전 업로드 대비</div></th>'
-      +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div></details>';
+      +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+    /* v08.379 — 사용건수 3종은 「월별 사용건수」와 나란히 두므로 접지 않고 바로 보여준다 */
+    if(only==='ins')
+      return '<div style="margin-top:10px">'
+        +'<div class="sec-label" style="margin-bottom:4px">날짜별 사용건수 '
+        +'<span class="sec-tag t">업로드 회차</span></div>'
+        +'<div class="panel">'+tbl+'</div></div>';
+    return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
+      +metricN+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
+      +'<div class="fold-b">'+tbl+'</div></details>';
   };
   const _srStat=(function(){
     const C=window.__xlOfficeCols||{};
@@ -6556,6 +6554,7 @@ function custToMg(c,step,status,problem,action,dmn){
       }).join('')}
     </div>
     ${_insMonthlyHTML()}
+    ${_homeDeltaTable('ins')}
   </div>
 
   <!-- v08.145 세모리포트 거래처 현황 — 세무사무소목록의 거래처수 3종(총·가입·해지) -->
@@ -9179,14 +9178,22 @@ window.suspendPlanRows=function(){
     return String(x.due).replace(/[^0-9]/g,'')>=base;
   });
 };
-/* 뺀 까닭을 화면에 적기 위한 집계 — {past: 종료월이 이미 지남, noEnd: 종료월을 알 수 없음} */
+/* 뺀 까닭을 화면에 적기 위한 집계
+   {past: 종료월이 이미 지남, inf: 무기한(209912), noEnd: 종료월이 비어 있음}
+   ══ v08.379 사용자 정정("프로모션 종료연월 누락이 아니라 평생이라는 거야") ══
+   종전에는 둘을 「종료월 없음」으로 묶어 세어 **데이터 누락처럼 보였다.** 실제 원본을 보니
+   2026-10-06 마스터 기준 그 107곳은 **전부 `209912`**였다 — 비어 있는 것이 아니라
+   **끝나지 않는 프로모션**이라는 표기다(이 파일이 __syncPromo에서 쓰는 「무기한」과 같은 값).
+   둘은 성격이 전혀 다르므로 따로 센다. */
 window.spPlanExcluded=function(){
-  const base=window.spBaseYm(); let past=0, noEnd=0;
+  const base=window.spBaseYm(); let past=0, inf=0, noEnd=0;
   window.spPromoRows().forEach(function(x){
-    if(!window.spDueOk(x.due)){ noEnd++; return; }
-    if(String(x.due).replace(/[^0-9]/g,'')<base)past++;
+    const t=String(x.due||'').replace(/[^0-9]/g,'').slice(0,6);
+    if(t==='209912'){ inf++; return; }
+    if(t.length!==6){ noEnd++; return; }
+    if(t<base)past++;
   });
-  return {past:past, noEnd:noEnd};
+  return {past:past, inf:inf, noEnd:noEnd};
 };
 /* 화면(표·건수)이 보는 전체 목록 = 정지 + 정지 예정. 사유별 카드는 종전대로 「정지」만 본다. */
 window.spRowsAll=function(){
@@ -9285,6 +9292,7 @@ window.suspendPanelHTML=function(){
     +' · 정지 예정 <b style="color:var(--orange)">'+P.length.toLocaleString()+'곳</b>'
     +(soon.length?(' (가장 이른 '+IX_esc(soon[0])+')'):'')
     +(EX.past?(' · 제외 종료월 지남 '+EX.past.toLocaleString()):'')
+    +(EX.inf?(' · 무기한 '+EX.inf.toLocaleString()):'')
     +(EX.noEnd?(' · 종료월 없음 '+EX.noEnd.toLocaleString()):'')
     +'</div>'
     +'<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,grp.length))+',1fr)">'
@@ -10466,7 +10474,12 @@ window.spPaint=function(){
       return Object.keys(first).map(function(k){return first[k];});
     })();
     const _inqDup=S.inq.length-_inqOne.length;   /* 뒤따른 신청 = 유입경로 집계에서 뺀 건수 */
-    const t1=perfTbl2('유입경로별 실적 (문의 기준)', '',
+    /* ══ v08.379 사용자 지적("전체문의 25건인데 유입경로별 실적23이라 안맞아") ══
+       둘이 다른 것은 v08.367에서 사용자가 확정한 규칙 때문이다 — 같은 사무소가 신청 → 가입으로
+       두 번 글을 남기면 **가장 이른 신청 1건만** 센다. 그런데 그 사실이 네 표 **아래쪽 메모**에만
+       적혀 있어 표를 볼 때는 보이지 않았다. 숫자가 어긋나 보이는 것을 **제목에서 바로** 읽도록
+       빠진 건수를 제목에 붙인다(설명 문장을 늘리지 않고 건수만 — 배운 점 6번). */
+    const t1=perfTbl2('유입경로별 실적 (문의 기준'+(_inqDup>0?' · 후속 '+_inqDup+'건 제외':'')+')', '',
         perfGroup2(_inqOne, byInflow));
     /* ══ v08.171 요청("가입채널 최종실적 비활성화 개수는 빼") ══
        채널이 아직 지정되지 않은 건(미분류)은 두 표에서 뺀다. 「어느 채널에서 나왔나」를 보는
@@ -15646,6 +15659,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u95',d:'2026-10-06',tt:'사용건수 3종을 「월별 사용건수」 옆으로 · 무기한 표기 정정',
+  b:'① 통합현황 「날짜별 지표」 맨 위에 있던 **인사이트 총 · 자금일보 · 전자세금계산서 사용건수** 3줄을 **「월별 사용건수」 바로 아래(날짜별 사용건수)**로 옮겼습니다. 사용건수를 한자리에서 월별·날짜별로 같이 봅니다. 「날짜별 지표」에는 나머지 9종만 남아 **더보기 없이 바로** 펼쳐집니다. ② 정지업체 목록 위의 **「종료월 없음 107」을 「무기한 107」**로 고쳤습니다 — 그 107곳은 종료 연월이 비어 있는 것이 아니라 **`209912`(끝나지 않는 프로모션)**였습니다. ③ 「유입경로별 실적」 제목에 **「후속 N건 제외」**를 적었습니다 — 같은 사무소가 신청 → 가입으로 두 번 글을 남기면 가장 이른 1건만 세기 때문에 「전체 문의」보다 적습니다(2026-09: 전체 문의 25건 → 유입경로별 23건, 후속 2건).'},
  {id:'u94',d:'2026-10-06',tt:'정지업체 — 지난 정지해제일은 흐리게',
   b:'정지업체 목록에서 **정지해제일이 정지일보다 앞서면 흐리게** 표시합니다. 그 칸은 「마지막으로 정지를 푼 날」이라, 풀렸다가 **다시 정지된 곳**은 지금 정지일보다 앞선 날짜가 그대로 남습니다(모순이 아닙니다). 2026-10-06 마스터 기준 정지 197곳 중 해제일이 있는 16곳 가운데 **15곳이 이 경우**이고, 해제일이 정지일보다 뒤인 곳은 **0곳**입니다.'},
  {id:'u93',d:'2026-10-06',tt:'190만 일시납 스케줄 — 해지한 곳도 보이고 해지일이 적힙니다',
