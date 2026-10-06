@@ -2208,7 +2208,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.371';
+window.__APP_VER='v08.373';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -5197,10 +5197,12 @@ const TABS=[
  {div:1},
  // ── 고객 관리(팀 공통) ──
  {id:'promo',nm:'프로모션 종료·정상가 전환',st:'full'},
- {id:'churn',nm:'해지·재가입',st:'full'},
- /* v08.254 요청("고객관리-정지업체탭 추가해줘") — 해지·재가입 바로 뒤, 같은 고객 관리
-    묶음에 둔다. */
+ /* v08.254 요청("고객관리-정지업체탭 추가해줘") — 해지·재가입과 같은 고객 관리 묶음에 둔다.
+    v08.373 요청("정지업체탭을 해지 재가입탭위에 배치") — 해지·재가입 **앞**으로 옮겼다.
+    고객 여정이 정지 → 해지 순이라 이쪽이 읽기 자연스럽다.
+    ※ 사이드바에 보이는 순서는 아래 NAV가 정한다 — 두 곳을 같이 바꿔야 한다. */
  {id:'suspend',nm:'정지업체',st:'full'},
+ {id:'churn',nm:'해지·재가입',st:'full'},
  {div:1},
  // ── 조회·데이터 ──
  {id:'cust',nm:'고객 검색',st:'full'},
@@ -9065,7 +9067,25 @@ window.spOpenSet=function(key,v){
    종료월이 비어 있으면 **정지 예정일을 알 수 없으므로 넣지 않는다**(날짜를 만들어 내지 않는다). */
 window.spIsSpecial=function(v){ return /^special$/i.test(String(v||'').trim()); };
 window.spDueText=function(ym){ const t=String(ym||'').replace(/[^0-9]/g,''); return t.length>=6?(t.slice(0,4)+'-'+t.slice(4,6)):''; };
-window.suspendPlanRows=function(){
+/* ══ v08.372 사용자 지적("2026년9월이면 정지가 됐어야 하는데 왜 정지예정일이야?") ══
+   v08.371은 종료월이 **이미 지난 곳까지** 「정지 예정」으로 묶었다(가장 이른 예정이 2025-08로
+   찍혔다). 확인해 보니 그 곳들은 **정지가 누락된 게 아니었다** — 청구대상 고객관리(2026-09)
+   파일 대조 결과, 종료월이 지난 Special 35곳 가운데 **34곳이 3만~5만원을 청구받고 있었다**
+   (이용요금제도 기본 15 · PREMIUM 9 · 베이직 7 · 플러스 4). 즉 **프로모션만 끝나고 유료로
+   전환돼 계속 쓰는 곳**이다. 「Special 종료 = 정지」는 **앞으로 종료될 곳에만** 성립한다.
+   사용자 확정: **"목록에서 뺀다"** — 정지 예정은 **이번 달 이후에 종료되는 곳**만 센다
+   (이미 지난 건은 「프로모션 종료 관리」 화면이 종료 경과로 따로 담당하고 있다).
+
+   기준월은 **오늘이 속한 달**이다(파일 기준일이 아니다). 묻는 것이 「앞으로 정지될 곳인가」라
+   달력 시간으로 갈라야 한다 — 파일이 한 달 묵으면 지난 달이 계속 「예정」으로 남는다.
+   프로모션은 **그 달 말까지** 가므로 **종료월이 이번 달이면 아직 예정**이다. */
+window.spBaseYm=function(){
+  const d=new Date();
+  return String(d.getFullYear())+String(d.getMonth()+1).padStart(2,'0');
+};
+/* 현재 상태 '정상'이면서 프로모션 구분이 Special인 곳 **전부**(종료월이 지난 곳 포함).
+   화면에서 「지난 건 N곳을 뺐다」고 밝히기 위해 거르기 전 목록도 필요해 따로 둔다. */
+window.spSpecialRows=function(){
   const blank=function(v){ const t=String(v||'').trim(); return (t&&t!=='-'&&t!=='.')?t:''; };
   /* 두 파일을 잇는 키는 이 파일의 공통 규칙(xlBizKey = 숫자만 앞 10자리, 10자리 미만이면 빈 값)을
      그대로 쓴다 — 청구 파일 쪽 bz가 이미 그 규칙으로 들어와 있다(v08.262 __billAllRows). */
@@ -9077,13 +9097,16 @@ window.suspendPlanRows=function(){
     o.op=String((window.__spOpen||{})[k]||'');
     return o;
   };
+  /* 종료월이 없거나 '209912'(무기한 표기 — __syncPromo와 같은 관례)면 예정일을 알 수 없어 넣지 않는다 */
+  const okEnd=function(v){ const t=String(v||'').replace(/[^0-9]/g,'').slice(0,6);
+    return t.length===6&&t!=='209912'; };
   const OC=window.__xlOfficeCols||{};
   const R=window.__xlOfficeRows||[];
   if(OC.pmNm&&OC.pmE&&R.length){
     const hasSt=R.some(function(x){ return String(x.st||'').trim(); });
     const live=hasSt ? R.filter(function(x){ return String(x.st||'').trim()==='정상'; })
                      : R.filter(function(x){ return !x.cn && !x.sp; });
-    return live.filter(function(x){ return window.spIsSpecial(x.pmNm)&&window.spDueText(x.pmE); })
+    return live.filter(function(x){ return window.spIsSpecial(x.pmNm)&&okEnd(x.pmE); })
       .map(function(x){ return mk({ nm:x.nm||'', ow:blank(x.ow), hp:blank(x.hp),
         pl:String(x.pl||'').trim()||'', rs:'', bz:x.bz||'',
         due:window.spDueText(x.pmE), promo:String(x.pmNm||'').trim() }); });
@@ -9092,7 +9115,7 @@ window.suspendPlanRows=function(){
   if(!AB)return [];
   const off={}; R.forEach(function(x){ const k=bkey(x.bz); if(k)off[k]=x; });
   return AB.filter(function(r){
-      if(!window.spIsSpecial(r.promo)||!window.spDueText(r.promoE))return false;
+      if(!window.spIsSpecial(r.promo)||!okEnd(r.promoE))return false;
       const o=off[bkey(r.bz)]; const st=o?String(o.st||'').trim():'';
       if(st&&st!=='정상')return false;
       return true;
@@ -9101,6 +9124,14 @@ window.suspendPlanRows=function(){
       return mk({ nm:r.nm||'', ow:blank(o.ow), hp:blank(o.hp),
         pl:String(r.pl||o.pl||'').trim()||'', rs:'', bz:r.bz||'',
         due:window.spDueText(r.promoE), promo:String(r.promo||'').trim() }); });
+};
+/* 정지 예정 = 위 목록 가운데 **종료월이 이번 달 이후**인 곳만 */
+window.suspendPlanRows=function(){
+  const base=window.spBaseYm();
+  return window.spSpecialRows().filter(function(x){
+    const e=String(x.due||'').replace(/[^0-9]/g,'');
+    return e&&e>=base;
+  });
 };
 /* 화면(표·건수)이 보는 전체 목록 = 정지 + 정지 예정. 사유별 카드는 종전대로 「정지」만 본다. */
 window.spRowsAll=function(){
@@ -9171,13 +9202,20 @@ window.suspendPanelHTML=function(){
       +'<div class="kpi-s" style="margin-top:5px">'+s+'</div></div>';
   };
   /* v08.371 — 아래 카드는 **정지한 곳**의 사유별 현황이다(정지 예정은 아직 사유가 없다).
-     어느 모수의 카드인지 한 줄로 밝히고, 정지 예정 건수를 그 옆에 함께 적는다. */
-  const soon=P.filter(function(x){return x.due;}).map(function(x){return x.due;}).sort();
+     어느 모수의 카드인지 한 줄로 밝히고, 정지 예정·종료 경과 건수를 그 옆에 함께 적는다.
+     v08.372 — 기준월을 함께 적는다. 「예정」과 「경과」를 가르는 기준이 무엇인지 화면에서
+     바로 보여야 한다(사용자 지적: "2026년9월이면 정지가 됐어야 하는데 왜 정지예정일이야?"). */
+  const base=window.spBaseYm();
+  const baseTx=base.slice(0,4)+'-'+base.slice(4,6);
+  const past=Math.max(0,window.spSpecialRows().length-P.length);   /* 종료월이 이미 지나 뺀 곳 */
+  const soon=P.map(function(x){return x.due;}).filter(Boolean).sort();
   return '<div style="font-size:11px;color:var(--gray-md);margin:0 0 6px">'
     +'정지 사유별 현황 — <b>정지 '+L.length.toLocaleString()+'곳</b> 기준'
     +' · 정지 예정 <b style="color:var(--orange)">'+P.length.toLocaleString()+'곳</b>'
     +(soon.length?(' (가장 이른 예정 '+IX_esc(soon[0])+')'):'')
-    +'</div>'
+    +' <span style="color:var(--gray-md)">— '+IX_esc(baseTx)+'(이번 달) 이후 종료되는 Special'
+    +(past?(' · 종료월이 이미 지난 '+past.toLocaleString()+'곳은 제외 — 프로모션만 끝나고 유료로 쓰는 곳이라 정지 대상이 아니다'):'')
+    +'</span></div>'
     +'<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,grp.length))+',1fr)">'
     +grp.map(function(g){ return card(g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
     +'</div>'
@@ -9186,7 +9224,7 @@ window.suspendPanelHTML=function(){
     +'oninput="spSet(\'q\',this.value)" style="width:200px">'
     +'<select onchange="spSet(\'kd\',this.value)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px">'
     +['','정지','정지예정'].map(function(v){
-        const t=v?v:'구분 전체';
+        const t=v?(v==='정지예정'?'정지 예정':v):'구분 전체';
         return '<option value="'+v+'"'+(v===F.kd?' selected':'')+'>'+t+'</option>'; }).join('')
     +'</select>'
     +opt('pl','요금제',uniq(function(x){return x.pl;}),F.pl)
@@ -9267,9 +9305,9 @@ window.spPaint=function(){
       const done=!!String(x.memo||'').trim();
       const key=IX_esc(window.spMemoKey(x)).replace(/'/g,"\\'");
       const plan=x.kind==='정지예정';
-      const badge='<span style="display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:9px;'
-        +(plan?'background:#FFF1DC;color:#A85B00;border:1px solid #F5C98A'
-              :'background:#F1F3F5;color:#5A6472;border:1px solid var(--border)')+'">'
+      const tone=plan?'background:#FFF1DC;color:#A85B00;border:1px solid #F5C98A'
+                     :'background:#F1F3F5;color:#5A6472;border:1px solid var(--border)';
+      const badge='<span style="display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:9px;'+tone+'">'
         +(plan?'정지 예정':'정지')+'</span>';
       return '<tr'+(done?'':' class="sp-todo"')+'><td>'+badge+'</td>'
         +'<td style="text-align:left"><b>'+IX_esc(x.nm)+'</b></td>'
@@ -9304,7 +9342,7 @@ window.spPaint=function(){
   function suspendRender(){
   opsPage(document.getElementById('s-suspend'),{id:'suspend', links:extBtn('suspend','admin'), domainLegend:true, domain:10, cols:[],
    customList:suspendPanelHTML(), customPaint:function(){ window.spPaint(); },
-   note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 미납·프로모션 종료·장기 미사용·기타로 분류한다.<br><b>정지 예정</b>(v08.371) — 현재 상태 '정상'인 곳 가운데 <b>프로모션 구분이 'Special'</b>인 곳, 정지 예정일은 그 곳의 <b>프로모션 종료월</b>이다(마스터에 프로모션 컬럼이 없으면 청구대상 고객관리 파일로 대신한다). <b>개업일</b>은 업로드 파일에 없는 값이라 <b>직접 입력</b>한다 — 고른 날짜는 메모와 같이 저장돼 파일을 새로 올려도 남는다.</div>`});
+   note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 미납·프로모션 종료·장기 미사용·기타로 분류한다.<br><b>정지 예정</b>(v08.371 → v08.372) — 현재 상태 '정상'인 곳 가운데 <b>프로모션 구분이 'Special'</b>이고 <b>프로모션 종료월이 이번 달 이후</b>인 곳, 그 종료월이 정지 예정일이다(마스터에 프로모션 컬럼이 없으면 청구대상 고객관리 파일로 대신한다). <b>종료월이 이미 지난 곳은 넣지 않는다</b> — 청구 파일 대조 결과 그런 곳은 프로모션만 끝나고 <b>유료로 계속 쓰는 곳</b>이라(35곳 중 34곳이 3만~5만원 청구 중) 정지 대상이 아니다. 종료 경과 건은 <b>프로모션 종료 관리</b> 화면이 따로 담당한다. 종료월이 비었거나 '209912'(무기한)이면 넣지 않는다. <b>개업일</b>은 업로드 파일에 없는 값이라 <b>직접 입력</b>한다 — 고른 날짜는 메모와 같이 저장돼 파일을 새로 올려도 남는다.</div>`});
   }
   suspendRender();
   try{ if(typeof RENDER!=='undefined')RENDER['suspend']=suspendRender; }catch(e){}
@@ -12805,8 +12843,11 @@ const NAV=[
    {id:'mkt',nm:'마케팅',dyn:1},{id:'ux',nm:'UX',dyn:1},{id:'biz',nm:'영업',dyn:1}]},
  {sec:'고객 관리',ic:'▧',items:[
    {id:'sem',nm:'세미나 운영',dyn:2},
-   {id:'promo',nm:'프로모션 종료·정상가 전환'},{id:'churn',nm:'해지·재가입',src:'churn'},
-   {id:'suspend',nm:'정지업체',src:'suspend'}]},
+   {id:'promo',nm:'프로모션 종료·정상가 전환'},
+   /* v08.373 요청("정지업체탭을 해지 재가입탭위에 배치") — 정지업체를 해지·재가입 앞으로.
+      위 TABS 배열도 같은 순서로 맞춰 뒀다(화면 컨테이너 생성 순서). */
+   {id:'suspend',nm:'정지업체',src:'suspend'},
+   {id:'churn',nm:'해지·재가입',src:'churn'}]},
  {sec:'조회·데이터',ic:'▨',items:[
    {id:'cust',nm:'고객 검색',src:'normal'},{id:'data',nm:'데이터 업로드'}]},
  // v08.08 요청(탭 제거): 데이터 품질(qual)·담당자·팀 성과(staff)·해지방어(def) 메뉴에서 제외.
@@ -15511,8 +15552,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u90',d:'2026-10-06',tt:'사이드바 — 정지업체를 해지·재가입 위로',
+  b:'「고객 관리」 묶음 순서를 **세미나 운영 → 프로모션 종료·정상가 전환 → 정지업체 → 해지·재가입**으로 바꿨습니다. 고객 여정이 정지 → 해지 순이라 이쪽이 읽기 자연스럽습니다. 화면 내용은 그대로입니다.'},
  {id:'u89',d:'2026-10-06',tt:'정지업체 탭 — 정지 예정 업체 · 개업일 입력란 추가',
-  b:'정지업체 탭에 **정지 예정 업체**가 함께 보입니다 — 현재 상태가 「정상」인 곳 가운데 **프로모션 구분이 「Special」**인 곳이고, **정지 예정일은 그 곳의 프로모션 종료월**입니다(종료월이 비어 있으면 예정일을 알 수 없어 넣지 않습니다). 맨 앞 **구분** 칸에 「정지 / 정지 예정」이 붙고, 필터에서 한쪽만 골라 볼 수 있습니다. 이미 정지된 곳·해지한 곳은 예정에서 빠집니다. 더불어 **개업일** 칸이 생겼습니다 — 업로드 파일 어디에도 없는 값이라 **직접 날짜를 고르는 칸**이고, 고른 날짜는 메모와 같이 저장돼 파일을 새로 올려도 남습니다. 「최근 N개월」 필터는 종전대로 **정지일** 기준이라 정지 예정 업체에는 적용되지 않습니다.'},
+  b:'정지업체 탭에 **정지 예정 업체**가 함께 보입니다 — 현재 상태가 「정상」인 곳 가운데 **프로모션 구분이 「Special」**이고 **프로모션 종료월이 이번 달 이후**인 곳이며, 그 종료월이 정지 예정일입니다(2026-10-06 마스터 기준 **11곳**). 맨 앞 **구분** 칸에 「정지 / 정지 예정」이 붙고, 필터에서 한쪽만 골라 볼 수 있습니다. **종료월이 이미 지난 곳은 넣지 않습니다** — 청구 파일과 대조해 보니 그런 곳 37곳이 **전부 3만~5만원을 청구받고 있어**(0원 0곳) 정지 대상이 아니라 **프로모션만 끝나고 유료로 전환된 곳**이었습니다. 종료 경과 건은 **프로모션 종료 관리** 화면이 종전대로 담당합니다. 이미 정지된 곳·해지한 곳도 예정에서 빠집니다. 더불어 **개업일** 칸이 생겼습니다 — 업로드 파일에서 쓸 수 있는 값이 없어(청구 파일에 「개업월일」 컬럼이 있으나 399행 중 4행만 채워져 있고 형식도 섞여 있습니다) **직접 날짜를 고르는 칸**이고, 고른 날짜는 메모와 같이 저장돼 파일을 새로 올려도 남습니다. 「최근 N개월」 필터는 종전대로 **정지일** 기준이라 정지 예정 업체에는 적용되지 않습니다.'},
  {id:'u88',d:'2026-10-05',tt:'가입채널이 빠지던 문제 수정',
   b:'같은 사무소에 「세모R 신청」이 먼저 있고 뒤에 「신규가입」이 들어온 경우, **가입채널·최종실적을 앞선 신청에서 가져오려다 비어 버려** 그 가입이 미지정으로 빠졌습니다(세모R 신청에는 두 칸이 아예 없습니다). 실적 관리 내려받기 파일과 대조한 결과 **가입채널 마케팅이 3건(홈페이지 2 · 지인소개 1)이어야 하는데 1건**으로 나오고 있었습니다. 이제 칸마다 **그 값이 실제로 지정된 문의**를 찾아 씁니다. 유입경로는 종전대로 가장 이른 신청 기준입니다.'},
  {id:'u87',d:'2026-10-01',tt:'증감 = 직전 업로드 대비',
