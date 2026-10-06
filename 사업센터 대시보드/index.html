@@ -992,6 +992,10 @@ table.t .na{color:#B6BCC6}
    색만 쓰지 않고 막대를 함께 둔 이유 — 색을 구분하기 어려운 사람도 알아볼 수 있어야 한다.
    ※ 색은 값을 직접 적는다 — `#ixHost` 안에서 색 변수가 재정의돼 있어 변수로 쓰면 다른 색이
      나온다(v08.341·v08.343에서 연달아 걸린 함정). */
+/* v08.376 요청("정지업체 카드 누르면 아래 해당목록이 뜨게 해줘") — 사유별 카드가 필터 버튼이 된다 */
+#ixHost #s-suspend .sp-card{cursor:pointer;transition:border-color .12s,box-shadow .12s}
+#ixHost #s-suspend .sp-card:hover{border-color:#F5A623}
+#ixHost #s-suspend .sp-card.on{border-color:#F5A623;background:#FFF8EC;box-shadow:0 0 0 2px rgba(245,166,35,.25)}
 #ixHost #s-suspend tr.sp-todo > td{background:#FFF8EC}
 #ixHost #s-suspend tr.sp-todo > td:first-child{box-shadow:inset 3px 0 0 #F5A623}
 #ixHost #s-suspend tr.sp-todo td b{color:#A85B00}
@@ -2208,7 +2212,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.375';
+window.__APP_VER='v08.377';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -8769,7 +8773,7 @@ function renderSales(){
 (function(){
   const el=document.getElementById('s-promo');
   function render(){
-  const stCol={'예정':'tP3','확정대기':'tP2','데이터보완':'tP1','기한경과':'tP0'};
+  const stCol={'예정':'tP3','확정대기':'tP2','데이터보완':'tP1','기한경과':'tP0','해지':'tP0'};
   /* v08.207 — CLAUDE.md 20번: 이 필드를 "죽은 코드"로 오판해 삭제했다가 원본 값을 복구하지
      못해 빈 배열로 안전 처리했었다.
      v08.251 요청("개업성장패키지 보여줄것") — A.일시납스케줄을 다시 채울 원본 경로가 없는 건
@@ -8780,16 +8784,34 @@ function renderSales(){
   /* v08.291 마스터(세무사무소목록)에 프로모션 구분명·시작·종료 연월이 있으면 그것을 쓴다 —
      청구 파일 없이도 이 스케줄이 채워진다. 컬럼이 없는 예전 파일이면 종전대로 청구 파일을 본다.
      두 원천의 필드 이름만 맞춰 주고(promo/promoS/promoE), 아래 판정·표시 로직은 그대로 재사용한다. */
+  /* ══ v08.377 요청("여기에 해지 업체는 해지일자를 표시해줘") ══
+     종전 모수는 `promoRowsMaster()`(현재 상태 '정상'만)라 **해지한 곳은 이 표에 아예 없었다**
+     (마스터 2026-10-06 기준 개업성장패키지 18곳 중 1곳이 해지). 이 표만 **'정상' + '해지'**로
+     넓히고, 해지한 줄에는 **해지일**을 적는다.
+     ※ `promoRowsMaster()` 자체는 손대지 않는다 — 프로모션 종료 관리(`__syncPromo`)의 모수라
+       거기까지 넓히면 다른 숫자가 함께 움직인다.
+     ※ 마스터에 프로모션 컬럼이 없는 예전 파일은 종전대로 청구 파일을 보는데, 그 파일에는
+       해지일이 없어 해지 칸이 비어 나간다(만들어 내지 않는다). */
   const pkg190Rows=(function(){
     const MR=(typeof window.promoRowsMaster==='function')?window.promoRowsMaster():null;
-    const AB=MR
-      ? MR.map(function(x){return {nm:x.nm, promo:x.pmNm, promoS:x.pmS, promoE:x.pmE};})
-      : (window.__billAllRows||null);
+    let AB;
+    if(MR){
+      const OR=window.__xlOfficeRows||[];
+      const hasSt=OR.some(function(x){ return String(x.st||'').trim(); });
+      const live=hasSt
+        ? OR.filter(function(x){ const st=String(x.st||'').trim(); return st==='정상'||st==='해지'; })
+        : OR.filter(function(x){ return !x.sp; });   // 상태 컬럼이 없는 예전 파일 — 정지만 뺀다
+      AB=live.map(function(x){return {nm:x.nm, promo:x.pmNm, promoS:x.pmS, promoE:x.pmE,
+        cn:(String(x.st||'').trim()==='해지')?String(x.cn||'').trim():''};});
+    }else{
+      AB=window.__billAllRows||null;
+    }
     if(!Array.isArray(AB)||!AB.length)return null;   // 원천 미업로드 — 판정 불가(하드코딩 금지)
     const okYm=v=>/^\d{6}$/.test(String(v||''));
     return AB.filter(function(r){return isPromo190(r.promo);}).map(function(r){
+      const cn=String(r.cn||'').trim();
       let st='—', ed='—', al='—', stt='데이터보완';
-      if(!okYm(r.promoS)){ return {nm:r.nm, tp:r.promo||'개업성장패키지', st:st, ed:ed, al:al, stt:'데이터보완'}; }
+      if(!okYm(r.promoS)){ return {nm:r.nm, tp:r.promo||'개업성장패키지', st:st, ed:ed, al:al, cn:cn, stt:cn?'해지':'데이터보완'}; }
       st=monRangeOf(+r.promoS.slice(0,4), +r.promoS.slice(4,6))[0];
       if(okYm(r.promoE)){
         ed=monRangeOf(+r.promoE.slice(0,4), +r.promoE.slice(4,6))[1];
@@ -8798,10 +8820,13 @@ function renderSales(){
         al=edDate.getFullYear()+'-'+p(edDate.getMonth()+1)+'-'+p(edDate.getDate());
         stt=(ed<TODAY)?'기한경과':(al<=TODAY)?'확정대기':'예정';
       } else { stt='확정대기'; }   // 종료월 미기재 — 종료 예정을 알 수 없어 수동 확정 필요
-      return {nm:r.nm, tp:r.promo||'개업성장패키지', st:st, ed:ed, al:al, stt:stt};
+      /* 해지한 곳은 종료 안내를 할 대상이 아니다 — 상태를 '해지'로 덮는다 */
+      if(cn)stt='해지';
+      return {nm:r.nm, tp:r.promo||'개업성장패키지', st:st, ed:ed, al:al, cn:cn, stt:stt};
     }).sort(function(a,b){return (a.ed||'').localeCompare(b.ed||'');});
   })();
-  const sched=(pkg190Rows!=null?pkg190Rows:(A.일시납스케줄||[])).map(s=>`<tr${s.stt==='기한경과'?' style="background:var(--red-lt)"':''}><td style="text-align:left">${s.nm}</td><td>${s.tp}</td><td>${s.st}</td><td>${s.ed}</td><td>${s.al}</td><td><span class="rtag ${stCol[s.stt]}">${s.stt}</span></td><td style="font-size:10px;color:var(--gray-md)">${s.stt==='예정'?'D-90 알림톡→D-60 문자→D-30 전화':s.stt==='기한경과'?'금주 확정→즉시 전화 안내':s.stt==='데이터보완'?'시작월 소급 입력':'한청세 여부 수동 확정'}</td></tr>`).join('');
+  /* v08.377 — 「해지일」 열 추가. 해지한 줄은 안내 대상이 아니라 다음 액션을 '—'로 둔다 */
+  const sched=(pkg190Rows!=null?pkg190Rows:(A.일시납스케줄||[])).map(s=>`<tr${s.stt==='기한경과'?' style="background:var(--red-lt)"':s.stt==='해지'?' style="opacity:.62"':''}><td style="text-align:left">${s.nm}</td><td>${s.tp}</td><td>${s.st}</td><td>${s.ed}</td><td>${s.al}</td><td>${s.cn?s.cn:'<span class="na">—</span>'}</td><td><span class="rtag ${stCol[s.stt]}">${s.stt}</span></td><td style="font-size:10px;color:var(--gray-md)">${s.stt==='해지'?'<span class="na">—</span>':s.stt==='예정'?'D-90 알림톡→D-60 문자→D-30 전화':s.stt==='기한경과'?'금주 확정→즉시 전화 안내':s.stt==='데이터보완'?'시작월 소급 입력':'한청세 여부 수동 확정'}</td></tr>`).join('');
   /* ══ v08.374 사용자 확정("프로모션종료 정상가전환은 개업성장패키지 프로모션만 그렇고 나머지는
      정지가 되는 구조야" + "종료관리목록은 정지업체쪽으로 빼줘") ══
      여기 있던 **「종료 관리 목록」 표**(A.promo_rows · 안내 이력 11열)를 **정지업체 탭으로 옮겼다**.
@@ -8829,7 +8854,7 @@ function renderSales(){
        그 아래 있던 "세무회계 셈" 특정 사무소 안내문은 sched가 비어 있어도 무조건 떠 있던 하드코딩
        텍스트였다 — 근거가 될 행 자체가 없는데 특정 사무소를 지목한 안내가 항상 노출됐다(정책 위반).
        이제 sched에 실제 행이 있을 때만 이 안내 블록을 보여준다. -->
-  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="7" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 세무사무소목록(프로모션 구분명·시작·종료 연월) 또는 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
+  <div class="panel"><table class="tbl"><thead><tr><th>사무소</th><th>구분</th><th>서비스 시작</th><th>종료 예정</th><th>D-90 안내 기준일</th><th>해지일</th><th>상태</th><th>다음 액션</th></tr></thead><tbody>${sched||'<tr><td colspan="8" class="na" style="text-align:center;padding:16px">'+(pkg190Rows===null?'데이터 없음 — 세무사무소목록(프로모션 구분명·시작·종료 연월) 또는 청구대상 고객관리 파일을 업로드하면 표시됩니다':'개업성장패키지 프로모션 대상이 없습니다')+'</td></tr>'}</tbody></table>
   ${sched?`<div class="panel-body" style="border-top:1px solid var(--border)">
    <div style="font-size:10px;color:var(--gray-md)">필수 안내: 프로모션명·시작/종료일·일시납 기간 종료 사실·<b>종료 후 월 35만 정상가 적용</b>·적용 예정일·제공 서비스·의사표시 기한·문의 방법 — 문구 버전·발송 일시·채널·반응 이력화.</div></div>`:''}</div>
   <!-- v08.375 — v08.374에서 「종료 관리 목록」을 정지업체 탭으로 옮기면서 그 자리에 안내 박스를
@@ -9027,7 +9052,7 @@ window.chPaint=function(){
    프로모션·미사용·기타)을 그대로 쓴다(새 분류 기준을 만들지 않음) — 다만 그 계산은 home
    화면 IIFE 스코프 안에 있어 여기서 직접 가져다 쓸 수 없어(13번 항목과 같은 스코프 제약)
    같은 규칙으로 다시 만든다. */
-window.__spF={q:'',pl:'',rs:'',mo:'',kd:'',pm:''};   /* v08.371 kd = 구분(정지 / 정지예정) · v08.374 pm = 프로모션 */
+window.__spF={q:'',pl:'',rs:'',mo:'',kd:'',pm:'',g:''};   /* v08.371 kd = 구분(정지 / 정지예정) · v08.374 pm = 프로모션 · v08.376 g = 사유 그룹(카드) */
 /* ══ v08.319 요청("정지업체탭 — 메모 기능 추가") ══
    업체별 한 줄 메모. 원천 파일에는 없는 값이라 저장 계층(STATE_MAP의 sp_memo)에 담는다.
    키는 **사업자번호(숫자만)** 우선, 없으면 사무소명 — 파일을 새로 올려도 같은 업체에 붙어 있게 한다.
@@ -9197,13 +9222,27 @@ window.suspendRowsAll=function(){
       return o;
     });
 };
+/* ══ v08.376 요청("정지업체 카드 누르면 아래 해당목록이 뜨게 해줘") ══
+   종전에는 사유별 카드(미납·프로모션 종료·장기 미사용·기타)가 숫자만 보여 주고 끝이었다.
+   이제 카드를 누르면 **그 사유의 목록만** 아래 표에 남는다(다시 누르면 해제).
+   ※ 분류 규칙(키워드)은 통합현황에 있던 「정지 사유별 현황」과 같은 것이다 — 카드를 세는 쪽과
+     목록을 거르는 쪽이 **같은 함수**를 쓰도록 전역으로 뺀다(두 곳에 적어 두면 어긋난다). */
+window.SP_RS_G=[{k:'미납',m:/미납/,l:'미납'},
+                {k:'프로모션',m:/프로모션|요금제 미설정/,l:'프로모션 종료'},
+                {k:'미사용',m:/미사용/,l:'장기 미사용'}];
+window.spRsGroup=function(rs){
+  const i=window.SP_RS_G.findIndex(function(g){ return g.m.test(String(rs||'')); });
+  return i>=0?window.SP_RS_G[i].k:'기타';
+};
 window.spSet=function(f,v){ window.__spF[f]=v; window.spPaint(); };
+/* 카드 클릭 — 같은 카드를 다시 누르면 해제된다 */
+window.spCardPick=function(k){ window.spSet('g', window.__spF.g===k?'':k); };
 window.spSortBy=function(k){
   const S=window.__spSort;
   S.dir=(S.k===k)?-S.dir:(k==='nm'?1:-1);
   S.k=k; window.spPaint();
 };
-window.spReset=function(){ window.__spF={q:'',pl:'',rs:'',mo:'',kd:'',pm:''}; window.spPaint(); };
+window.spReset=function(){ window.__spF={q:'',pl:'',rs:'',mo:'',kd:'',pm:'',g:''}; window.spPaint(); };
 window.suspendPanelHTML=function(){
   const L=window.suspendRowsAll();
   /* v08.371 — 정지 예정 업체도 같은 표에 들어오므로, 요금제 선택지는 두 목록을 합쳐 뽑는다.
@@ -9223,12 +9262,16 @@ window.suspendPanelHTML=function(){
   const F=window.__spF;
   /* 통합현황에 있던 "정지 사유별 현황"과 같은 키워드 그룹 — 문구가 파일마다 달라도
      분류만 키워드로 묶는다(새 분류 기준 아님, 같은 규칙 재사용). */
-  const G=[{k:'미납',m:/미납/,l:'미납'},{k:'프로모션',m:/프로모션|요금제 미설정/,l:'프로모션 종료'},{k:'미사용',m:/미사용/,l:'장기 미사용'}];
-  const grp=G.map(function(g){return {l:g.l,n:0};}); let etc=0;
-  L.forEach(function(x){ const i=G.findIndex(function(g){return g.m.test(x.rs);}); if(i>=0)grp[i].n++; else etc++; });
-  if(etc)grp.push({l:'기타·사유 없음',n:etc});
-  const card=function(l,v,s,tone){
-    return '<div class="kpi"><div class="kpi-l">'+l+'</div><div class="kpi-v '+(tone||'')+'">'+v+'</div>'
+  const G=window.SP_RS_G;
+  const grp=G.map(function(g){return {k:g.k,l:g.l,n:0};}); let etc=0;
+  L.forEach(function(x){ const k=window.spRsGroup(x.rs);
+    const i=G.findIndex(function(g){return g.k===k;}); if(i>=0)grp[i].n++; else etc++; });
+  if(etc)grp.push({k:'기타',l:'기타·사유 없음',n:etc});
+  /* v08.376 — 카드가 곧 필터 버튼이다. `data-g`로 어느 그룹인지 표시해 두면 spPaint가
+     목록을 다시 그릴 때 선택된 카드에만 `.on`을 붙일 수 있다(카드를 다시 그리지 않는다). */
+  const card=function(k,l,v,s,tone){
+    return '<div class="kpi sp-card" data-g="'+IX_esc(k)+'" onclick="spCardPick(\''+IX_esc(k)+'\')">'
+      +'<div class="kpi-l">'+l+'</div><div class="kpi-v '+(tone||'')+'">'+v+'</div>'
       +'<div class="kpi-s" style="margin-top:5px">'+s+'</div></div>';
   };
   /* v08.371 — 아래 카드는 **정지한 곳**의 사유별 현황이다(정지 예정은 아직 사유가 없다).
@@ -9245,7 +9288,7 @@ window.suspendPanelHTML=function(){
     +(EX.noEnd?(' · 종료월 없음 '+EX.noEnd.toLocaleString()):'')
     +'</div>'
     +'<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,grp.length))+',1fr)">'
-    +grp.map(function(g){ return card(g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
+    +grp.map(function(g){ return card(g.k, g.l, g.n.toLocaleString()+'곳', L.length?Math.round(g.n/L.length*100)+'%':'—', 'oc'); }).join('')
     +'</div>'
     +'<div class="filters" style="margin-bottom:10px">'
     +'<input id="spQ" value="'+String(F.q).replace(/"/g,'&quot;')+'" placeholder="업체명·대표자·연락처·사업자번호 검색" '
@@ -9289,6 +9332,8 @@ window.spPaint=function(){
              ||(digits&&String(x.hp||'').replace(/[^0-9]/g,'').indexOf(digits)>=0)))return false;
     if(F.kd&&x.kind!==F.kd)return false;        /* v08.371 구분(정지 / 정지예정) */
     if(F.pm&&x.promo!==F.pm)return false;       /* v08.374 프로모션 */
+    /* v08.376 사유 그룹(카드) — 카드는 **정지한 곳**만 세므로 고르면 정지 행만 남는다 */
+    if(F.g&&(x.kind!=='정지'||window.spRsGroup(x.rs)!==F.g))return false;
     if(F.pl&&x.pl!==F.pl)return false;
     if(F.rs&&x.rs!==F.rs)return false;
     /* v08.371 — 기간 필터는 **정지일** 기준이다. 정지 예정은 아직 정지일이 없고 예정일은
@@ -9366,6 +9411,12 @@ window.spPaint=function(){
     }).join('')
     :'<tr><td colspan="12" class="na" style="text-align:center;padding:20px">조건에 맞는 건이 없습니다.</td></tr>')
     +'</tbody></table>';
+  /* v08.376 — 고른 카드에만 테두리 표시. 카드를 다시 그리지 않고 class만 바꾼다 */
+  try{
+    document.querySelectorAll('#s-suspend .sp-card').forEach(function(e){
+      e.classList.toggle('on', !!F.g && e.getAttribute('data-g')===F.g);
+    });
+  }catch(e){}
   const cc=document.getElementById('spCnt');
   if(cc){
     /* v08.371 — 전체 건수를 「정지 N · 정지예정 N」으로 갈라 적는다(합계만 보면 어느 쪽이 늘었는지 모른다) */
@@ -15589,6 +15640,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u93',d:'2026-10-06',tt:'190만 일시납 스케줄 — 해지한 곳도 보이고 해지일이 적힙니다',
+  b:'「프로모션 종료·정상가 전환」 탭의 **190만 일시납 — 종료 안내 스케줄**에 **해지한 곳**이 함께 보입니다. 종전에는 현재 상태가 「정상」인 곳만 세어 해지한 곳이 목록에 아예 없었습니다(2026-10-06 마스터 기준 개업성장패키지 18곳 중 1곳). **해지일** 칸이 새로 생겼고, 해지한 줄은 상태가 「해지」로, 다음 액션은 「—」로 나옵니다(안내할 대상이 아닙니다).'},
+ {id:'u92',d:'2026-10-06',tt:'정지업체 — 사유 카드를 누르면 그 목록만 보입니다',
+  b:'정지업체 탭의 **미납 · 프로모션 종료 · 장기 미사용 · 기타·사유 없음** 카드를 누르면 아래 목록이 **그 사유의 업체만** 남습니다. 고른 카드에는 주황 테두리가 생기고, **같은 카드를 다시 누르면 해제**됩니다(「필터 초기화」로도 풀립니다). 카드는 정지한 곳만 세므로, 고르면 정지 예정 업체는 목록에서 빠집니다.'},
  {id:'u91',d:'2026-10-06',tt:'종료 관리 목록을 정지업체 탭으로 · 정지 예정을 전 프로모션으로',
   b:'**개업성장패키지만 종료 후 정상가로 전환**되고 나머지 프로모션은 **종료되면 정지**되는 구조에 맞춰 두 가지를 바꿨습니다. ① 「프로모션 종료·정상가 전환」 탭에 있던 **종료 관리 목록을 정지업체 탭으로 옮겼습니다** — 그 탭에는 개업성장패키지(190만 일시납)만 남습니다. ② 정지업체 탭의 **「정지 예정」 판정을 Special에서 「개업성장패키지를 뺀 모든 프로모션」으로 넓혔습니다**(2026-10-06 마스터 기준 **11곳 → 42곳**, 10X10 14 · Special 11 · VIP200 9 · 무제한_10 3 · 구간 3 · VIP500 2). 표에 **프로모션** 열과 프로모션 필터가 생겨 어느 프로모션 종료인지 바로 보입니다. 목록 위에 **빠진 건수**도 함께 적힙니다 — 종료월이 이미 지난 38곳(프로모션만 끝나고 유료로 쓰는 곳), **종료월이 아예 없는 107곳**(원본에 종료 연월이 비어 있어 예정일을 알 수 없습니다 — 원본 보완이 필요합니다).'},
  {id:'u90',d:'2026-10-06',tt:'사이드바 — 정지업체를 해지·재가입 위로',
