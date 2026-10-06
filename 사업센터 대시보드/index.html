@@ -2212,7 +2212,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.378';
+window.__APP_VER='v08.380';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3698,17 +3698,9 @@ window.__snapSort=function(arr){
      · 위 예에서는 916(지금) ↔ 914(9/20)를 견줘 **▲ +2**가 된다
      · 한 번도 바뀐 적이 없으면 비교 대상이 없으므로 「—」(0을 지어내지 않는다)
    옛 기록을 지우지 않고도 요청한 「최근 업데이트 전 → 후」가 바로 보인다. */
-/* v08.365 「날짜별 지표」 더보기 — 표를 다시 그리지 않고 그 자리에서 숨긴 줄만 토글한다
-   (다시 그리면 열려 있던 접이식·스크롤 위치가 흐트러진다). */
-window.snapMoreToggle=function(btn){
-  try{
-    const t=btn.closest('table'); if(!t)return;
-    const rs=t.querySelectorAll('tr.snap-more'); if(!rs.length)return;
-    const show=(rs[0].style.display==='none');
-    rs.forEach(function(r){ r.style.display=show?'':'none'; });
-    btn.textContent=show?('− 나머지 '+rs.length+'개 지표 접기'):('＋ 나머지 '+rs.length+'개 지표 더보기');
-  }catch(e){}
-};
+/* v08.379 — 「날짜별 지표」 더보기(window.snapMoreToggle, v08.365)를 제거했다.
+   사용건수 3종이 「월별 사용건수」 쪽으로 올라가(요청 "날짜별 지표 세개를 월별 사용건수로 올려")
+   날짜별 지표에는 나머지 9종만 남았고, 숨길 줄이 없어 더보기 버튼 자체가 필요 없어졌다. */
 window.__snapChange=function(arr,key){
   const v=[];
   (arr||[]).forEach(function(x){
@@ -6302,11 +6294,17 @@ function custToMg(c,step,status,problem,action,dmn){
      · 이 화면이 이미 쓰는 접이식 컴포넌트(`details.fold`)를 그대로 쓴다 — 기본은 **닫힘**.
      · 비교할 스냅샷이 없으면 **블록 자체를 만들지 않는다**(빈 표·안내 문장 금지).
      · 값이 없는 지표(컬럼이 없어 기록되지 않은 것)는 줄을 만들지 않는다 — 지어내지 않는다. */
-  const _homeDeltaTable=function(){
+  /* ══ v08.379 요청("날짜별 지표 세개를 월별 사용건수로 올려") ══
+     인사이트 사용건수 3종(`top:1`)을 **「월별 사용건수」 블록 쪽으로 올린다.** 같은 함수를
+     `only='ins'`로 한 번 더 불러 그 3줄만 뽑아 쓰고, 기본 호출은 **나머지 9종만** 그린다 —
+     표를 그리는 코드를 두 벌로 만들지 않기 위해서다(두 벌이면 한쪽만 고치는 사고가 난다).
+       · `only==='ins'` → 3줄 · 접이식 없이 바로 보임 · 「날짜별 사용건수」 라벨
+       · 기본           → 9줄 · 종전처럼 접이식(`details.fold`) 「날짜별 지표」
+     v08.365에서 두던 「나머지 N개 더보기」는 숨길 줄이 없어져 함께 제거했다. */
+  const _homeDeltaTable=function(only){
     /* ══ v08.365 요청("인사이트 총 사용건수 / 자금일보 총 사용건수 / 전자세금계산서 총 사용건수
        맨 위로 올리고 나머지는 더보기") ══
-       인사이트 사용건수 3종을 **맨 위 3줄**로 올리고, 나머지 9종은 **기본으로 접는다**(`top:1`이 위 3줄).
-       라벨도 사용자가 적은 대로 셋 다 「총 사용건수」로 통일한다. */
+       라벨은 사용자가 적은 대로 셋 다 「총 사용건수」로 통일한다(`top:1`이 그 3종). */
     const SPEC=[
       {k:'all',  l:'인사이트 총 사용건수',     u:'건', top:1},
       {k:'fund', l:'자금일보 총 사용건수',     u:'건', top:1},
@@ -6339,8 +6337,8 @@ function custToMg(c,step,status,problem,action,dmn){
       return (v==null)?'<span class="na">—</span>'
         : Number(v).toLocaleString(undefined,dec?{minimumFractionDigits:1,maximumFractionDigits:1}:undefined);
     };
-    const rows=[]; let moreN=0;
-    SPEC.forEach(function(o){
+    const rows=[];
+    SPEC.filter(function(o){ return only==='ins' ? !!o.top : !o.top; }).forEach(function(o){
       const has=snaps.filter(function(x){return typeof x[o.k]==='number'&&isFinite(x[o.k]);});
       if(!has.length)return;                        // 한 번도 기록된 적 없는 지표는 줄을 만들지 않는다
       let cells='';
@@ -6361,20 +6359,13 @@ function custToMg(c,step,status,problem,action,dmn){
           +IX_esc(String(ch.prev.d).slice(5).replace('-','.'))+' → '
           +IX_esc(String(ch.last.d).slice(5).replace('-','.'))+'</div>';
       }
-      /* v08.365 — 위 3줄(top)이 아니면 `snap-more` 클래스를 달아 기본으로 숨긴다(더보기로 펼침) */
-      rows.push('<tr'+(o.top?'':' class="snap-more" style="display:none"')+'>'
+      rows.push('<tr>'
         +'<td style="text-align:left;white-space:nowrap">'+o.l
         +'<span style="color:var(--gray-md);font-size:9px;margin-left:4px">('+o.u+')</span></td>'
         +cells+'<td>'+dcell+'</td></tr>');
-      if(!o.top)moreN++;
     });
     if(!rows.length)return '';
-    const metricN=rows.length;      /* v08.365 아래 더보기 줄을 넣기 전의 「지표 수」(요약 배지용) */
-    /* 더보기 줄 — 숨긴 지표가 있을 때만. 화면을 다시 그리지 않고 그 자리에서 접었다 폈다 한다
-       (다시 그리면 열려 있던 접이식과 스크롤 위치가 흐트러진다). */
-    if(moreN)rows.push('<tr><td colspan="'+(DAYS.length+2)+'" style="text-align:center;padding:7px">'
-      +'<button class="btn gh" onclick="snapMoreToggle(this)" style="font-size:10.5px">'
-      +'＋ 나머지 '+moreN+'개 지표 더보기</button></td></tr>');
+    const metricN=rows.length;
     /* 같은 날이 두 칸 이상이면 그 날 칸들에만 시각을 덧붙인다 — 매번 시각을 적으면 지저분해진다 */
     const dayCnt={};
     DAYS.forEach(function(x){ dayCnt[String(x.d)]=(dayCnt[String(x.d)]||0)+1; });
@@ -6384,13 +6375,20 @@ function custToMg(c,step,status,problem,action,dmn){
         +(dup&&x.t?'<div style="font-weight:400;color:var(--gray-md);font-size:9px">'+IX_esc(String(x.t))+'</div>':'')
         +'</th>';
     }).join('');
-    return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
-      +metricN+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
-      +'<div class="fold-b"><div style="overflow:auto"><table class="tbl"><thead><tr>'
+    const tbl='<div style="overflow:auto"><table class="tbl"><thead><tr>'
       +'<th style="text-align:left;width:180px">지표</th>'+head
       +'<th style="width:118px">증감'
       +'<div style="font-weight:400;color:var(--gray-md);font-size:9px">직전 업로드 대비</div></th>'
-      +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div></div></details>';
+      +'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
+    /* v08.379 — 사용건수 3종은 「월별 사용건수」와 나란히 두므로 접지 않고 바로 보여준다 */
+    if(only==='ins')
+      return '<div style="margin-top:10px">'
+        +'<div class="sec-label" style="margin-bottom:4px">날짜별 사용건수 '
+        +'<span class="sec-tag t">업로드 회차</span></div>'
+        +'<div class="panel">'+tbl+'</div></div>';
+    return '<details class="fold"><summary>날짜별 지표 <span class="fs">값이 바뀐 때만 기록 · '
+      +metricN+'개 지표 · 최근 '+DAYS.length+'회('+IX_esc(DAYS[0].d)+'~'+IX_esc(DAYS[DAYS.length-1].d)+')</span></summary>'
+      +'<div class="fold-b">'+tbl+'</div></details>';
   };
   const _srStat=(function(){
     const C=window.__xlOfficeCols||{};
@@ -6556,6 +6554,7 @@ function custToMg(c,step,status,problem,action,dmn){
       }).join('')}
     </div>
     ${_insMonthlyHTML()}
+    ${_homeDeltaTable('ins')}
   </div>
 
   <!-- v08.145 세모리포트 거래처 현황 — 세무사무소목록의 거래처수 3종(총·가입·해지) -->
@@ -9179,14 +9178,22 @@ window.suspendPlanRows=function(){
     return String(x.due).replace(/[^0-9]/g,'')>=base;
   });
 };
-/* 뺀 까닭을 화면에 적기 위한 집계 — {past: 종료월이 이미 지남, noEnd: 종료월을 알 수 없음} */
+/* 뺀 까닭을 화면에 적기 위한 집계
+   {past: 종료월이 이미 지남, inf: 무기한(209912), noEnd: 종료월이 비어 있음}
+   ══ v08.379 사용자 정정("프로모션 종료연월 누락이 아니라 평생이라는 거야") ══
+   종전에는 둘을 「종료월 없음」으로 묶어 세어 **데이터 누락처럼 보였다.** 실제 원본을 보니
+   2026-10-06 마스터 기준 그 107곳은 **전부 `209912`**였다 — 비어 있는 것이 아니라
+   **끝나지 않는 프로모션**이라는 표기다(이 파일이 __syncPromo에서 쓰는 「무기한」과 같은 값).
+   둘은 성격이 전혀 다르므로 따로 센다. */
 window.spPlanExcluded=function(){
-  const base=window.spBaseYm(); let past=0, noEnd=0;
+  const base=window.spBaseYm(); let past=0, inf=0, noEnd=0;
   window.spPromoRows().forEach(function(x){
-    if(!window.spDueOk(x.due)){ noEnd++; return; }
-    if(String(x.due).replace(/[^0-9]/g,'')<base)past++;
+    const t=String(x.due||'').replace(/[^0-9]/g,'').slice(0,6);
+    if(t==='209912'){ inf++; return; }
+    if(t.length!==6){ noEnd++; return; }
+    if(t<base)past++;
   });
-  return {past:past, noEnd:noEnd};
+  return {past:past, inf:inf, noEnd:noEnd};
 };
 /* 화면(표·건수)이 보는 전체 목록 = 정지 + 정지 예정. 사유별 카드는 종전대로 「정지」만 본다. */
 window.spRowsAll=function(){
@@ -9285,6 +9292,7 @@ window.suspendPanelHTML=function(){
     +' · 정지 예정 <b style="color:var(--orange)">'+P.length.toLocaleString()+'곳</b>'
     +(soon.length?(' (가장 이른 '+IX_esc(soon[0])+')'):'')
     +(EX.past?(' · 제외 종료월 지남 '+EX.past.toLocaleString()):'')
+    +(EX.inf?(' · 무기한 '+EX.inf.toLocaleString()):'')
     +(EX.noEnd?(' · 종료월 없음 '+EX.noEnd.toLocaleString()):'')
     +'</div>'
     +'<div class="kpi-grid" style="grid-template-columns:repeat('+Math.min(4,Math.max(1,grp.length))+',1fr)">'
@@ -10346,7 +10354,8 @@ window.spPaint=function(){
        이어야 하는데 화면은 **1건**이었다 — 빠진 2건이 바로 이 경우다
        (세정회계법인 수원지점 9/16 세모R 신청 / 세빛세무회계 9/4 세모R 플러스 신청이 더 이르다).
        이제 번호·이름별로 **문의를 모두 모아 두고**, 칸마다 **그 값이 실제로 지정된 문의**를
-       고른다(없으면 가장 이른 문의). 유입경로(t1)는 `_inqOne`이 따로 처리하므로 영향 없다. */
+       고른다(없으면 가장 이른 문의). 유입경로(t1)는 문의 전량을 그대로 세므로 영향 없다
+       (v08.380 — 종전에는 `_inqOne`이 따로 중복을 걸렀다). */
     const inqAllBiz={}, inqAllNm={};
     S.inq.forEach(function(r){
       const b=nrm(r.bz);
@@ -10441,33 +10450,20 @@ window.spPaint=function(){
          · t4 상향 채널별 = 요금제 상향만
          · t3 최종실적별  = 위 둘의 합 (= 실적 전체) */
     const perfEv=joinEv.concat(upEv);
-    /* ══ v08.367 사용자 확정("신청이 먼저 꽂히고 나중에 가입이 될때도 꽂혀서 유입경로가 중복") ══
-       같은 사무소가 신청 → 가입으로 두 번 글을 남기면 유입경로가 **두 번 세어졌다**.
-       유입경로는 「그 고객이 처음 어디서 들어왔나」이므로 **같은 사업자번호는 가장 이른 문의 1건만** 센다.
-       · 사업자번호가 없는 건은 묶을 수 없으므로 **그대로 센다**(임의로 이름으로 묶지 않는다).
-       · 「전체 문의」 카드는 종전대로 **전량**이다(v08.333 확정) — 그래서 이 표 합계가 더 작을 수 있고,
-         그 차이는 표 아래 메모에 건수로 적는다. */
-    /* v08.368 — 묶음 기준을 사업자번호에서 `__inqDupKeys`(번호 없으면 사무소명)로 넓혔다.
-       ※ 키는 **그 기간의 문의(S.inq)**가 아니라 **플로우 전량**으로 만든다 — 기간을 좁혀 보면
-         번호를 가진 짝이 화면 밖에 있을 수 있어, 기간 안에서만 만들면 이름↔번호 연결이 끊긴다. */
-    const _allInq=(function(){
-      const L=(typeof window.__ixLiveFlow==='function')?window.__ixLiveFlow():[];
-      return L.filter(function(r){return window.isPerfTarget(r);});
-    })();
-    const _dupKey=window.__inqDupKeys(_allInq);
-    const _keyOf=function(r){return _dupKey[r.fid]||('F|'+String(r.fid));};
-    const _inqOne=(function(){
-      const first={};
-      S.inq.forEach(function(r){
-        const k=_keyOf(r);
-        const cur=first[k];
-        if(!cur||_dt10(r)<_dt10(cur))first[k]=r;
-      });
-      return Object.keys(first).map(function(k){return first[k];});
-    })();
-    const _inqDup=S.inq.length-_inqOne.length;   /* 뒤따른 신청 = 유입경로 집계에서 뺀 건수 */
+    /* ══ v08.380 사용자 확정("다시 집계를 25건으로 되돌려") — v08.367~v08.369의 중복 제거 폐기 ══
+       v08.367에서 「같은 사무소가 신청 → 가입으로 두 번 글을 남기면 **가장 이른 신청 1건만** 센다」로
+       바꿨다(사용자 확정). 그런데 그 뒤로 **「전체 문의」 카드(전량)와 이 표의 합계가 늘 어긋나**
+       보게 될 때마다 되묻게 됐다(사용자 지적 "전체문의 25건인데 유입경로별 실적23이라 안맞아").
+       v08.379에서 제목에 「후속 N건 제외」를 적어 설명을 붙여 봤지만, 사용자 결론은
+       **"다시 집계를 25건으로 되돌려"** — 두 수를 같게 한다.
+       → 유입경로별은 **그 기간의 문의 전량(S.inq)**을 그대로 센다. 전체 문의 카드와 항상 같다.
+       ※ 뒤따른 문의도 **자기 건의 판정값**(패스코드·내용의 유입경로)으로 들어간다. 근거가 없으면
+         「미분류 > 유입경로 미확인」이다 — 앞 건에서 **물려받지 않는다**(v07.02에서 「같은 번호의
+         다른 건에서 물려받기」를 추정이라 이미 뺐다. 여기서 되살리면 그 결정을 뒤집는 것이다).
+       ※ 가입채널·최종실적(t2·t3·t4)은 **이 변경과 무관**하다 — 그쪽은 마스터 사건에 문의를 붙여
+         칸마다 「그 값이 지정된 문의」를 고르는 v08.370 규칙을 그대로 쓴다. */
     const t1=perfTbl2('유입경로별 실적 (문의 기준)', '',
-        perfGroup2(_inqOne, byInflow));
+        perfGroup2(S.inq, byInflow));
     /* ══ v08.171 요청("가입채널 최종실적 비활성화 개수는 빼") ══
        채널이 아직 지정되지 않은 건(미분류)은 두 표에서 뺀다. 「어느 채널에서 나왔나」를 보는
        표인데 미지정이 21건씩 쌓여 있으면 실제 채널 비중이 그 밑에 묻힌다.
@@ -10509,13 +10505,7 @@ window.spPaint=function(){
        · 「전체 가입 현황」은 **인사이트 신규 가입월** 기준(플러스)이라 세는 단위가 다르다
        표 밖(그리드 아래)에 두어 2열 그리드가 깨지지 않게 한다(v08.173에서 겪은 문제). */
     const _mNew=S.join.length, _mRe=S.rejoin.length, _mUp=upEv.length;
-    /* v08.367 — 유입경로별에서 뺀 「뒤따른 신청」이 있으면 그 사실을 건수로 밝힌다(0이면 적지 않는다) */
-    const _dupTx=_inqDup>0
-      ? ('<br><b>유입경로별</b>은 같은 사무소가 신청 → 가입으로 두 번 글을 남긴 경우 '
-         +'<b>가장 이른 신청 1건만</b> 셉니다 — 이번 기간에 <b>'+_inqDup+'건</b>이 그렇게 빠졌습니다'
-         +'(<b>전체 문의 '+S.inq.length+'건</b> → 유입경로별 '+_inqOne.length+'건). '
-         +'뒤따른 신청은 앞 신청의 유입경로를 그대로 물려받습니다.')
-      : '';
+    /* v08.380 — v08.367의 「뒤따른 신청 N건 제외」 안내를 제거했다(중복 제거 자체가 폐기됐다) */
     const _memo='<div style="margin:-6px 0 14px;font-size:10.5px;color:var(--muted);line-height:1.7">'
       +'<b>실적 '+(joinEv.length+_mUp)+'건</b> = 가입 '+joinEv.length+'건(신규 '+_mNew+' · 재가입 '+_mRe+')'
       +' + 요금제 상향 '+_mUp+'건 &nbsp;·&nbsp; <b>가입채널별</b>은 가입만, '
@@ -10524,7 +10514,6 @@ window.spPaint=function(){
       +'「전체 가입 현황」·주간회의의 <b>플러스</b>는 <b>인사이트를 새로 가입한 달</b> 기준이라 세는 단위가 달라 숫자가 다를 수 있습니다.'
       +'<br>세 표 모두 <b>채널이 지정된 건만</b> 셉니다(미지정은 실적 관리 탭에서 지정하면 바로 반영). '
       +'하향·기타 요금제 변경은 아래 <b>세부 지표 「요금제 변경」</b>에서 봅니다.'
-      +_dupTx
       +'</div>';
     /* v08.332 요청("최종실적별 실적과 요금제 상향 채널별 실적 자리 바꿔") —
        2행을 「최종실적별(왼쪽) · 요금제 상향 채널별(오른쪽)」로 둔다.
@@ -11441,11 +11430,13 @@ window.spPaint=function(){
        같은 사무소가 신청 → 가입으로 두 번 글을 남기면 목록에 두 줄로 뜬다. 어느 쪽이 처음이고
        어느 쪽이 뒤따른 것인지 화면에서 구분되지 않아, 유입경로를 어디에 지정해야 할지 헷갈렸다
        (사용자 질문 "유입경로가 중복되는데 이런건은 어떻게 처리하는게 좋을까?").
-       유입경로별 실적은 **가장 이른 신청 1건만** 세므로, 뒤따른 줄에 그 사실을 적어 둔다.
+       v08.380 — 유입경로별이 **전량(전체 문의와 같은 수)**으로 돌아갔으므로 이 배지는 더 이상
+       「집계에서 빠진다」는 뜻이 아니다. **같은 사무소의 앞선 신청이 있다**는 사실만 알린다
+       (어느 쪽에 유입경로를 지정해야 할지 판단하는 데 쓴다).
        · 판정 원천은 **화면에 보이는 목록이 아니라 플로우 전량**(`__ixLiveFlow`)이다 —
          기간을 좁혀 보면 앞 신청이 화면 밖에 있을 수 있어, 목록 안에서만 비교하면 틀린다. */
     /* v08.368 — 묶음 기준을 `__inqDupKeys`로 통일(사업자번호 없으면 사무소명).
-       배지가 붙는 조건과 유입경로별에서 빠지는 조건이 **같아야** 화면과 숫자가 어긋나지 않는다. */
+       (v08.380부터 유입경로별에서 빠지는 건이 없으므로 조건을 맞출 대상은 없다.) */
     const _firstInq=(function(){
       const L=((typeof window.__ixLiveFlow==='function')?window.__ixLiveFlow():[])
         .filter(function(r){return typeof window.isPerfTarget!=='function'||window.isPerfTarget(r);});
@@ -11465,7 +11456,7 @@ window.spPaint=function(){
       const _f=_fk?_firstInq.first[_fk]:null;
       const _isDup=!!(_f&&String(_f.fid)!==String(r.fid));
       const _dupBadge=_isDup
-        ? ('<span title="같은 사무소의 앞선 신청이 있습니다 — 유입경로별 실적은 가장 이른 신청 1건만 셉니다"'
+        ? ('<span title="같은 사무소의 앞선 신청이 있습니다"'
            +' style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:9px;'
            +'background:var(--gray-lt);color:var(--gray-md);vertical-align:1px">후속 · 최초 '
            +IX_esc(String(_f.dt||'').slice(5,10))+'</span>')
@@ -15646,6 +15637,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u96',d:'2026-10-06',tt:'유입경로별 실적을 「전체 문의」와 같은 수로 되돌렸습니다',
+  b:'「유입경로별 실적」이 다시 **전체 문의 건수와 같습니다**(2026-09: 25건). 2026-09-30부터는 같은 사무소가 신청 → 가입으로 두 번 글을 남기면 **가장 이른 1건만** 셌는데, 그 때문에 「전체 문의」 카드와 늘 어긋나 보였습니다(25건 ↔ 23건). 이제 **빠지는 건이 없습니다.** 뒤따른 문의도 **그 건 자체의 유입경로**로 들어가고, 패스코드·내용에 근거가 없으면 「미분류 > 유입경로 미확인」으로 잡힙니다(앞 건에서 물려받지 않습니다). **가입채널별·최종실적별·요금제 상향 채널별 세 표는 바뀌지 않았습니다.** 실적 관리 목록의 「후속」 배지는 그대로 남습니다 — 같은 사무소의 앞선 신청이 있다는 표시입니다.'},
+ {id:'u95',d:'2026-10-06',tt:'사용건수 3종을 「월별 사용건수」 옆으로 · 무기한 표기 정정',
+  b:'① 통합현황 「날짜별 지표」 맨 위에 있던 **인사이트 총 · 자금일보 · 전자세금계산서 사용건수** 3줄을 **「월별 사용건수」 바로 아래(날짜별 사용건수)**로 옮겼습니다. 사용건수를 한자리에서 월별·날짜별로 같이 봅니다. 「날짜별 지표」에는 나머지 9종만 남아 **더보기 없이 바로** 펼쳐집니다. ② 정지업체 목록 위의 **「종료월 없음 107」을 「무기한 107」**로 고쳤습니다 — 그 107곳은 종료 연월이 비어 있는 것이 아니라 **`209912`(끝나지 않는 프로모션)**였습니다. ③ 「유입경로별 실적」 제목에 **「후속 N건 제외」**를 적었습니다 — 같은 사무소가 신청 → 가입으로 두 번 글을 남기면 가장 이른 1건만 세기 때문에 「전체 문의」보다 적습니다(2026-09: 전체 문의 25건 → 유입경로별 23건, 후속 2건).'},
  {id:'u94',d:'2026-10-06',tt:'정지업체 — 지난 정지해제일은 흐리게',
   b:'정지업체 목록에서 **정지해제일이 정지일보다 앞서면 흐리게** 표시합니다. 그 칸은 「마지막으로 정지를 푼 날」이라, 풀렸다가 **다시 정지된 곳**은 지금 정지일보다 앞선 날짜가 그대로 남습니다(모순이 아닙니다). 2026-10-06 마스터 기준 정지 197곳 중 해제일이 있는 16곳 가운데 **15곳이 이 경우**이고, 해제일이 정지일보다 뒤인 곳은 **0곳**입니다.'},
  {id:'u93',d:'2026-10-06',tt:'190만 일시납 스케줄 — 해지한 곳도 보이고 해지일이 적힙니다',
