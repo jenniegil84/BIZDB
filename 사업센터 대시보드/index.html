@@ -2212,7 +2212,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.377';
+window.__APP_VER='v08.378';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -9385,6 +9385,12 @@ window.spPaint=function(){
       /* v08.344 메모가 **없으면** = 아직 연락하지 않은 곳 → 그 줄을 칠한다 */
       const done=!!String(x.memo||'').trim();
       const key=IX_esc(window.spMemoKey(x)).replace(/'/g,"\\'");
+      /* ══ v08.378 요청("정지해제일이 정지일보다 앞서면 흐리게 표시해줘") ══
+         「정지해제일」은 **마지막으로 정지를 푼 날**이라, 그 뒤에 다시 정지되면 지금 정지일보다
+         앞선 날짜가 그대로 남는다(모순이 아니다 — 마스터 2026-10-06 기준 정지 197곳 중 해제일이
+         있는 16곳 가운데 15곳이 이 경우, 해제일이 정지일보다 뒤인 곳은 0곳).
+         지금 상태와 무관한 지난 이력이므로 **흐리게** 적어 현재 값과 섞이지 않게 한다. */
+      const sePrev=!!(x.se&&x.sp&&String(x.se)<String(x.sp));
       const plan=x.kind==='정지예정';
       const tone=plan?'background:#FFF1DC;color:#A85B00;border:1px solid #F5C98A'
                      :'background:#F1F3F5;color:#5A6472;border:1px solid var(--border)';
@@ -9402,7 +9408,7 @@ window.spPaint=function(){
         +'<td style="text-align:left;font-size:10.5px">'
           +(x.rs?IX_esc(x.rs):(plan?'<span class="na">프로모션 종료 예정</span>':'<span class="na">미기재</span>'))+'</td>'
         +'<td>'+(x.sp?IX_esc(x.sp):na)+'</td>'
-        +'<td>'+(x.se?IX_esc(x.se):na)+'</td>'
+        +'<td'+(sePrev?' style="color:var(--gray-md);opacity:.5"':'')+'>'+(x.se?IX_esc(x.se):na)+'</td>'
         +'<td'+(plan?' style="color:#A85B00;font-weight:700"':'')+'>'+(x.due?IX_esc(x.due):na)+'</td>'
         +'<td><input value="'+IX_esc(x.memo).replace(/"/g,'&quot;')+'" placeholder="메모"'
           +' onchange="spMemoSet(\''+key+'\',this.value,this)"'
@@ -15640,6 +15646,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u94',d:'2026-10-06',tt:'정지업체 — 지난 정지해제일은 흐리게',
+  b:'정지업체 목록에서 **정지해제일이 정지일보다 앞서면 흐리게** 표시합니다. 그 칸은 「마지막으로 정지를 푼 날」이라, 풀렸다가 **다시 정지된 곳**은 지금 정지일보다 앞선 날짜가 그대로 남습니다(모순이 아닙니다). 2026-10-06 마스터 기준 정지 197곳 중 해제일이 있는 16곳 가운데 **15곳이 이 경우**이고, 해제일이 정지일보다 뒤인 곳은 **0곳**입니다.'},
  {id:'u93',d:'2026-10-06',tt:'190만 일시납 스케줄 — 해지한 곳도 보이고 해지일이 적힙니다',
   b:'「프로모션 종료·정상가 전환」 탭의 **190만 일시납 — 종료 안내 스케줄**에 **해지한 곳**이 함께 보입니다. 종전에는 현재 상태가 「정상」인 곳만 세어 해지한 곳이 목록에 아예 없었습니다(2026-10-06 마스터 기준 개업성장패키지 18곳 중 1곳). **해지일** 칸이 새로 생겼고, 해지한 줄은 상태가 「해지」로, 다음 액션은 「—」로 나옵니다(안내할 대상이 아닙니다).'},
  {id:'u92',d:'2026-10-06',tt:'정지업체 — 사유 카드를 누르면 그 목록만 보입니다',
