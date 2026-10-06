@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v01.90
+- 버전: v01.91
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -63,8 +63,8 @@
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`를 덧붙여 기본 높이를 키웠다**(v08.355 168px → **v08.364 104px** — 사용자 확정 「개요의 두 배」, 52×2)(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
 | 세미나 운영 | `sem` | ③ | `function semShell(){` / `function paintSem(){` | |
 | 프로모션 종료·정상가 전환 | `promo` | ① | `RENDER['promo']=render;` 바로 위 IIFE, `document.getElementById('s-promo')` | "종료 관리 목록"·"190만 일시납" 관련 로직이 전부 이 안에 있다. |
+| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 해지·재가입(아래)과 같은 `opsPage()` 틀. 목록은 **`spRowsAll()` = `suspendRowsAll()`(마스터 상태='정지') + `suspendPlanRows()`(정지 예정, v08.371)** → `spPaint()`가 그린다. 열은 **구분 · 업체명 · 대표자 · 연락처 · 요금제 · 개업일 · 정지 사유 · 정지일 · 정지해제일 · 정지 예정일 · 메모**(11열, v08.371 — 자세한 내용은 25-2)(v08.320 — 메모는 `__spMemo`(STATE_MAP `sp_memo`)에 사업자번호 키로 저장, 입력 즉시 저장하고 목록은 다시 그리지 않는다)(v08.316 — 대표자 `ow`·연락처 `hp`는 마스터가 이미 담고 있던 값. 검색창에서도 찾히며 휴대폰은 숫자만 입력해도 매칭). |
 | 해지·재가입 | `churn` | ① | `function churnRender(){` (`document.getElementById('s-churn')`) | `opsPage()` 공통 틀(카드+목록) 사용. |
-| 정지업체 | `suspend` | ① | `function suspendRender(){` (`document.getElementById('s-suspend')`) | 위와 같은 `opsPage()` 틀. 목록은 **`spRowsAll()` = `suspendRowsAll()`(마스터 상태='정지') + `suspendPlanRows()`(정지 예정, v08.371)** → `spPaint()`가 그린다. 열은 **구분 · 업체명 · 대표자 · 연락처 · 요금제 · 개업일 · 정지 사유 · 정지일 · 정지해제일 · 정지 예정일 · 메모**(11열, v08.371 — 자세한 내용은 25-2)(v08.320 — 메모는 `__spMemo`(STATE_MAP `sp_memo`)에 사업자번호 키로 저장, 입력 즉시 저장하고 목록은 다시 그리지 않는다)(v08.316 — 대표자 `ow`·연락처 `hp`는 마스터가 이미 담고 있던 값. 검색창에서도 찾히며 휴대폰은 숫자만 입력해도 매칭). |
 | 고객 검색 | `cust` | ① (변형) | `window.custRender=function(){` (`document.getElementById('s-cust')`) | 다른 IX 화면과 달리 `RENDER[]`가 아니라 `window.custRender`로 노출 — 탭을 다시 열 때 자동 재호출(`ixMount`)이 안 걸릴 수 있으니, 값이 안 바뀌면 이 차이부터 의심할 것. |
 | 데이터 업로드 | `data` | ① | `document.getElementById('s-data')` 를 채우는 IIFE (`xlPanelHTML()` 포함) | v08.272부터 사이드바 메뉴 자체가 `jennie.gil@roumit.com` 로그인일 때만 보임(`paintSide()`의 `DATA_UPLOAD_EMAIL` 필터). 엑셀 파서 본체는 `function xlParseOffice`/`xlParseBilling`/`xlParseMonitor`/`xlApplyInq`. |
 | 활동 타임라인 | `act` | ③ | `function actShell(){` / `function paintAct(){` | v08.275부터 사이드바 "안내" 섹션 소속(예전엔 "요약"). |
@@ -1150,6 +1150,21 @@ v08.356에서 위 표(`lsHTML`)에 보류 분리를 넣었더니 사용자가 *"
 - 색만 쓰지 않고 **막대를 함께** 둔 이유 — 색을 구분하기 어려운 사람도 알아볼 수 있어야 한다.
 - ⚠ 색은 **값을 직접 적는다**(`#FFF8EC`·`#F5A623`·`#A85B00`). `#ixHost` 안에서 `--teal`이 #1BC5BD로
   재정의돼 있어 변수로 쓰면 다른 초록이 나온다 — v08.341에 이어 **또 걸린 함정**이라 실측으로 확인했다.
+
+### 25-3. 사이드바 순서 — 정지업체를 해지·재가입 위로 (v08.373)
+
+사용자 요청 **"정지업체탭을 해지 재가입탭위에 배치"**. 고객 여정이 정지 → 해지 순이라
+이쪽이 읽기 자연스럽다. 「고객 관리」 묶음 순서: 세미나 운영 → 프로모션 종료·정상가 전환 →
+**정지업체 → 해지·재가입**.
+
+⚠ **고칠 곳이 두 군데다** — 하나만 고치면 사이드바와 화면 컨테이너 순서가 어긋난다.
+
+| 배열 | 위치(grep) | 역할 |
+|---|---|---|
+| `TABS` | `{id:'suspend',nm:'정지업체',st:'full'}` | `#s-<id>` **화면 컨테이너를 만드는 순서**(DOM 순서) |
+| `NAV` | `{sec:'고객 관리',ic:'▧',items:[` | **사이드바에 보이는 순서** |
+
+(이 문서 위 「화면 ↔ 담당 함수」 표의 행 순서도 사이드바와 같게 맞춰 둔다.)
 
 ### 25-2. 정지 예정 업체 · 개업일 입력란 (v08.371 → v08.372)
 
