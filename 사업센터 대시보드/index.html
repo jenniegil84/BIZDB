@@ -959,6 +959,10 @@ table.t .na{color:#B6BCC6}
   border:1px solid var(--line);border-radius:12px;padding:3px 10px;white-space:nowrap;display:none}
 .saveBadge.ok{color:#047857;background:#D1FAE5;border-color:#A7F3D0}
 .saveBadge.bad{color:#B91C1C;background:#FEE2E2;border-color:#FECACA}
+/* v08.386 새 배포 배지 — 저장 배지와 같은 틀을 쓰고 색과 커서만 다르다(누르면 새로고침) */
+.verBadge{font-size:10.5px;font-weight:700;color:#0F766E;background:#CCFBF1;
+  border:1px solid #99F6E4;border-radius:12px;padding:3px 10px;white-space:nowrap;cursor:pointer}
+.verBadge:hover{background:#99F6E4}
 
 /* v07.75 구글 로그인 버튼 */
 .g-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
@@ -1970,7 +1974,8 @@ table.t .na{color:#B6BCC6}
     <!-- v07.67 저장 상태 배지를 실제로 화면에 둔다.
      updateSaveBadge()가 .saveBadge를 채우도록 돼 있었는데 그 요소가 어디에도 없어,
      저장이 되고 있어도 확인할 방법이 없었다. 낡은 v06.39 태그는 함께 뺀다(부제와 같은 이유). -->
-<div class="tb-r"><span class="saveBadge" id="saveBadge">저장 대기</span><span class="tag" id="hdrMo">2026-08</span></div>
+<div class="tb-r"><!-- v08.386 새 배포 배지 — 새 버전이 감지될 때만 보인다(verNewBadgeSet) -->
+<span class="verBadge" id="verNewBadge" style="display:none" onclick="location.reload()"></span><span class="saveBadge" id="saveBadge">저장 대기</span><span class="tag" id="hdrMo">2026-08</span></div>
   </div>
   <div class="page" id="page"></div>
 </div>
@@ -2212,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.385';
+window.__APP_VER='v08.386';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -15074,7 +15079,27 @@ window.verBar=function(newVer,tag){
   document.body.appendChild(el);
   const go=document.getElementById('verNewGo'), later=document.getElementById('verNewLater');
   if(go)go.onclick=function(){ location.reload(); };
+  /* v08.386 「나중에」는 **띠만** 닫는다 — 상단바 배지는 그대로 남아 새 버전이 있다는 걸 계속 알린다 */
   if(later)later.onclick=function(){ window.__verWatch.dismissed=tag||''; el.remove(); };
+};
+/* ══ v08.386 요청("배포하고 새 배포버전이 있으면 상단 배지 표시해") ══
+   v08.292의 알림 띠(verBar)는 「나중에」를 누르면 사라져, 그 뒤로는 새 버전이 나온 줄 알 방법이
+   없었다. 상단바(버전 옆)에 **작은 배지**를 하나 더 둔다.
+     · 띠 = 한 번 알리고 닫히는 것 · 배지 = 닫아도 계속 남아 있는 상태 표시
+     · 배지를 누르면 바로 새로고침한다(띠의 「새로고침」 버튼과 같은 동작)
+   감지 방법은 손대지 않았다 — 종전 verWatchStart가 찾아낸 버전을 여기로 모아 보낼 뿐이다. */
+window.verNewBadgeSet=function(v){
+  const el=document.getElementById('verNewBadge'); if(!el)return;
+  if(!v){ el.style.display='none'; return; }
+  el.textContent='새 버전 '+v;
+  el.title='새 버전 '+v+'이 배포되었습니다 — 눌러서 새로고침';
+  el.style.display='';
+};
+/* 새 버전을 찾았을 때 거치는 한 곳 — 배지는 항상 켜고, 띠는 「나중에」로 닫은 버전이면 띄우지 않는다 */
+window.verFound=function(v,tag){
+  try{ window.verNewBadgeSet(v); }catch(e){ console.error('verNewBadgeSet',e); }
+  if(tag&&tag===window.__verWatch.dismissed)return;
+  window.verBar(v,tag);
 };
 window.verWatchStart=function(){
   if(window.__verWatch.on)return;
@@ -15105,8 +15130,7 @@ window.verWatchStart=function(){
       if(!v)return;                                                  // 못 읽으면 아무것도 하지 않는다
       const cur=String(window.__APP_VER||'');
       if(!cur||v===cur)return;                                       // 같은 버전 = 새 배포 없음
-      if(v===window.__verWatch.dismissed)return;                     // 「나중에」를 누른 그 버전
-      window.verBar(v,v);
+      window.verFound(v,v);   /* v08.386 배지 + 띠 — 「나중에」 처리는 verFound가 한다 */
     });
   };
   /* ══ v08.334 요청("화면이 열어져 있더라도 무조건 배포시 배포알림이 올수 있도록 해") ══
@@ -15143,7 +15167,7 @@ window.verWatchStart=function(){
       return readVer().then(function(v){
         const cur=String(window.__APP_VER||'');
         if(!v||(cur&&v===cur)){ window.__verWatch.base=tag; return; }   // 헤더만 바뀐 것 — 같은 버전
-        window.verBar(v,tag);
+        window.verFound(v,tag);   /* v08.386 배지 + 띠 */
       });
     }).catch(function(){ return verByBody(); });
   };
@@ -15756,6 +15780,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u102',d:'2026-10-07',tt:'새 버전이 배포되면 상단에 배지가 뜹니다',
+  b:'새 버전이 배포되면 화면 맨 위에 **알림 띠**가 뜨는 건 전과 같습니다. 거기에 더해 **상단바 오른쪽에 「새 버전 vXX.XXX」 배지**가 생깁니다. 띠에서 **「나중에」를 눌러 닫아도 이 배지는 남아 있어**, 새 버전이 나와 있다는 걸 계속 알 수 있습니다. **배지를 누르면 바로 새로고침**됩니다. 새 버전을 찾아내는 방법은 전과 같습니다(2분마다 확인).'},
  {id:'u101',d:'2026-10-07',tt:'실적 분석 — 일별·월별·연도별·누적을 한 화면에서 책갈피로 봅니다',
   b:'왼쪽바에 따로 있던 **일별·월별·누적**이 **「실적 분석」 한 항목**으로 합쳐졌습니다. 화면 맨 위 책갈피(일별 · 월별 · **연도별** · 누적)를 눌러 오갑니다 — 보고 있던 책갈피는 다른 탭에 갔다 와도 그대로 유지됩니다. **연도별 화면이 새로 생겼습니다**: 연도를 고르면 그 해 전체 실적 카드(전체 문의 · 플러스 가입 · 플러스 전환 · 개업세무사 가입)와 유입경로, 그 해 12개월 추이, 연간 발생 건 목록을 봅니다. 증감은 **전년 대비**입니다. 기존 세 화면의 집계·구성은 **하나도 바뀌지 않았습니다**.'},
  {id:'u100',d:'2026-10-07',tt:'플러스 전환 — 이미 플러스였던 곳은 빼고 셉니다',
