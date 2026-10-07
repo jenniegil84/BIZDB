@@ -5,7 +5,7 @@
 > "어디를 열어야 하는가"만 다룬다. 줄 번호는 파일이 바뀌면 곧 틀어지므로 적지 않는다 —
 > 대신 grep으로 바로 찾을 수 있는 **함수명·문자열**을 적는다.
 
-- 버전: v02.02
+- 버전: v02.03
 - 최초 작성일: 2026-09-08
 - 관련 문서: `MD_ROUTER.md`(정책·데이터 문서 안내), `PROJECT_CONTEXT.md`(현재 상태·이력)
 
@@ -55,9 +55,11 @@
 | 주간회의 | `week` | ③ | `function paintWeek(){` / `function weekShell(){` | 월별 표 2개는 `monPerfTableHtml`(플러스·프로모션 가입)·`planJoinTableHtml`(전체 가입 현황) — 해당 달 열 형광펜은 두 표가 공유하는 `wkMonHl(y,m,strong)`(v08.281) — **기준은 보고 있는 주간회의 주(`CURWK`)이고 귀속 달은 주 종료일이 속한 달**(v08.304, 목~수 주간이라 7/30~8/5는 8월). `CURWK`가 없으면 오늘 날짜로 폴백한다, **열 폭·정렬은 두 표가 공유하는 `wkMonColgroup()`+인라인 `table-layout:fixed`**(v08.283, 아래 11번 참고). 팀별 블록은 `teamBlockHtml`(핵심과제·추진현황·주간 업무 현황) → 주간 업무 현황 2단 표는 `teamWeekTableHtml`(**이번 주 / 다음 주**, v08.315 · 과제 제목 옆 **📎는 그 카드의 `DOCS[카드id]` 링크**, v08.317 — v08.283의 「저번 주/이번 주」를 되돌림. 그 주에 실제로 찍힌 실행기록만 세므로 다음 주 칸은 기록이 생기기 전까지 비어 있다). **③ 이번 주 핵심 이슈**는 `issueBlockHtml()`(`.wk-issue` / `.wk-issue-g`) — 내용·원인·시사점·후속 Action 네 칸이 `textarea`다. **v08.363부터 칸 안에서 스크롤하지 않고 내용만큼 늘어난다**: CSS `overflow:hidden` + `window.wkGrowIssue(el)`(`height='auto'` 후 `scrollHeight`로 재설정)를 `oninput`에 걸고, `paintWeek()` 끝에서 `wkGrowIssuesAll()`로 렌더 직후 한 번 맞춘다(`innerHTML`로 막 붙인 textarea는 높이가 기본값이라 렌더 후 한 번이 꼭 필요하다). PDF 저장은 `@media print` CSS(파일 상단)로만 제어. `RENDER['week']`도 등록돼 있지만 route()는 안 거쳐가고 `paintWeek()`를 직접 부른다. |
 | 통합 현황 | `home` | ① | `RENDER['home']=render;` 바로 위 IIFE, `document.getElementById('s-home')` | 화면 아래쪽 `homeShell()`/`paintHome()`은 **죽은 코드**(호출 안 됨). |
 | 시장 현황 | `sales` | ② | `function salesMount(){` | |
-| 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
-| 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
-| 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
+| **실적 분석** | `perf` | ① | 사이드바 항목은 **`perf` 하나**다(v08.385). 화면은 네 개(`s-daily`·`s-monthly`·`s-year`·`s-cumul`)이고 **맨 위 책갈피**(`perfSubBar` / `window.perfSubSet`)로 오간다 — 자세한 건 아래 **27번**. |
+| └ 일별 | `daily` | ① | `function renderDaily(){` (`document.getElementById('s-daily')`) | **중복 주의**: 파일 앞쪽에 옛 `render()`(같은 `#s-daily`)가 먼저 있는데 `RENDER['daily']`가 나중에 `renderDaily`로 다시 등록돼 덮어쓴다 — **`renderDaily`가 실제로 화면에 보이는 쪽**이다. 앞쪽 옛 `render()`를 고쳐도 반영 안 된다. |
+| └ 월별 | `monthly` | ① | `function renderMonthly(){` (`document.getElementById('s-monthly')`) | 위와 같은 중복 구조 — `renderMonthly`가 활성. |
+| └ 연도별 | `year` | ① | `function renderYear(){` (`document.getElementById('s-year')`) | **v08.385 신설.** 옛 `render()` 중복이 없는 유일한 실적 분석 화면이다. |
+| └ 누적 | `cumul` | ① | `function renderCumul(){` (`document.getElementById('s-cumul')`) | 위와 같은 중복 구조 — `renderCumul`이 활성. |
 | 실적 관리 | `perfmg` | ① | `function renderPerfMg(){` (`document.getElementById('s-perfmg')`) | 중복 없음. **첫 진입 시 등록일 기간이 「오늘이 속한 달」로 채워진다**(v08.321 · `__pmF._initMo`로 한 번만, 그 뒤로는 사용자가 고른 기간 유지. 파일 기준일이 오늘보다 뒤면 그 기준월을 쓴다. ※ `TODAY` 상수는 이 코드보다 아래에서 선언되므로 여기서는 `new Date()`로 직접 만든다). 표는 문의 · 요금제 · **유입경로 · 가입채널 · 최종실적** 5열이고 하위 탭 2개(문의 있는 건 `renderPerfMg` / 문의 없는 실적 `pmOrphanHTML`). 툴바에 패널 3개 — `inflowPanelHTML`(유입경로 관리) · `refPanelHTML`(추천 정보 관리) · `protPanelHTML`(실적확정 명단). **패널도 `renderPerfMg`가 매번 다시 그린다** — 저장 후 목록을 새로 그리면 패널이 닫히므로 다시 열어 줘야 한다(`protSave` 참고). **※ v08.318·v08.319에서 「유입경로를 신청 관리로 이동」·「두 하위 탭 합치기」를 했다가 v08.320에서 전부 원복했다** — 근거: 플로우 도입문의에는 요금제 상향 내용만 적재돼 유입경로는 실적 관리에 있는 편이 유의미하다(CLAUDE.md 8-13 참고, 재요청 시 확인 필수). |
 | 신청 관리 | `inq` | ① | `RENDER['inq']=render;` 바로 위 IIFE, `document.getElementById('s-inq')` | **조회 전용**이다(v08.98) — 유입경로·가입채널·최종실적 지정은 실적 관리에서 한다. v08.318에서 유입경로 지정을 여기로 옮겼다가 **v08.320에서 원복**했다(CLAUDE.md 8-13). |
 | 마케팅 / UX / 영업 | `mkt`/`ux`/`biz` | ③ | `function shell(){` / `function paint(){` | 3개 팀 탭이 **같은 함수 하나**를 공유하고 내부에서 `TAB` 값으로 분기한다. 팀탭 공통 UI(핵심과제 등)를 고칠 땐 여기. 「성과 지표」 블록은 `teamMetricPanelHtml`(표·입력칸)·`metricChartSvg`(막대 그래프)·`paintTeamMetric`. SVG는 실제 크기(width/height 속성)로 그린다 — `width:100%`만 주면 값이 몇 개 없을 때 통째로 확대된다(v08.280). **카드 상세 패널은 `paintPage()`**(`#pgBody`) — `openPage(cardId)`로 연다. 그 안 「개요」·「진행 방식」은 둘 다 `textarea.ta`(min-height 52px)인데, **「진행 방식」만 `.ta-lg`를 덧붙여 기본 높이를 키웠다**(v08.355 168px → **v08.364 104px** — 사용자 확정 「개요의 두 배」, 52×2)(v08.355 요청 — 단계·순서를 여러 줄로 적는 칸이라 매번 드래그해 늘려야 했다. `resize:vertical`은 그대로). |
@@ -1543,3 +1545,70 @@ v08.371은 종료월이 지난 곳까지 「정지 예정」으로 올렸다 —
   **정지는 빼지 않는다**(되돌아올 수 있는 상태). 부호를 붙이고 플러스 청록 / 마이너스 빨강으로
   칠하는 전용 셀(`netCell`)을 쓴다 — 다른 행과 달리 음수가 나오기 때문.
   2026 실측: +5 · +3 · −1 · −10 · −2 · −7 · −9 · +1 · +2 = **−18**.
+
+---
+
+## 27. 실적 분석 = 한 화면 + 책갈피 4개 (v08.385)
+
+사용자 요청: **"실적분석을 일별,월별,연도별,누적별 이렇게 보고 싶거든? 근데 연도별탭을 또
+만드는거 보다 한 페이지에서 확인이 되었으면 좋겠어. 책갈피처럼 탭별로 구분해서 본다던지"**
+
+### 무엇이 바뀌었나
+
+| | 전(v08.384까지) | 후(v08.385) |
+|---|---|---|
+| 사이드바 「실적 분석」 | 일별 · 월별 · 누적 · 실적 관리 (4항목) | **실적 분석** · 실적 관리 (2항목) |
+| 화면 | `#s-daily` · `#s-monthly` · `#s-cumul` | 그대로 + **`#s-year` 신설** |
+| 이동 | 사이드바 항목 클릭 | 화면 맨 위 **책갈피**(일별·월별·연도별·누적) |
+
+**기존 세 화면의 집계·구성·순서는 하나도 바꾸지 않았다.** 각 `el.innerHTML=` 맨 앞에
+`perfSubBar('<키>')` 한 줄만 붙였다.
+
+### 찾는 법 (전부 `renderDaily` 바로 위, perf_unify 모듈 안)
+
+```
+window.__perfSub        // 지금 보고 있는 책갈피 키 — 'daily'|'monthly'|'year'|'cumul'
+const PERF_SUBS         // [[키, 표시명], ...] — 책갈피 순서는 여기서 정한다
+function perfSubBar(cur)// <div class="subtabs"> 줄을 만든다 (CSS는 #ixHost .subtabs, 기존 것 재사용)
+window.perfSubSet(k)    // 책갈피 전환 — route()를 거치지 않고 #ixHost 안 .sect만 바꾼다
+window.perfGo(k)        // 다른 탭에서 특정 책갈피로 보낼 때 (사이드바까지 「실적 분석」으로 옮긴다)
+```
+
+### 전환이 route()를 안 거치는 이유
+
+네 화면은 **같은 한 페이지**다. `route()`를 타면 `#page`를 통째로 다시 만들어 화면 제목이
+「일별」·「월별」로 갈리고 스크롤도 튄다. 그래서 `perfSubSet`은 **원본 탭바 버튼을 클릭**해
+`.sect`의 `.active`만 옮기고(`ixMount`가 쓰는 것과 같은 경로) 그 화면의 `RENDER[k]`를 부른다.
+화면 제목(`#page .h1`)은 항상 「실적 분석」로 고정된다.
+
+### 연결 지점 4곳 (하나라도 빠지면 메뉴가 깨진다)
+
+| 어디 | 무엇 |
+|---|---|
+| `TABS` | `{id:'year',nm:'연도별',st:'full'}` — 이게 있어야 `#s-year` 빈 칸이 만들어진다 |
+| `NAV` | 실적 분석 섹션 = `[{id:'perf',...},{id:'perfmg',...}]` |
+| `IX_TABS` | `'perf'`와 `'year'` 추가 — `route()`가 ① 방식으로 보내는 목록 |
+| `ixMount` | 맨 앞에서 `if(tab==='perf')tab=window.__perfSub||'daily';` |
+
+`perf`는 **자기 `.sect`가 없다**(TABS에 없음). 사이드바에서 고르면 `ixMount`가 마지막으로
+보던 책갈피 화면으로 바꿔 띄운다. 그래서 다른 탭에 갔다 돌아와도 보던 자리가 유지된다.
+
+### 연도별 화면(`renderYear`)
+
+월별 화면의 「연」 버전이다. **새 집계를 만들지 않고** 월별이 쓰던 함수를 그대로 쓴다
+(`perfStat` · `cards6` · `inflowBlockHTML` · `bucketMonths` · `eventListHTML`).
+
+- 기간 = `Y-01-01` ~ `Y-12-31` · 증감 = **전년 같은 기간**(`PS`)
+- 연도 선택 = `window.__perfY`(없으면 `baseDate()`의 연도) · `window.yearSet(v)` / `window.yearShift(n)`
+  - `yearSet`은 숫자만 남겨 4자리일 때만 반영하고 `dtRedraw`를 쓴다(날짜 칸과 같은 규칙 — 치는 중에 다시 그리면 자리가 날아간다)
+- 추이 = `bucketMonths(Y+'-12', 12, baseMonth())` → 그 해 1~12월
+- **목표선은 얹지 않는다** — `PERF_GOAL.join`은 **월** 목표라 연간과 견줄 수 없다(v08.155와 같은 이유)
+- 올해를 보고 있을 때만 「N일 경과 / 365일」 막대를 띄운다(`progressHTML`은 달 기준이라 그대로 못 쓴다)
+
+**검증(2026-10-07 마스터, 919행)**: 연간 한 번에 계산한 값 = 12개월 값을 더한 값 —
+가입 89 · 재가입 11 · 해지 117 · 정지 101 · 요금제 변경 121 전부 일치.
+
+### 옛 링크
+
+통합 현황의 「누적 탭에서 상세 →」는 `gotoTab('cumul')`(원본 탭바만 바꿔 사이드바가 따라오지
+않았다) → **`perfGo('cumul')`**로 바꿨다.

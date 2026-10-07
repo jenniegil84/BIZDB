@@ -2212,7 +2212,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.384';
+window.__APP_VER='v08.385';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -5199,6 +5199,11 @@ const TABS=[
  // ── 실적 분석(시점 축) ──
  {id:'daily',nm:'일별',st:'full'},
  {id:'monthly',nm:'월별',st:'full'},
+ /* ══ v08.385 요청("실적분석을 일별,월별,연도별,누적별 … 한 페이지에서 책갈피처럼") ══
+    연도별 화면을 새로 만든다. 네 화면(#s-daily·#s-monthly·#s-year·#s-cumul)은 종전처럼
+    각자 .sect로 두되, 사이드바에는 「실적 분석」 하나만 두고 화면 맨 위 책갈피로 오간다
+    (perfSubBar / perfSubSet). 집계·구성은 손대지 않았다 — 연도별만 새로 만든 것이다. */
+ {id:'year',nm:'연도별',st:'full'},
  // v08.98 주간 탭 신설(요청) — 주간회의에서 뺀 ① 주간 실적 요약·①-2 발생 건 목록을 여기서 본다
  {id:'cumul',nm:'누적',st:'full'},
  // v08.98 실적 관리 탭 신설(요청) — 신청 관리는 플로우 조회 전용으로 두고,
@@ -6529,7 +6534,7 @@ function custToMg(c,step,status,problem,action,dmn){
   <div class="blk">
     <div class="blk-hd"><span class="blk-ttl">누적 요약</span>${basisTag('a')}
       <span style="font-size:10px;color:var(--gray-md)">2022.12 ~ ${_bm.replace('-','.')}</span>
-      <span class="blk-meta"><a href="#" onclick="gotoTab('cumul');return false" style="color:var(--teal-dk);font-weight:700">누적 탭에서 상세 →</a></span></div>
+      <span class="blk-meta"><a href="#" onclick="perfGo('cumul');return false" style="color:var(--teal-dk);font-weight:700">누적 탭에서 상세 →</a></span></div>
     <!-- v08.98 요청("통합현황 누적요약에서도 재가입카드는 빼") — 재가입은 이미 누적 가입에
          포함된 중복이라 별도 카드를 두지 않는다. 5칸으로 되돌린다. -->
     <!-- v08.337 요청("빨간테두리 부분 내용 삭제하고 카드 크기 줄여") — 「전환 이력 N건」 줄을
@@ -10776,6 +10781,33 @@ window.spPaint=function(){
   const blk = (title,meta,body) => '<div class="blk"><div class="blk-hd"><span class="blk-ttl">'+title+'</span>'
      +(typeof basisTag==='function'?basisTag('n'):'')+'<span class="blk-meta">'+meta+'</span></div>'+body+'</div>';
 
+  /* ══ v08.385 요청("실적분석을 일별,월별,연도별,누적별 … 한 페이지에서 책갈피처럼") ══
+     네 화면을 사이드바 항목 네 개로 두지 않고 「실적 분석」 한 화면 안에서 책갈피로 오간다.
+     · 네 화면(#s-daily·#s-monthly·#s-year·#s-cumul)과 그 집계는 종전 그대로 — 맨 위에 줄만 붙인다
+     · 전환은 route()를 거치지 않고 #ixHost 안에서 .sect만 바꾼다(화면 제목은 「실적 분석」 고정)
+     · 마지막으로 보던 책갈피는 window.__perfSub에 남는다 — 다른 탭에 갔다 와도 그 자리로 돌아온다 */
+  window.__perfSub=window.__perfSub||'daily';
+  const PERF_SUBS=[['daily','일별'],['monthly','월별'],['year','연도별'],['cumul','누적']];
+  function perfSubBar(cur){
+    return '<div class="subtabs">'+PERF_SUBS.map(function(t){
+      return '<button'+(t[0]===cur?' class="on"':'')+' onclick="perfSubSet(\''+t[0]+'\')">'+t[1]+'</button>';
+    }).join('')+'</div>';
+  }
+  window.perfSubSet=function(k){
+    window.__perfSub=k;
+    const host=document.getElementById('ixHost');
+    const btn=host&&host.querySelector('.tabbar button[data-t="'+k+'"]');
+    if(btn){ try{ btn.click(); }catch(e){ console.error('perfSubSet:click',e); } }
+    const R=window.__ixRender;
+    if(R&&typeof R[k]==='function'){ try{ R[k](); }catch(e){ console.error('perfSubSet:render',k,e); } }
+  };
+  /* 다른 탭(통합 현황 등)에서 특정 책갈피로 바로 보낼 때 쓴다 — 사이드바까지 「실적 분석」으로 옮긴다 */
+  window.perfGo=function(k){
+    window.__perfSub=k||'daily';
+    if(typeof window.curTab==='function'&&window.curTab()==='perf'){ window.perfSubSet(window.__perfSub); return; }
+    if(typeof goTab==='function')goTab('perf');
+  };
+
   /* ── 일별 ── */
   function renderDaily(){
     const el=document.getElementById('s-daily'); if(!el)return;
@@ -10785,7 +10817,8 @@ window.spPaint=function(){
     const _pd=new Date(D+'T00:00:00'); _pd.setDate(_pd.getDate()-1);
     const PD=ymd(_pd), PS=perfStat(PD,PD);
     el.innerHTML=
-      ctrl('<button class="btn gh" style="padding:3px 9px" onclick="dayShift(-1)">◀</button>'
+      perfSubBar('daily')      /* v08.385 책갈피 */
+    + ctrl('<button class="btn gh" style="padding:3px 9px" onclick="dayShift(-1)">◀</button>'
         +'<input type="date" value="'+D+'" onchange="daySet(this.value)" style="padding:5px 9px;border:1px solid var(--teal);border-radius:7px;font-size:11px;font-weight:700;color:var(--teal-dk)">'
         +'<button class="btn gh" style="padding:3px 9px" onclick="dayShift(1)">▶</button>'
         +'<button class="btn gh" style="padding:4px 10px;font-size:10.5px" onclick="daySet(null)">기준일</button>'
@@ -10811,7 +10844,8 @@ window.spPaint=function(){
     const plast=new Date(pd.getFullYear(), pd.getMonth()+1, 0).getDate();
     const PS=perfStat(PM+'-01', PM+'-'+pad(plast));
     el.innerHTML=
-      ctrl('<button class="btn gh" style="padding:3px 9px" onclick="monShift(-1)">◀</button>'
+      perfSubBar('monthly')    /* v08.385 책갈피 */
+    + ctrl('<button class="btn gh" style="padding:3px 9px" onclick="monShift(-1)">◀</button>'
         +'<input type="month" value="'+M+'" onchange="monSet(this.value)" style="padding:5px 9px;border:1px solid var(--teal);border-radius:7px;font-size:11px;font-weight:700;color:var(--teal-dk)">'
         +'<button class="btn gh" style="padding:3px 9px" onclick="monShift(1)">▶</button>'
         +'<button class="btn gh" style="padding:4px 10px;font-size:10.5px" onclick="monSet(null)">기준월</button>'
@@ -10824,6 +10858,54 @@ window.spPaint=function(){
      + chartHTML(bucketMonths(M,13,M),'최근 13개월 추이',{goal:PERF_GOAL.join})
      + eventListHTML(S,'당월 발생 건 목록',null,'monthly');
   }
+  /* ══ ── 연도별 ── (v08.385 신설) ══
+     월별 화면의 「연」 버전이다. 새 집계를 만들지 않고 월별이 쓰던 함수를 그대로 쓴다
+     (perfStat · cards6 · inflowBlockHTML · bucketMonths · eventListHTML).
+       · 기간 = 선택한 해의 1월 1일 ~ 12월 31일
+       · 증감 = 전년 같은 기간 대비(월별이 전월과 견주는 것과 같은 방식)
+       · 추이 = 그 해 12개월(월별 탭의 13개월 추이와 같은 bucketMonths)
+     ※ 목표선은 얹지 않는다 — 월 목표(PERF_GOAL.join)는 한 달 기준이라 연간과 견줄 수 없다
+       (월별 탭에만 목표선을 얹는 v08.155 규칙과 같은 이유). */
+  function renderYear(){
+    const el=document.getElementById('s-year'); if(!el)return;
+    const Y=String(window.__perfY||baseDate().slice(0,4));
+    const S=perfStat(Y+'-01-01', Y+'-12-31');
+    const PY=String(+Y-1), PS=perfStat(PY+'-01-01', PY+'-12-31');
+    /* 올해를 보고 있을 때만 「며칠 지났나」를 함께 띄운다 — 지난 해는 이미 끝난 기간이라 뜻이 없다.
+       월별 탭의 progressHTML과 같은 모양을 쓴다(그쪽은 달 기준이라 그대로 못 쓴다). */
+    const prog=(function(){
+      const B=baseDate();
+      if(String(B).slice(0,4)!==Y)return '';
+      const st=new Date(Y+'-01-01T00:00:00'), cu=new Date(B+'T00:00:00'), en=new Date(Y+'-12-31T00:00:00');
+      const day=Math.round((cu-st)/86400000)+1, lastD=Math.round((en-st)/86400000)+1;
+      const pct=Math.round(day/lastD*100);
+      return '<span class="mprog">'+day+'일 경과 / '+lastD+'일'
+        +'<span class="tr"><span class="fl" style="width:'+pct+'%"></span></span>'+pct+'%</span>';
+    })();
+    el.innerHTML=
+      perfSubBar('year')       /* v08.385 책갈피 */
+    + ctrl('<button class="btn gh" style="padding:3px 9px" onclick="yearShift(-1)">◀</button>'
+        +'<input type="number" value="'+Y+'" min="2000" max="2999" step="1" onchange="yearSet(this.value)" style="width:82px;padding:5px 9px;border:1px solid var(--teal);border-radius:7px;font-size:11px;font-weight:700;color:var(--teal-dk)">'
+        +'<button class="btn gh" style="padding:3px 9px" onclick="yearShift(1)">▶</button>'
+        +'<button class="btn gh" style="padding:4px 10px;font-size:10.5px" onclick="yearSet(null)">기준연도</button>'
+        +(prog?'<span class="blk-meta" style="margin-left:0">'+prog+'</span>':''))
+     + blk(Y+'년 실적','선택한 한 해 · 증감은 전년('+PY+'년) 대비',cards6(S,{inq:'연간 등록 기준',join:'연간 가입일 기준'},PS))
+     + inflowBlockHTML(S,'연간')
+     + chartHTML(bucketMonths(Y+'-12',12,baseMonth()),Y+'년 월별 추이')
+     + eventListHTML(S,'연간 발생 건 목록',null,'year');
+  }
+  /* 연도 칸도 숫자를 치는 중에 다시 그리면 자리가 날아간다 — 날짜 칸과 같은 규칙(dtRedraw)을 쓴다 */
+  window.yearSet=function(v){
+    const t=String(v==null?'':v).replace(/[^0-9]/g,'').slice(0,4);
+    window.__perfY=(t.length===4)?t:null;
+    dtRedraw(function(){ if(RENDER['year'])RENDER['year'](); });
+  };
+  window.yearShift=function(n){
+    const Y=+(window.__perfY||baseDate().slice(0,4))+n;
+    window.__perfY=String(Y);
+    if(RENDER['year'])RENDER['year']();
+  };
+
   /* ── 누적 ── */
   function renderCumul(){
     const el=document.getElementById('s-cumul'); if(!el)return;
@@ -10835,7 +10917,8 @@ window.spPaint=function(){
     const ser=(window.__xlOffice&&window.__xlOffice.series)||[];
     const n=Math.min(24, Math.max(1, ser.length));
     el.innerHTML=
-      ctrl('<span style="font-size:10.5px;color:var(--gray-md)">전체 기간 누적 · 기준일 '+D+' 이하</span>')
+      perfSubBar('cumul')      /* v08.385 책갈피 */
+    + ctrl('<span style="font-size:10.5px;color:var(--gray-md)">전체 기간 누적 · 기준일 '+D+' 이하</span>')
      + blk('누적 실적','전체 기간 합계',cards6(S,{inq:'누적 등록 기준',join:'누적 가입일 기준'}))
      + inflowBlockHTML(S,'누적')
      + chartHTML(bucketMonths(baseMonth(),n,baseMonth()),'최근 '+n+'개월 추이')   /* v08.134 그래프를 목록보다 위로 */
@@ -11672,11 +11755,12 @@ window.spPaint=function(){
 
   RENDER['daily']=renderDaily;
   RENDER['monthly']=renderMonthly;
+  RENDER['year']=renderYear;        /* v08.385 연도별 */
   RENDER['cumul']=renderCumul;
   /* 유형 분류 inqCls()는 원본의 뒤쪽 <script>(주간회의 블록)에서 window에 붙는다.
      이 블록은 그보다 먼저 실행되므로, 지금 그린 화면은 분류 전 값(전건이 '문의')이 된다.
      원본 스크립트가 다 올라온 뒤 한 번 더 그려 분류가 반영되게 한다. */
-  function repaintAll(){ renderDaily(); renderMonthly(); renderCumul(); renderPerfMg(); }
+  function repaintAll(){ renderDaily(); renderMonthly(); renderYear(); renderCumul(); renderPerfMg(); }
   repaintAll();
   if(typeof window.inqCls!=='function'){
     let tries=0;
@@ -12559,9 +12643,11 @@ window.spPaint=function(){
    이 목업의 왼쪽바에서 해당 탭을 고르면 #ixHost를 본문(#pgBody)으로 옮겨 보여준다. */
 // v08.98 실적 관리(perfmg) 추가 — 이 목록에 없으면 사이드바로 열었을 때 실제 화면 대신
 // STUB(「이 목업에는 화면을 만들지 않았습니다」) 안내가 뜬다.
-const IX_TABS=['home','daily','monthly','cumul','perfmg','inq','promo','churn','suspend','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가
+const IX_TABS=['home','perf','daily','monthly','year','cumul','perfmg','inq','promo','churn','suspend','cust','data']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가
 function ixMount(tab){
   const host=document.getElementById('ixHost'); if(!host)return;
+  /* v08.385 「실적 분석」(perf)은 그 자체로는 화면이 없다 — 마지막으로 보던 책갈피를 띄운다 */
+  if(tab==='perf')tab=window.__perfSub||'daily';
   const slot=document.getElementById('ixSlot');
   if(slot&&host.parentNode!==slot)slot.appendChild(host);
   host.classList.add('on');
@@ -12942,7 +13028,10 @@ const NAV=[
  {sec:'요약',ic:'▦',items:[{id:'home',nm:'통합 현황'},
    /* v06.77 시장 현황 — 외부 영업용 대시보드를 그대로 띄우는 화면. 통합 현황 바로 아래에 둔다(요청) */
    {id:'sales',nm:'시장 현황'}]},
- {sec:'실적 분석',ic:'▥',items:[{id:'daily',nm:'일별'},{id:'monthly',nm:'월별'},{id:'cumul',nm:'누적'},{id:'perfmg',nm:'실적 관리'}]},
+ /* v08.385 일별·월별·연도별·누적을 「실적 분석」 한 항목으로 합쳤다(요청) —
+    네 화면은 그대로 있고, 화면 맨 위 책갈피(perfSubBar)로 오간다. 어느 책갈피를 보고 있었는지는
+    window.__perfSub에 남아, 다른 탭에 갔다 돌아와도 그 자리로 돌아온다. */
+ {sec:'실적 분석',ic:'▥',items:[{id:'perf',nm:'실적 분석'},{id:'perfmg',nm:'실적 관리'}]},
  /* v07.88 고객 CRM에서 도입 문의만 남긴다(요청) — 당시엔 컨설팅·가입/온보딩/활성화 모니터링/
    문의 상담·VOC를 메뉴에서만 뺐었다. v08.216에서 사용자 확정("완전히 삭제해")으로 그 화면
    코드 자체를 완전히 삭제했다(CLAUDE.md 27번) — 이 4개는 이제 되살리려면 화면을 다시 만들어야
@@ -15470,7 +15559,7 @@ function paintSide(){
    아직 화면이 없어 기존 회색을 유지. dyn 유무로 추정하던 v06.14 방식은 v06.41에서 원본 5개 화면이
    들어오며 더 이상 맞지 않아(home·promo·churn·cust·data 전부 dyn 없음) 명시 목록으로 교체했다. */
 // v08.98 실적 관리(perfmg) 추가(요청) — 이 목록에 없으면 왼쪽바에서 화면 없는 탭처럼 회색으로 흐리게 나온다
-const BUILT_TABS=['week','home','act','daily','monthly','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','suspend','cust','data','updates']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가. v08.271 업데이트 내역 탭 추가
+const BUILT_TABS=['week','home','act','perf','daily','monthly','year','cumul','perfmg','inq','ux','mkt','sem','biz','sales','promo','churn','suspend','cust','data','updates']; // v08.216 join·onb·use·voc 화면 완전 삭제로 목록에서도 제거. v08.254 정지업체 탭 추가. v08.271 업데이트 내역 탭 추가
 const isBuilt=id=>BUILT_TABS.indexOf(id)>=0;
 /* v06.44 해지 지표 단일 기준 — 고객 마스터(세무사무소목록 업로드 → window.__xlOffice)의 churned.
    업로드 전에는 이식한 원본 index.html이 들고 있는 폴백값이 그대로 쓰인다. 값을 여기 적어 두지 않는
@@ -15667,6 +15756,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u101',d:'2026-10-07',tt:'실적 분석 — 일별·월별·연도별·누적을 한 화면에서 책갈피로 봅니다',
+  b:'왼쪽바에 따로 있던 **일별·월별·누적**이 **「실적 분석」 한 항목**으로 합쳐졌습니다. 화면 맨 위 책갈피(일별 · 월별 · **연도별** · 누적)를 눌러 오갑니다 — 보고 있던 책갈피는 다른 탭에 갔다 와도 그대로 유지됩니다. **연도별 화면이 새로 생겼습니다**: 연도를 고르면 그 해 전체 실적 카드(전체 문의 · 플러스 가입 · 플러스 전환 · 개업세무사 가입)와 유입경로, 그 해 12개월 추이, 연간 발생 건 목록을 봅니다. 증감은 **전년 대비**입니다. 기존 세 화면의 집계·구성은 **하나도 바뀌지 않았습니다**.'},
  {id:'u100',d:'2026-10-07',tt:'플러스 전환 — 이미 플러스였던 곳은 빼고 셉니다',
   b:'「플러스 전환」이 **플러스가 아니던 곳이 플러스가 된 것만** 셉니다. 종전에는 **이미 플러스였던 곳이 개업성장패키지·무제한 같은 프로모션 요금제로 옮겨 간 것**까지 새 전환으로 세고 있었습니다(변경 전 요금제가 비어 있거나 이름만 달라진 경우). **인사이트는 플러스 요금제에만 붙으므로, 인사이트 가입일이 요금제 변경일보다 앞이면 그 전에 이미 플러스였던 곳**입니다 — 그런 곳을 뺍니다. 2026년 **34건 → 19건**(15곳 제외). 같은 날 바뀐 곳과 인사이트 가입일이 없는 곳은 종전대로 전환으로 셉니다. **플러스 가입(89건)과 신규·재가입·업셀 세 줄은 바뀌지 않습니다.**'},
  {id:'u99',d:'2026-10-06',tt:'날짜별 사용건수를 「날짜별 지표」 안으로 되돌렸습니다',
