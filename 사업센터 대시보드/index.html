@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.400';
+window.__APP_VER='v08.401';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11758,11 +11758,16 @@ window.spPaint=function(){
       +'<input type="date" value="'+(F.d2||'')+'" onchange="pmSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
-      /* v08.399 — 여기 있던 「제외 N건 되돌리기」(전체 일괄)는 툴바의 **제외 목록** 패널로 옮겼다.
-         어느 업체를 뺐는지 보고 **행마다** 되돌릴 수 있어야 한다(일괄만으로는 확인이 안 된다). */
+      /* ══ v08.401 요청("문의없는 실적에도 제외목록버튼 추가해줘") ══
+         v08.399에서 제외 목록 패널을 「문의 있는 건」 툴바에만 뒀는데, 제외는 **이쪽 탭에서도**
+         하므로 바로 확인할 수 있어야 한다. 같은 버튼·같은 패널을 여기에도 둔다.
+         두 탭은 **한 번에 하나만 그려지므로** id(`pmDelBtn`·`pmDelPanel`)가 겹치지 않는다. */
+      +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="togglePmDelPanel()" id="pmDelBtn">제외 목록'
+      +(((typeof window.pmDelRows==='function')&&window.pmDelRows().length)?(' '+window.pmDelRows().length):'')+'</button>'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건'
       +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')+'</span>'
       +'</div>'
+      +((typeof window.pmDelPanelHTML==='function')?window.pmDelPanelHTML():'')   /* v08.401 제외 목록 패널 */
       +'<div style="overflow:auto;max-height:600px"><table class="tbl sticky" style="min-width:900px"><thead><tr>'
       +'<th style="text-align:left;width:26%">사무소·사건</th>'
       +'<th style="text-align:left;width:13%">요금제</th>'
@@ -16194,6 +16199,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u115',d:'2026-10-14',tt:'「문의 없는 실적」에도 제외 목록 버튼이 생겼습니다',
+  b:'제외 목록 버튼이 **「문의 있는 건」에만** 있었는데, 제외는 **「문의 없는 실적」에서도** 하므로 그 탭 툴바에도 넣었습니다. 두 탭 어디서 열어도 **같은 목록**(문의에서 뺀 것 + 마스터 사건에서 뺀 것)을 보여주고, 행마다 되돌릴 수 있습니다.'},
  {id:'u114',d:'2026-10-14',tt:'유입경로 칸에 마우스를 올리면 「왜 그 값인지」가 뜹니다',
   b:'실적 관리에서 **유입경로 칸에 마우스를 올리면** 그 값이 어느 근거로 정해졌는지 한 줄로 보여줍니다 — **① 직접 지정 · ② 위멤버스 실적확정 · ③ 로움 실적확정 · ④ PATH_CD · ⑤ 신청서 내용 · ⑥ 추천인 코드 · ⑦ 최초 신청건에서 물려받음**. **미확인일 때는 왜 못 정했는지**도 알려줍니다 — 「PATH_CD ○○ — 유입경로 관리에 매핑이 없습니다」 · 「추천 정보 관리에 추천채널이 비어 있습니다」 · 「최초 신청건도 유입경로가 없습니다」 · 「직접 비움 — 비운 칸은 자동 판정을 하지 않습니다」처럼요. 자동 판정이 안 먹을 때 **어디서 멈췄는지 바로 확인**할 수 있습니다.'},
  {id:'u113',d:'2026-10-14',tt:'제외한 건을 보는 「제외 목록」 · 가입채널은 유입경로를 따라갑니다',
