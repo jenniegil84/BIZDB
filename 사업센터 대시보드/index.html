@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.401';
+window.__APP_VER='v08.402';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -14679,17 +14679,24 @@ function monPerfTableHtml(){
         const pct=newASum>0?Math.round(inN/newASum*1000)/10:0;
         const dot=function(c){return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+c+';margin-right:4px;vertical-align:-1px"></span>';};
         return '<div style="border:1px solid #DBEAFE;background:#F8FBFF;border-radius:8px;padding:8px 10px;margin-bottom:8px">'
+          /* ══ v08.402 사용자 질문("개업세무사 프로모션 19건이 겹치는 곳은 16건이라는게") ══
+             종전 문구 「플러스 가입 90건 **과** 개업세무사 프로모션 19건**이 겹치는 곳은** 16건 (17.8%)」은
+             **분모가 무엇인지 드러나지 않아** 16/19(=84%)로 읽혔다. 실제 17.8%는 **16/90**이다.
+             → 분모를 문장 앞에 못 박는다: 「플러스 가입 90건 **중** 개업세무사 16건 (17.8%)」.
+             개업세무사 19건 쪽 관점은 아래 범례에 **밖에 있는 건수**로 따로 적는다(숫자·라벨만). */
           +'<div style="font-size:10.5px;margin-bottom:6px">'
-          +'<b>플러스 가입 '+newASum+'건</b> <span style="color:var(--gray-md)">과 </span>'
-          +'<b style="color:'+pkgBorder+'">개업세무사 프로모션 '+pkgASum+'건</b>'
-          +'<span style="color:var(--gray-md)">이 겹치는 곳은 </span><b>'+inN+'건</b>'
+          +'<b>플러스 가입 '+newASum+'건</b> <span style="color:var(--gray-md)">중 </span>'
+          +'<b style="color:'+pkgBorder+'">개업세무사 '+inN+'건</b>'
           +(newASum>0?('<span style="color:var(--gray-md)"> ('+pct+'%)</span>'):'')+'</div>'
           +(newASum>0?('<div style="display:flex;height:13px;border-radius:7px;overflow:hidden;background:#E5E7EB">'
           +'<div style="width:'+pct+'%;background:'+pkgBorder+'"></div>'
           +'<div style="flex:1;background:#7FD8D2"></div></div>'):'')
           +'<div style="font-size:9.5px;color:var(--gray-md);margin-top:5px">'
           +dot(pkgBorder)+'개업세무사이면서 플러스 가입 '+inN+'건'
-          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 가입 '+rest+'건</span></div>'
+          +'<span style="margin-left:12px">'+dot('#7FD8D2')+'그 외 플러스 가입 '+rest+'건</span>'
+          /* v08.402 개업세무사 쪽 관점 — 전체 몇 건 중 몇 건이 플러스 가입 밖인지 숫자로만 */
+          +(out>0?('<span style="margin-left:12px">개업세무사 '+pkgASum+'건 중 플러스 가입 밖 '+out+'건</span>'):'')
+          +'</div>'
           /* ══ v08.391 사용자 지적("이런 설명글 지우라고 내가 몇번을 말해야 되는거야?") ══
              여기 있던 ※ 설명 문장을 **지웠다**. 화면에는 값·숫자·라벨만 둔다(CLAUDE.md 28번).
              ※ 두 지표의 기준일이 다르다는 사실(플러스 가입 = 인사이트 가입일 ·
@@ -16199,6 +16206,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u116',d:'2026-10-14',tt:'주간회의 겹침 띠 문구를 분모가 보이게 고쳤습니다',
+  b:'종전 「플러스 가입 90건 **과** 개업세무사 프로모션 19건**이 겹치는 곳은** 16건 (17.8%)」은 **17.8%가 무엇의 비율인지** 드러나지 않아 16÷19(84%)로 읽혔습니다. 실제로는 **16÷90**입니다. 이제 **「플러스 가입 90건 중 개업세무사 16건 (17.8%)」**로 분모를 앞에 둡니다. 개업세무사 쪽 관점은 범례에 **「개업세무사 19건 중 플러스 가입 밖 3건」**으로 따로 적습니다. **숫자는 바뀌지 않았습니다** — 읽는 방법만 분명해졌습니다. 두 지표는 기준일이 다릅니다(플러스 가입 = 인사이트 가입일 · 개업세무사 = 프로모션 시작월).'},
  {id:'u115',d:'2026-10-14',tt:'「문의 없는 실적」에도 제외 목록 버튼이 생겼습니다',
   b:'제외 목록 버튼이 **「문의 있는 건」에만** 있었는데, 제외는 **「문의 없는 실적」에서도** 하므로 그 탭 툴바에도 넣었습니다. 두 탭 어디서 열어도 **같은 목록**(문의에서 뺀 것 + 마스터 사건에서 뺀 것)을 보여주고, 행마다 되돌릴 수 있습니다.'},
  {id:'u114',d:'2026-10-14',tt:'유입경로 칸에 마우스를 올리면 「왜 그 값인지」가 뜹니다',
