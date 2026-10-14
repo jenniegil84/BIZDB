@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.392';
+window.__APP_VER='v08.393';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -3132,6 +3132,7 @@ function refChannelOf(code){
   const hit=L.find(function(r){ return String(r&&r.cd||'').replace(/\s+/g,'').toUpperCase()===c; });
   return (hit&&String(hit.ch||'').trim())||'';
 }
+window.refChannelOf=refChannelOf;   /* v08.393 유입경로 판정(IX_inflowResolve)에서도 쓴다 */
 /* v08.244 요청("실적관리-가입채널 - 플로우 데이터의 하위업무에 있는 추천인코드를 읽고,
    추천인코드가 있으면 확정반영할것") — 신청내용 섹션에서만 추천인코드를 찾던 것에,
    플로우 '내용' 컬럼의 "■ 하위업무" 섹션도 같은 방식으로 확인한다(parseInqContent는 어느
@@ -4447,6 +4448,43 @@ window.inflowBase=function(fid,title,ci){
    ※ **v06.99에 「같은 사업자번호의 다른 건에서 물려받기」가 있었다가 v07.02에서 빠진 적이 있다**
      (추정이라 성과를 부풀린다는 이유). 이번 것은 그와 달리 **방향이 정해져 있다** — 아무 형제 건이
      아니라 **최초 신청건에서만** 물려받는다(사용자 확정). */
+/* v08.393 추천채널 값을 유입경로 형식(대분류 > 상세)으로 맞춘다.
+   · 이미 「A > B」면 그대로 · 정의표의 상세 이름이면 그 대분류를 붙인다
+   · 대분류 이름 그 자체거나(위멤버스) 정의표에 없는 값이면 **그대로 쓴다**(없는 분류를 만들지 않는다) */
+window.inflowNorm=function(v){
+  const t=String(v||'').trim();
+  if(!t||t.indexOf(' > ')>=0)return t;
+  const G=(typeof window.inflowGroups==='function')?window.inflowGroups():[];
+  for(let i=0;i<G.length;i++){ if((G[i][1]||[]).indexOf(t)>=0)return G[i][0]+' > '+t; }
+  return t;
+};
+/* v08.393 그 신청건의 추천인 코드 — 신청내용 → 하위업무 섹션 → 연결된 하위업무 제목 순으로 찾는다.
+   내용 파싱이 무거워 행 수가 바뀔 때만 다시 만든다(추천 정보 관리 표는 캐시하지 않아 즉시 반영). */
+window.__inqRefCache=null;
+window.inqRefCodeOf=function(fid){
+  const src=(PAY.inq&&PAY.inq.rows)||[];
+  if(!window.__inqRefCache||window.__inqRefCache.sig!==src.length){
+    const map={};
+    src.forEach(function(r){
+      if(!r||!r.ct)return;
+      let P; try{ P=parseInqContent(r.ct); }catch(e){ return; }
+      let rf=(P['신청내용']||{})['추천인코드']||'';
+      if(!rf||rf==='없음'||rf==='-')rf=(P['하위업무']||{})['추천인코드']||'';
+      if(!rf||rf==='없음'||rf==='-')return;
+      map[String(r.fid)]=String(rf).trim();
+    });
+    window.__inqRefCache={sig:src.length, map:map};
+  }
+  const hit=window.__inqRefCache.map[String(fid)];
+  if(hit)return hit;
+  /* 하위업무로 따로 올라온 코드(제목이 코드 모양인 하위업무) */
+  const subs=(window.__inqSubs||{})[fid]||[];
+  for(let i=0;i<subs.length;i++){
+    const t=String(subs[i]&&subs[i].tt||'').trim().toUpperCase();
+    if(window.SUB_REF_RE&&window.SUB_REF_RE.test(t))return t;
+  }
+  return '';
+};
 window.__inflowFirstCache=null;
 window.inflowFirstFid=function(fid){
   const src=(PAY.inq&&PAY.inq.rows)||[];
@@ -4470,10 +4508,21 @@ window.inflowFirstFid=function(fid){
 window.IX_inflowResolve=function(fid,title,ci){
   const b=window.inflowBase(fid,title,ci);
   if(b)return b;
-  /* v08.392 ③-2 최초 신청건에서 물려받기 — 위 주석 참고.
-     단, 사람이 **일부러 비운 건**(명시적 해제)은 물려받지 않는다 — 비운 뜻을 덮으면 안 된다. */
+  /* 사람이 **일부러 비운 건**(명시적 해제)은 아래 자동 단계를 타지 않는다 — 비운 뜻을 덮으면 안 된다 */
   const _m=(window.IX___inqManage||{})[fid]||{};
   if(Object.prototype.hasOwnProperty.call(_m,'inflow')&&_m.inflow==='')return '미분류 > 유입경로 미확인';
+  /* ══ v08.393 사용자 확정("가입 추천인코드가 있는 경우, 추천 정보 관리 메뉴의 추천채널을 불러옴") ══
+     신청서에 **추천인 코드**(예: WE_LEE)가 적혀 있으면, **추천 정보 관리** 표에서 그 코드에
+     매핑해 둔 **추천채널**(예: 위멤버스)을 유입경로로 쓴다. 그 사람이 데려온 고객이기 때문이다.
+     · 가입채널은 이미 같은 규칙을 쓰고 있었는데(v08.98·v08.244·v08.282) **업로드 시점에 한 번만**
+       지정돼, 추천 정보 관리 표를 나중에 채우면 이미 올라온 건에는 반영되지 않았다.
+       유입경로는 **그때그때 읽는다** — 표를 고치면 바로 따라온다.
+     · 표에 그 코드가 없거나 추천채널 칸이 비어 있으면 자동 지정하지 않는다(지어내지 않는다).
+     · 추천채널 값이 「상세」만 적혀 있으면(예: 영업채널1) 유입경로 정의표에서 그 대분류를 찾아
+       「영업 > 영업채널1」로 맞춘다(inflowNorm) — 없는 분류를 새로 만들지는 않는다. */
+  const _rc=window.inqRefCodeOf(fid);
+  if(_rc){ const _rch=window.inflowNorm(window.refChannelOf(_rc)); if(_rch)return _rch; }
+  /* v08.392 최초 신청건에서 물려받기 — 위 주석 참고 */
   const f=window.inflowFirstFid(fid);
   if(f&&String(f.fid)!==String(fid)){
     const fb=window.inflowBase(f.fid, f.tt, f.ci);
@@ -15895,6 +15944,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u108',d:'2026-10-14',tt:'추천인 코드가 있으면 유입경로를 추천채널로 채웁니다',
+  b:'신청서에 **추천인 코드**(예: WE_LEE)가 적혀 있으면, **추천 정보 관리** 표에서 그 코드에 적어 둔 **추천채널**을 유입경로로 씁니다. 그 사람이 데려온 고객이기 때문입니다. 예) 원택스 세무회계(추천인 코드 WE_LEE) → 유입경로 **위멤버스**. **추천 정보 관리 표를 고치면 바로 따라옵니다** — 업로드를 다시 할 필요가 없습니다. 표에 그 코드가 없거나 추천채널 칸이 비어 있으면 종전대로 「유입경로 미확인」입니다(지어내지 않습니다). 추천채널에 상세만 적혀 있으면(예: 영업채널1) 「영업 > 영업채널1」로 맞춰 줍니다. **직접 지정한 값이 있으면 그 값이 우선**입니다.'},
  {id:'u107',d:'2026-10-14',tt:'후속 신청건의 유입경로를 최초 신청건에서 물려받습니다',
   b:'같은 사무소가 신청 → 가입으로 여러 번 글을 남기면, 뒤따른 건(제목 옆 **「후속 · 최초 MM-DD」** 배지)에는 유입 코드가 안 적혀 있어 **「유입경로 미확인」**으로 남았습니다. 이제 그 건은 **최초 신청건의 유입경로를 기본값으로 따라갑니다** — 그 고객을 데려온 경로는 최초 신청에 적혀 있기 때문입니다. 예) 세정회계법인 10-14 가입 2건 → 09-16 최초 신청의 유입경로를 그대로 씁니다. **직접 지정한 값이 있으면 그 값이 우선**하고, 일부러 비워 둔 건은 그대로 둡니다. 최초 신청건에도 근거가 없으면 종전대로 「유입경로 미확인」입니다(지어내지 않습니다). **전체 문의 건수와 플러스 가입·전환 등 집계는 바뀌지 않습니다** — 유입경로별로 나뉘는 자리만 달라집니다.'},
  {id:'u106',d:'2026-10-07',tt:'화면에서 설명 문장을 걷어냈습니다',
