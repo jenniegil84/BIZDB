@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.396';
+window.__APP_VER='v08.398';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -5900,6 +5900,8 @@ const STATE_MAP={
   /* v08.167 문의 없는 실적(마스터 사건)에 지정한 채널값 — 플로우 문의(inq_manage)와 섞으면
      키 체계가 달라 서로를 덮어쓴다. 별도 kind로 둔다. */
   perf_master:'__pmMaster',
+  /* v08.397 「문의 없는 실적」에서 제외한 사건 키 목록 — 플로우 제외(inq_del)와 키 체계가 달라 따로 둔다 */
+  perf_master_del:'__pmMasterDel',
   mkt_task_monthly:'__mtMonthly', marketing:'__mktRows', seminar:'__semRows', biz:'__bizRows',
   consulting:'__consState', onboarding:'__onbState', onb_manual:'__manualOnb', onb_del:'__onbDel',
   si_metric:'__siMetric',   // v05.17 세모인사이트 거래처수·사용자수 수기 입력값
@@ -6144,7 +6146,11 @@ function opsPage(el,cfg){
    ${cfg.note||''}
    ${stdCards(cfg.cards,cfg.cardClicks,cfg.cardDefs)}
    ${''/* v03.74 업무 진행 스텝 제거 — 목록 서브탭·헤더 필터로 대체 (복원: cfg.hideSteps 분기 복구) */}
-   <div class="sec-label">업무 관리 목록</div>
+   ${''/* v08.397 요청("정지업체탭, 해지재가입탭에 있는 업무관리목록 카드 제거") —
+         정지업체·해지·재가입은 opsPage의 기본 목록을 쓰지 않고 자기 화면(customList)을 그리는데,
+         이 제목만 남아 아래 내용(정지 사유별 현황 · 해지 현황)과 맞지 않았다.
+         두 탭에서만 뺀다(cfg.hideListLabel) — 영업 탭은 종전대로 둔다. */}
+   ${cfg.hideListLabel?'':'<div class="sec-label">업무 관리 목록</div>'}
    ${cfg.links?`<div style="margin-bottom:8px">${cfg.links}</div>`:''}
    <div class="panel"><div class="panel-body">
      ${cfg.customList ? cfg.customList : `
@@ -9148,7 +9154,7 @@ window.chPaint=function(){
 (function(){
   /* v07.94 화면 만드는 일을 함수로 — 자료가 나중에 도착해도 다시 그릴 수 있어야 한다 */
   function churnRender(){
-  opsPage(document.getElementById('s-churn'),{id:'churn',links:extBtn('churn','admin'),domainLegend:true,domain:10,cols:[],
+  opsPage(document.getElementById('s-churn'),{id:'churn',hideListLabel:true,links:extBtn('churn','admin'),domainLegend:true,domain:10,cols:[],
    customList:churnPanelHTML(), customPaint:function(){ window.chPaint(); },
    note:`<div class="notebox"><b>결과 데이터 가동</b> ${srcTag('svc')} — 데이터 기준: 서비스 데이터(세무사무소목록 해지일·해지사유·재가입일). 해지 ${(window.__xlOffice&&window.__xlOffice.churned!=null)?window.__xlOffice.churned:'—'}·재가입 ${(window.__xlOffice&&window.__xlOffice.rejoin!=null)?window.__xlOffice.rejoin:'—'} 실데이터. 재접촉 3단계(분류~진행)는 수집 필요.</div>`,
    extraBlock:(function(){
@@ -9594,7 +9600,7 @@ window.spPaint=function(){
 };
 (function(){
   function suspendRender(){
-  opsPage(document.getElementById('s-suspend'),{id:'suspend', links:extBtn('suspend','admin'), domainLegend:true, domain:10, cols:[],
+  opsPage(document.getElementById('s-suspend'),{id:'suspend', hideListLabel:true, links:extBtn('suspend','admin'), domainLegend:true, domain:10, cols:[],
    customList:suspendPanelHTML(), customPaint:function(){ window.spPaint(); },
    note:`<div class="notebox"><b>정지업체 현황</b> ${srcTag('svc')} — 데이터 기준: 세무사무소목록 현재 상태='정지'. 정지 사유는 미납·프로모션 종료·장기 미사용·기타로 분류한다.<br><b>정지 예정</b>(v08.371 → v08.374) — 현재 상태 '정상'인 곳 가운데 <b>개업성장패키지를 뺀 프로모션</b>이 걸려 있고 <b>그 종료월이 이번 달 이후</b>인 곳, 그 종료월이 정지 예정일이다(마스터에 프로모션 컬럼이 없으면 청구대상 고객관리 파일로 대신한다). 프로모션이 끝나면 정지되는 구조라 <b>종료 관리 목록을 이 표에 합쳤다</b>(v08.374 — 종전에는 「프로모션 종료·정상가 전환」 탭에 따로 있었다). <b>개업성장패키지는 종료돼도 정지가 아니라 정상가로 전환</b>되므로 여기서 빼고 그 탭이 담당한다. <b>종료월이 이미 지난 곳은 넣지 않는다</b> — 청구 파일 대조 결과 그런 곳은 프로모션만 끝나고 <b>유료로 계속 쓰는 곳</b>이라(37곳 전부 3만~5만원 청구 중) 정지 대상이 아니다. 종료월이 비었거나 '209912'(무기한)이면 예정일을 알 수 없어 넣지 않는다(건수는 위에 적는다). <b>개업일</b>은 업로드 파일에 없는 값이라 <b>직접 입력</b>한다 — 고른 날짜는 메모와 같이 저장돼 파일을 새로 올려도 남는다.</div>`});
   }
@@ -11144,6 +11150,8 @@ window.spPaint=function(){
         const kKind=(kind==='플러스 전환')?'요금제변경':kind;
         const key='M|'+(String(x.bz||'').replace(/[^0-9]/g,'')||x.nm)+'|'+kKind+'|'+d;
         const wemb=(typeof window.wembProtectHit==='function')&&window.wembProtectHit({bz:x.bz});
+        /* v08.397 제외해 둔 사건은 목록·집계에서 뺀다(되돌리면 다시 나온다) */
+        if((window.__pmMasterDel||[]).indexOf(key)>=0)return;
         out.push({kind:kind,d:d,nm:x.nm||'',bz:x.bz||'',detail:detail,row:x,key:key,wemb:wemb});
       };
       if(inR(x.jn))push('신규가입', String(x.jn).slice(0,10), String(x.pl||'—'));
@@ -11196,6 +11204,56 @@ window.spPaint=function(){
      매칭)을 이미 갖고 있으므로 그쪽을 기준으로 삼는다. */
   /* 마스터 사건에 지정한 채널값. 플로우 문의(fid 기준)와 섞이면 안 되므로 별도로 둔다. */
   window.__pmMaster=window.__pmMaster||{};
+  /* ══ v08.397 요청("실적관리탭 문의없는 실적에도 관리열 추가해줘") ══
+     「문의 있는 건」에만 있던 **관리 열(상세·제외)**을 「문의 없는 실적」에도 둔다.
+       · 상세 = 그 사건의 마스터 원본 값을 모달로 보여준다(여기 행은 **문의가 없는** 사건이라
+         문의 상세(inqDetail)를 열 수 없다 — 대신 마스터 파일에 있는 값을 그대로 보여준다)
+       · 제외 = 이 목록·집계에서 뺀다. 플로우 쪽 제외(`IX___inqDel`)와 **키 체계가 달라**
+         섞으면 서로를 덮어쓰므로 별도 목록으로 둔다(채널값 `__pmMaster`와 같은 이유).
+     ※ 저장 키는 STATE_MAP에 **반드시 등록**해야 실제로 저장·복원된다(이 코드베이스에서 가장
+       자주 반복된 실수 — PROJECT_CONTEXT "13. 배운 점"). `perf_master_del`로 등록했다.
+     ※ 플로우 쪽 제외는 되돌리는 화면이 없지만(복원은 시트에서), 이쪽은 제외한 건수와
+       **「제외 되돌리기」**를 목록 위에 띄워 그 자리에서 되돌릴 수 있게 했다. */
+  window.__pmMasterDel=window.__pmMasterDel||[];
+  window.pmOrpDel=function(key){
+    const x=(window.pmOrphanRows()||[]).filter(function(r){return r.key===key;})[0];
+    if(!confirm("'"+((x&&x.nm)||key)+"' 의 "+((x&&x.kind)||'사건')+" 건을 실적 관리·집계에서 제외합니다.\n\n원본은 보존되며 「제외 되돌리기」로 되돌릴 수 있습니다."))return;
+    window.__pmMasterDel=window.__pmMasterDel||[];
+    if(window.__pmMasterDel.indexOf(key)<0)window.__pmMasterDel.push(key);
+    if(typeof IX_saveToSheet==='function')IX_saveToSheet('perf_master_del',window.__pmMasterDel);
+    if(typeof window.logAct==='function'){ try{ window.logAct('문의 없는 실적 제외',(x&&x.nm)||key,(x&&x.kind)||''); }catch(e){} }
+    renderPerfMg();
+    if(typeof rerenderAll==='function')rerenderAll();
+    if(typeof IX_toast==='function')IX_toast('제외됨 — 원본은 보존됩니다');
+  };
+  window.pmOrpRestore=function(){
+    const n=(window.__pmMasterDel||[]).length; if(!n)return;
+    if(!confirm('제외해 둔 '+n+'건을 모두 되돌립니다.'))return;
+    window.__pmMasterDel=[];
+    if(typeof IX_saveToSheet==='function')IX_saveToSheet('perf_master_del',window.__pmMasterDel);
+    renderPerfMg();
+    if(typeof rerenderAll==='function')rerenderAll();
+    if(typeof IX_toast==='function')IX_toast(n+'건 되돌렸습니다');
+  };
+  window.pmOrpDetail=function(key){
+    const x=(window.pmOrphanRows()||[]).filter(function(r){return r.key===key;})[0];
+    if(!x){ if(typeof IX_toast==='function')IX_toast('목록에서 찾지 못했습니다'); return; }
+    const r=x.row||{}, na='<span class="na">—</span>';
+    const v=function(t){ const s2=String(t==null?'':t).trim(); return (s2&&s2!=='-')?IX_esc(s2):na; };
+    const line=function(l,t){ return '<tr><td style="text-align:left;width:120px;color:var(--gray-md)">'+l+'</td><td style="text-align:left">'+t+'</td></tr>'; };
+    const pm=(r.pmNm&&String(r.pmNm).trim())
+      ? (IX_esc(r.pmNm)+' · '+v(r.pmS)+' ~ '+(String(r.pmE||'')==='209912'?'무기한':v(r.pmE))) : na;
+    openM({title:x.nm||'(이름 없음)', sub:x.kind+' · '+x.d+' · 문의 없는 실적', free:
+      '<table class="tbl" style="width:100%">'
+      +line('사업자번호', v(x.bz))+line('대표자', v(r.ow))+line('연락처', v(r.hp))
+      +line('상태', v(r.st))+line('요금제', v(r.pl))
+      +line('요금제 변경', (r.bf&&String(r.bf).trim()&&String(r.bf).trim()!=='-')?(IX_esc(r.bf)+' → '+v(r.pl)+' ('+v(r.pc)+')'):na)
+      +line('가입일', v(r.jn))+line('재가입일', v(r.rj))+line('해지일', v(r.cn))
+      +line('정지일', v(r.sp))+line('정지해제일', v(r.se))
+      +line('인사이트 가입', v(r.insJn))+line('인사이트 해지', v(r.insCn))
+      +line('프로모션', pm)
+      +'</table>'});
+  };
   window.pmMasterSet=function(key,f,v){
     (window.__pmMaster[key]=window.__pmMaster[key]||{})[f]=v;
     if(typeof IX_saveToSheet==='function')IX_saveToSheet('perf_master',window.__pmMaster);
@@ -11538,10 +11596,8 @@ window.spPaint=function(){
       if(un(v.inflow)||(isJoin(x)&&un(v.final)))nTodo++;
       if(x.wemb)nWemb++;
     });
-    const seg=function(v,l){
-      return '<button class="btn'+(((F.otodo||'all')===v)?'':' gh')+'" style="padding:4px 11px;font-size:10.5px"'
-        +' onclick="pmSet(\'otodo\',\''+v+'\')">'+l+'</button>';
-    };
+    /* v08.397 요청("버튼제거") — 「문의 있는 건」과 같이 지정 상태 필터 버튼 6개를 뺐다.
+       필터 자체(`__pmF.otodo`)는 코드에 남아 기본값 'all'로 고정된다. */
     const opt=function(cur){return (typeof window.inflowOptions==='function')?window.inflowOptions(cur||''):'';};
     /* 문의 쪽 sel()과 같은 모양 — 미지정은 청록 테두리, 지정 대상이 아니면 잠근다 */
     const sel=function(key,f,cur,hl,off,lock,lockIn){
@@ -11570,17 +11626,19 @@ window.spPaint=function(){
             + sel(x.key,'inflow',v.inflow, un(v.inflow), false, x.wemb, ins(x))
             + sel(x.key,'joinCh',v.joinCh, false, !j, x.wemb, ins(x))
             + sel(x.key,'final', v.final,  j&&un(v.final), !j, x.wemb, ins(x))
+            /* v08.397 관리 열 — 상세는 마스터 원본 값을 보여주고(여기 행은 문의가 없다),
+               제외는 이 목록·집계에서 뺀다(제외 목록은 별도 저장 — pmOrpDel) */
+            +'<td style="white-space:nowrap"><span class="mgmt-badge" onclick="pmOrpDetail(\''+x.key.replace(/'/g,"\\'")+'\')">상세</span>'
+            +' <span class="mgmt-badge" style="background:var(--red-lt);color:var(--red);border-color:transparent" onclick="pmOrpDel(\''+x.key.replace(/'/g,"\\'")+'\')" title="실적 관리·집계에서 제외">제외</span></td>'
             +'</tr>';
         }).join('')
-      : '<tr><td colspan="5" class="na" style="text-align:center;padding:22px">해당하는 건이 없습니다</td></tr>';
+      : '<tr><td colspan="6" class="na" style="text-align:center;padding:22px">해당하는 건이 없습니다</td></tr>';   /* v08.397 관리 열 추가로 6칸 */
     /* v08.196 카드는 화면 위쪽 한 줄만 쓴다 — 여기서 또 그리면 같은 라벨이 두 벌이 되어
        어느 숫자를 봐야 할지 알 수 없다. 계산값은 위 카드가 쓰도록 넘긴다. */
     window.__orpStat={total:all.length, todo:nTodo, wemb:nWemb,
                       noInflow:nNoInflow, noJoin:nNoJoin, noFinal:nNoFinal};
     return '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
-      +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')
-      +seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
       /* v08.278 — id는 다시 그린 뒤 커서를 되돌리는 데 쓴다(txRedraw). 두 하위 탭이 각각 자기 칸을 갖는다. */
       +'<input id="pmQorp" value="'+IX_esc(F.q||'')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="사무소·사업자번호 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
@@ -11592,13 +11650,19 @@ window.spPaint=function(){
       +'<input type="date" value="'+(F.d2||'')+'" onchange="pmSet(\'d2\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10.5px">'
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
+      /* v08.397 제외해 둔 건이 있을 때만 보인다 — 그 자리에서 되돌릴 수 있게 */
+      +(((window.__pmMasterDel||[]).length)
+        ? ('<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmOrpRestore()">제외 '
+           +(window.__pmMasterDel||[]).length+'건 되돌리기</button>') : '')
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건'
       +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')+'</span>'
       +'</div>'
       +'<div style="overflow:auto;max-height:600px"><table class="tbl sticky" style="min-width:900px"><thead><tr>'
       +'<th style="text-align:left;width:26%">사무소·사건</th>'
       +'<th style="text-align:left;width:13%">요금제</th>'
-      +'<th style="width:20%">유입경로</th><th style="width:20%">가입채널</th><th style="width:21%">최종실적</th>'
+      +'<th style="width:19%">유입경로</th><th style="width:19%">가입채널</th><th style="width:19%">최종실적</th>'
+      /* v08.397 요청("문의없는 실적에도 관리열 추가해줘") — 「문의 있는 건」과 같은 자리·같은 모양 */
+      +'<th style="width:60px">관리</th>'
       +'</tr></thead><tbody>'+body+'</tbody></table></div>'
       +'</div></div>';
   };
@@ -11783,7 +11847,12 @@ window.spPaint=function(){
         +' <span class="mgmt-badge" style="background:var(--red-lt);color:var(--red);border-color:transparent" onclick="pmDel(\''+r.fid+'\')" title="실적 관리·집계에서 제외">제외</span></td>'
         +'</tr>';
     }).join('') : '<tr><td colspan="5" class="na" style="text-align:center;padding:20px">조회 결과가 없습니다</td></tr>';
-    const seg=function(v,l){return '<button class="btn'+(window.__pmF.todo===v?'':' gh')+'" style="padding:4px 11px;font-size:10.5px" onclick="pmSet(\'todo\',\''+v+'\')">'+l+'</button>';};
+    /* v08.397 요청("버튼 제거") — 「전체 / 지정 필요 / 유입경로 미정 / 가입채널 미정 / 최종실적 미정 /
+       지정 완료」 여섯 버튼을 뺐다. 같은 일을 **아래 카드 4종**(눌러서 상세)과 **열 머리 필터**
+       (유입경로·가입채널·최종실적 각 열의 드롭다운)가 이미 하고 있어 줄만 차지했다.
+       필터 자체(`__pmF.todo`)는 코드에 남아 있고 기본값 'all'로 고정된다 — 되살릴 일이 생기면
+       이 자리에 seg 버튼만 다시 그리면 된다.
+       ※ 「문의 없는 실적」 탭의 같은 줄은 그대로 뒀다(이번 지시는 「문의 있는 건」 화면이었다). */
     el.innerHTML=
       '<div class="blk"><div class="blk-hd"><span class="blk-ttl">실적 관리</span>'
       /* v08.391 — 화면 부제 설명 문구 삭제(CLAUDE.md 28번) */
@@ -11844,7 +11913,6 @@ window.spPaint=function(){
       +((window.__pmF.view==='orp')?pmOrphanHTML():(
        '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
-      +seg('all','전체')+seg('todo','지정 필요')+seg('noInflow','유입경로 미정')+seg('noJoin','가입채널 미정')+seg('noFinal','최종실적 미정')+seg('done','지정 완료')
       +'<input id="pmQ" value="'+String(window.__pmF.q||'').replace(/"/g,'&quot;')+'" oninput="pmSet(\'q\',this.value,this.id)" placeholder="제목·작성자 검색"'
       +' style="margin-left:6px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;font-size:11px;width:180px">'
       /* v08.98 등록일 기간 필터 — 「7월까지」처럼 기간을 끊어 일괄 지정할 때 쓴다 */
@@ -11857,6 +11925,10 @@ window.spPaint=function(){
       +'<button class="btn gh" style="padding:4px 8px;font-size:10px" onclick="pmMonthShift(1)" title="다음월(1일~말일)로 이동">다음월 ▶</button>'
       /* v08.98 기간을 한 번에 지우고 전체를 보는 버튼 — 진입 시 기준월로 좁혀 두므로 필요하다 */
       +'<button class="btn gh" style="padding:4px 9px;font-size:10px" onclick="pmClearPeriod()">전체 기간</button>'
+      /* v08.397 요청("실적관리탭에서 유입경로관리버튼 아래행으로 내려줘") — 줄바꿈을 창 폭에 맡기면
+         폭에 따라 「유입경로 관리」만 윗줄 끝에 남아 나머지 셋과 떨어진다. 여기서 줄을 끊어
+         **관리 버튼 4개를 항상 같은 줄**에 모은다(flex-basis:100%로 한 줄을 통째로 차지시키는 방법). */
+      +'<div style="flex-basis:100%;height:0"></div>'
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleInflowPanel()" id="inflowBtn">유입경로 관리</button>'
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="toggleRefPanel()" id="refBtn">추천 정보 관리</button>'
       /* v08.284 실적확정 명단(위멤버스·로움) 관리 — 위 두 패널과 같은 방식 */
@@ -13220,7 +13292,10 @@ const NAV=[
  /* v08.385 일별·월별·연도별·누적을 「실적 분석」 한 항목으로 합쳤다(요청) —
     네 화면은 그대로 있고, 화면 맨 위 책갈피(perfSubBar)로 오간다. 어느 책갈피를 보고 있었는지는
     window.__perfSub에 남아, 다른 탭에 갔다 돌아와도 그 자리로 돌아온다. */
- {sec:'실적 분석',ic:'▥',items:[{id:'perf',nm:'실적 분석'},{id:'perfmg',nm:'실적 관리'}]},
+ /* v08.398 요청 — 사이드바 섹션 이름을 「실적 분석」 → 「실적」으로. 아래 항목이
+    「실적 분석 / 실적 관리」라 섹션까지 같은 이름이면 같은 말이 두 번 보였다.
+    항목 id·화면은 그대로다(섹션 글자만 바뀐다). */
+ {sec:'실적',ic:'▥',items:[{id:'perf',nm:'실적 분석'},{id:'perfmg',nm:'실적 관리'}]},
  /* v07.88 고객 CRM에서 도입 문의만 남긴다(요청) — 당시엔 컨설팅·가입/온보딩/활성화 모니터링/
    문의 상담·VOC를 메뉴에서만 뺐었다. v08.216에서 사용자 확정("완전히 삭제해")으로 그 화면
    코드 자체를 완전히 삭제했다(CLAUDE.md 27번) — 이 4개는 이제 되살리려면 화면을 다시 만들어야
@@ -16003,6 +16078,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u112',d:'2026-10-14',tt:'실적 관리 — 「문의 없는 실적」에도 관리 열 · 화면 정리',
+  b:'**① 「문의 없는 실적」에 관리 열이 생겼습니다.** **상세**를 누르면 그 사건의 마스터 원본(대표자·연락처·상태·요금제·가입/해지/정지일·인사이트·프로모션)을 보여줍니다 — 이 목록은 문의가 없는 건이라 문의 상세 대신 마스터 값을 띄웁니다. **제외**를 누르면 목록과 집계에서 뺍니다. 제외한 건이 있으면 목록 위에 **「제외 N건 되돌리기」**가 나와 그 자리에서 되돌릴 수 있습니다.\n\n**② 지정 상태 필터 버튼 6개를 뺐습니다**(전체 · 지정 필요 · 유입경로 미정 · 가입채널 미정 · 최종실적 미정 · 지정 완료) — 두 하위 탭 모두. 같은 일을 아래 카드와 열 머리 필터가 이미 하고 있었습니다.\n\n**③ 「유입경로 관리」 버튼을 아랫줄로** 내려 관리 버튼 네 개(유입경로 관리 · 추천 정보 관리 · 실적확정 명단 · 엑셀 다운로드)가 항상 같은 줄에 모입니다.\n\n**④ 정지업체 · 해지·재가입 탭의 「업무 관리 목록」 제목을 뺐습니다** — 그 아래 내용(정지 사유별 현황 · 해지 현황)과 맞지 않는 제목이었습니다.'},
  {id:'u111',d:'2026-10-14',tt:'「후속 · 최초」 배지에 연도가 빠져 있던 것을 고쳤습니다',
   b:'배지가 날짜를 **월-일로만** 보여줘서, **지난 해 신청건이 올해 날짜로 읽혔습니다**(예: 수리세무회계 재가입 건 — 최초 신청은 **2025-10-07**인데 「최초 10-07」로 보여 올해 10월 7일로 오해). 이 목록은 재가입·요금제 변경이 많아 최초 신청이 몇 해 전인 경우가 흔합니다. 이제 **해가 다르면 「25-10-07」처럼 연도까지** 보여줍니다(같은 해면 종전대로 월-일). 배지에 마우스를 올리면 **전체 날짜와 그 신청건 제목**이 떠서 어느 건을 가리키는지 바로 확인할 수 있습니다.'},
  {id:'u110',d:'2026-10-14',tt:'실적 관리 — 사람이 지정한 칸만 주황 테두리로 구분합니다',
