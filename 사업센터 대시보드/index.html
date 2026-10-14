@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.404';
+window.__APP_VER='v08.405';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -5671,7 +5671,11 @@ window.churnOverlay=function(range){
     const m=x.m, last=new Date(+m.slice(0,4), +m.slice(5,7), 0).getDate();
     if(typeof window.perfStat==='function'){
       const S=window.perfStat(m+'-01', m+'-'+String(last).padStart(2,'0'));
-      return {m:m, j:S.join.length, c:S.churn.length, net:(S.join.length+S.rejoin.length-S.churn.length)};
+      /* v08.405 — 「가입」 칸도 **신규 + 재가입**으로 센다. 종전에는 가입이 신규만인데
+         순증감은 재가입을 더해, 이 표 안에서 「가입 − 해지 ≠ 순증감」이 됐다
+         (실적 분석 추이 그래프와 같은 문제를 같은 날 함께 고쳤다). */
+      return {m:m, j:S.join.length+S.rejoin.length, c:S.churn.length,
+              net:(S.join.length+S.rejoin.length-S.churn.length)};
     }
     return {m:m, j:x.j, c:x.c, net:x.net};
   });
@@ -5681,7 +5685,7 @@ window.churnOverlay=function(range){
   openM({title:"월별 가입 vs 해지 상세",sub:"기간: "+list[0].m+" ~ "+list[list.length-1].m+" ("+list.length+"개월) · 조회 전용 "+srcTag("svc"),
    free:'<div style="display:flex;gap:6px;margin-bottom:12px">'+btn("all","전체 기간")+" "+btn("3y","최근 3년")+" "+btn("2y","최근 2년")+" "+btn("13m","최근 13개월")+'</div>'
    +'<div class="notebox" style="margin:0 0 10px">합계 검증 — 가입 <b>'+sj.toLocaleString()+'</b> · 해지 <b>'+sc.toLocaleString()+'</b> · 순증감 <b>'+((sj-sc)>=0?'+':'')+(sj-sc).toLocaleString()+'</b> (표 합계와 일치 ✓) · 해지율 = 해당월 해지÷가입</div>'
-   +'<table class="tbl"><thead><tr><th>월</th><th>가입</th><th>해지</th><th>순증감</th><th>해지율</th></tr></thead><tbody>'
+   +'<table class="tbl"><thead><tr><th>월</th><th>가입(신규+재가입)</th><th>해지</th><th>순증감</th><th>해지율</th></tr></thead><tbody>'
    +rows.map(r=>'<tr><td style="text-align:left">'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td><td>'+r[4]+'</td></tr>').join('')
    +'<tr style="background:var(--gray-lt);font-weight:800"><td style="text-align:left">합계</td><td>'+sj.toLocaleString()+'</td><td>'+sc.toLocaleString()+'</td><td>'+((sj-sc)>=0?'+':'')+(sj-sc).toLocaleString()+'</td><td>—</td></tr>'
    +'</tbody></table>',ftr:"전체 기간 가입 "+sj.toLocaleString()+" · 해지 "+sc.toLocaleString()});
@@ -10984,18 +10988,27 @@ window.spPaint=function(){
   function chartHTML(buckets,label,opt){
     opt=opt||{};
     const goal=(typeof opt.goal==='number'&&opt.goal>0)?opt.goal:null;
-    const mx=Math.max(1,...buckets.map(x=>Math.max(x.j,x.c)), goal||0);
-    const nets=buckets.map(x=>x.j+(x.r||0)-x.c);   // v07.96 재가입 포함
+    /* ══ v08.405 버그 수정(사용자 지적 "가입이 6건인데 그래프상 가입은 5건임") ══
+       청록 막대는 **신규가입만**(`x.j`)이었는데 순증 선은 **신규가입 + 재가입 − 해지**였다.
+       그래서 한 그래프 안에서 **막대끼리 빼도 선과 맞지 않았다**
+       (2026-10 실데이터: 막대로는 5 − 5 = 0인데 순증 점은 +1 — 재가입 1건 때문).
+       아래 「발생 건 목록」의 가입 5 + 재가입 1 = 6과도 어긋났다.
+       → 막대도 **가입 = 신규가입 + 재가입**으로 센다. 이제 **청록 − 분홍 = 순증**이 정확히 맞고
+         목록 건수와도 같다. 순증 산식(v07.96)은 손대지 않았다 — 막대를 거기에 맞춘 것이다.
+       ※ 「총 가입수 = 신규 + 재가입」은 이미 이 파일의 확정 기준이다(주간회의 전체 가입 현황). */
+    const jn=function(x){ return x.j+(x.r||0); };
+    const mx=Math.max(1,...buckets.map(x=>Math.max(jn(x),x.c)), goal||0);
+    const nets=buckets.map(x=>jn(x)-x.c);   // v07.96 재가입 포함 · v08.405 막대와 같은 식
     const nmx=Math.max(1,...nets.map(v=>Math.abs(v)));
     const bw=Math.max(30, Math.min(52, Math.floor(760/Math.max(1,buckets.length))));
     const cw=buckets.length*bw+46, ZERO=118, NH=30, chH=ZERO+NH+30;
     const bars=buckets.map((x,i)=>{
-      const jh=x.j/mx*74, ch=x.c/mx*74, X=34+i*bw, w=Math.max(6,Math.floor(bw*0.3));
+      const jh=jn(x)/mx*74, ch=x.c/mx*74, X=34+i*bw, w=Math.max(6,Math.floor(bw*0.3));
       return (x.cur?'<rect x="'+(X-5)+'" y="18" width="'+(bw-6)+'" height="'+(ZERO-14)+'" fill="#EAF9F8" rx="4"/>':'')
         +'<rect x="'+X+'" y="'+(ZERO-jh)+'" width="'+w+'" height="'+jh+'" fill="#1BC5BD" rx="3"/>'
         +'<rect x="'+(X+w+3)+'" y="'+(ZERO-ch)+'" width="'+w+'" height="'+ch+'" fill="#F1416C" opacity=".8" rx="3"/>'
         +'<text x="'+(X+w)+'" y="'+(ZERO+NH+22)+'" font-size="9" fill="'+(x.cur?'#13918B':'#7E8299')+'" font-weight="'+(x.cur?'700':'400')+'" text-anchor="middle">'+x.label+'</text>'
-        +(x.j?'<text x="'+(X+w/2)+'" y="'+(ZERO-jh-4)+'" font-size="8" fill="#13918B" text-anchor="middle">'+x.j+'</text>':'')
+        +(jn(x)?'<text x="'+(X+w/2)+'" y="'+(ZERO-jh-4)+'" font-size="8" fill="#13918B" text-anchor="middle">'+jn(x)+'</text>':'')
         +(x.c?'<text x="'+(X+w*1.5+3)+'" y="'+(ZERO-ch-4)+'" font-size="8" fill="#F1416C" text-anchor="middle">'+x.c+'</text>':'');
     }).join('');
     const pts=nets.map((v,i)=>{const X=34+i*bw+Math.max(6,Math.floor(bw*0.3)); return X+','+(ZERO+18-(v/nmx*NH*0.8)).toFixed(1);}).join(' ');
@@ -11015,10 +11028,12 @@ window.spPaint=function(){
     return '<div class="sec-label">'+label+'</div>'
      +'<div class="panel"><div class="panel-body">'
      +'<div style="font-size:10px;color:var(--gray-md);margin-bottom:6px">'
-     +'<span style="display:inline-block;width:9px;height:9px;background:var(--teal);border-radius:2px;margin-right:4px"></span>신규가입'
+     +'<span style="display:inline-block;width:9px;height:9px;background:var(--teal);border-radius:2px;margin-right:4px"></span>가입(신규+재가입)'
      +'<span style="display:inline-block;width:9px;height:9px;background:var(--red);border-radius:2px;margin:0 4px 0 12px"></span>해지'
      +'<span style="margin-left:12px">— 순증(선)</span>'
-     +(goal?'<span style="margin-left:12px;color:#B45309"><span style="display:inline-block;width:14px;border-top:1.5px dashed #F5A623;vertical-align:middle;margin-right:4px"></span>신규가입 목표 '+goal+'건</span>':'')
+     /* v08.405 막대가 「가입(신규+재가입)」이 되었으므로 목표선 라벨도 「가입 목표」로 맞춘다.
+        목표값(PERF_GOAL.join) 자체는 사용자가 정하는 값이라 건드리지 않는다. */
+     +(goal?'<span style="margin-left:12px;color:#B45309"><span style="display:inline-block;width:14px;border-top:1.5px dashed #F5A623;vertical-align:middle;margin-right:4px"></span>가입 목표 '+goal+'건</span>':'')
      +'</div>'
      +'<svg viewBox="0 0 '+cw+' '+chH+'" style="width:100%">'+bars
      +'<line x1="20" y1="'+(ZERO+18)+'" x2="'+(cw-10)+'" y2="'+(ZERO+18)+'" stroke="#E4E6EF" stroke-width="1" stroke-dasharray="3 3"/>'
@@ -16214,6 +16229,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u119',d:'2026-10-14',tt:'추이 그래프의 「가입」에 재가입이 빠져 있던 것을 고쳤습니다',
+  b:'실적 분석 추이 그래프의 청록 막대가 **신규가입만** 세고 있었는데, 같은 그래프의 **순증(선)은 신규가입 + 재가입 − 해지**였습니다. 그래서 **막대끼리 빼도 선과 맞지 않았습니다** — 2026-10은 막대로 5 − 5 = 0인데 순증 점은 +1이었습니다(재가입 1건 때문). 아래 발생 건 목록의 가입 5 + 재가입 1 = 6과도 어긋났습니다. 이제 막대도 **「가입(신규+재가입)」**으로 세어 **청록 − 분홍 = 순증**이 정확히 맞고 목록 건수와도 같습니다. 통합 현황의 「월별 가입 vs 해지 상세」 표도 같은 문제라 함께 고쳤습니다. **순증 산식은 바꾸지 않았습니다** — 막대를 거기에 맞춘 것입니다.'},
  {id:'u118',d:'2026-10-14',tt:'겹침 띠 범례도 개업세무사 19건으로 맞췄습니다',
   b:'범례 첫 항목이 「개업세무사이면서 플러스 가입 **16건**」이라 **개업세무사 옆 숫자가 겹침 수**였습니다. 머리글은 19로 고쳤는데 범례만 16이라 또 어긋나 보였습니다. 이제 **「개업세무사 19건 (겹침 16 · 밖 3)」**으로, 전체 건수를 앞에 두고 내역을 괄호로 붙입니다. 띠의 파란 칸은 종전대로 **겹침 16**을 가리킵니다.'},
  {id:'u117',d:'2026-10-14',tt:'겹침 띠 — 개업세무사는 19건(전체)으로 표시합니다',
