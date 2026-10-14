@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.399';
+window.__APP_VER='v08.400';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -4624,6 +4624,42 @@ window.IX_inflowResolve=function(fid,title,ci){
   /* v07.02 자동 판정은 ① 패스코드(PATH_CD) ② 내용의 '유입경로' — 근거가 없으면 채우지 않는다.
      v07.01에서 뺀 「위멤버스 담당자수」는 추정이라 쓰지 않는다. */
   return '미분류 > 유입경로 미확인';   // ④ v04.71 3단계 모두 미판정 시 대분류 마케팅으로 기본 귀속 (요청) — 명시적 해제(②)는 위에서 이미 반환되어 영향 없음
+};
+/* ══ v08.400 — 유입경로가 왜 그 값이 됐는지(또는 왜 미확인인지) 그 자리에서 알 수 있게 ══
+   사용자 질문("패스코드가 HOME이니까 유입경로는 홈페이지로 자동지정이 되어야 하는데 안된 이유?")에
+   코드를 읽는 것만으로는 답할 수 없었다 — 어느 단계에서 멈췄는지가 화면에 드러나지 않기 때문이다.
+   `IX_inflowResolve`와 **똑같은 순서**로 다시 훑어 「어느 단계에서 정해졌는가」를 한 줄로 돌려준다.
+   실적 관리 목록의 유입경로 칸에 마우스를 올리면 보인다(화면에 글자를 더 쓰지 않는다 — 툴팁).
+   ※ 판정 로직을 복제하지 않는다 — 같은 함수들(inflowBase·inqRefCodeOf·inflowFirstFid)을 부른다. */
+window.inflowWhy=function(fid,title,ci){
+  const M=(window.IX___inqManage||{})[fid]||{};
+  if(M.inflow)return '① 직접 지정';
+  if(Object.prototype.hasOwnProperty.call(M,'inflow')&&M.inflow==='')
+    return '① 직접 비움 — 비운 칸은 자동 판정을 하지 않습니다(값을 고르면 다시 잡힙니다)';
+  const row=(typeof inqRowOf==='function'&&inqRowOf(fid))||{tt:title,ci:ci};
+  if(typeof wembProtectHit==='function'&&wembProtectHit({bz:row.bz,tt:row.tt||title}))return '② 위멤버스 실적확정 명단';
+  if(typeof window.salesInsideHit==='function'&&window.salesInsideHit({bz:row.bz}))return '③ 로움 실적확정 명단';
+  const code=(typeof IX_passCodeOf==='function')?IX_passCodeOf(title||row.tt):'';
+  if(code){
+    const pv=(typeof IX_passInflowOf==='function')?IX_passInflowOf(title||row.tt):'';
+    if(pv)return '④ PATH_CD '+code;
+    return '④ PATH_CD '+code+' — 유입경로 관리에 매핑이 없습니다';
+  }
+  const b=window.inflowBase(fid,title,ci);
+  if(b)return '⑤ 신청서 내용';
+  const rc=(typeof window.inqRefCodeOf==='function')?window.inqRefCodeOf(fid):'';
+  if(rc){
+    const rv=window.inflowNorm(window.refChannelOf(rc));
+    if(rv)return '⑥ 추천인 코드 '+rc;
+    return '⑥ 추천인 코드 '+rc+' — 추천 정보 관리에 추천채널이 비어 있습니다';
+  }
+  const f=(typeof window.inflowFirstFid==='function')?window.inflowFirstFid(fid):null;
+  if(f&&String(f.fid)!==String(fid)){
+    const fb=window.inflowBase(f.fid,f.tt,f.ci);
+    if(fb)return '⑦ 최초 신청건('+String(f.dt||'').slice(0,10)+')에서 물려받음';
+    return '⑦ 최초 신청건('+String(f.dt||'').slice(0,10)+' · '+String(f.tt||'')+')도 유입경로가 없습니다';
+  }
+  return '근거 없음 — PATH_CD·신청서 내용·추천인 코드·앞선 신청 어디에도 유입경로가 없습니다';
 };
 window.passAdd=function(){
   askText('PATH_CD 추가', '제목 끝에 붙는 코드 (예: TAX_SEMO_UXM)', '', function(code){
@@ -11815,7 +11851,12 @@ window.spPaint=function(){
                          유입경로·가입채널·최종실적 세 칸에 모두 붙여, 그 건이 위멤버스 확정임을
                          한눈에 알게 한다(종전에는 최종실적 한 칸에만 표시됐다).
        · hl(미정)      : 테두리를 청록으로 — 종전과 동일 */
-    const sel=function(fid,f,cur,hl,mark,off){
+    /* v08.400 유입경로 칸에만 붙는 「판정 근거」 툴팁 — 왜 그 값인지(또는 왜 미확인인지) */
+    const whyTip=function(fid,f,r){
+      if(f!=='inflow'||typeof window.inflowWhy!=='function')return '';
+      try{ return ' title="'+IX_esc(window.inflowWhy(fid,r&&r.tt,r&&r.ci)).replace(/"/g,'&quot;')+'"'; }catch(e){ return ''; }
+    };
+    const sel=function(fid,f,cur,hl,mark,off,_r){
       /* v08.98 요청("가입채널·최종실적은 가입이 아니면 토글X") — 가입 문의가 아니면 잠근다.
          가입채널·최종실적은 가입을 해야 의미가 있는 값이라 애초에 고를 수 없게 두는 것이 맞다. */
       /* v08.169 잠금 사유 문구 — 이제 기준이 「가입 또는 요금제 변경」이다 */
@@ -11825,7 +11866,8 @@ window.spPaint=function(){
       const bar = mark==='manual'? 'border-left:3px solid var(--orange);' : '';
       const tip = mark==='wemb' ? ' title="실적보호업체(위멤버스 실적인정) · 사업자번호 일치 · 기간 무관 위멤버스 확정"'
                 : mark==='inside'? ' title="로움 실적확정 명단 · 사업자번호 일치 · 유입경로·가입채널·최종실적 = 영업 > 내부영업"'
-                : mark==='manual'? ' title="수동 지정"' : '';
+                : mark==='manual'? ' title="수동 지정"'
+                : whyTip(fid,f,_r);   /* v08.400 유입경로는 판정 근거를 띄운다 */
       /* v08.279 명단에 잡힌 건은 테두리 색으로 구분한다(사용자 확정) — 위멤버스 실적확정=빨강,
          로움 실적확정=파랑.
          미정(청록)·수동지정(주황 왼쪽선)보다 우선해 보이게 한다. */
@@ -11909,7 +11951,7 @@ window.spPaint=function(){
          })()
         /* v08.279 — 실적보호업체(mark='wemb')는 세 칸 모두 빨간 테두리로 표시한다 */
         /* v08.395 — 수동 지정 표시는 칸마다 따로(mk) */
-        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mk('inflow'))+'</td>'
+        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mk('inflow'), false, r)+'</td>'
         /* v08.98 가입 문의가 아니면 잠근다(요청) — 신청만 들어온 건은 아직 실적이 아니다. */
         +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, mk('joinCh'), !x.isJoin)+'</td>'
         +'<td>'+sel(r.fid,'finalCh',(M[r.fid]||{}).finalCh||x.finalV, x.isJoin&&un(x.finalV), mk('finalCh'), !x.isJoin)+'</td>'
@@ -16152,6 +16194,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u114',d:'2026-10-14',tt:'유입경로 칸에 마우스를 올리면 「왜 그 값인지」가 뜹니다',
+  b:'실적 관리에서 **유입경로 칸에 마우스를 올리면** 그 값이 어느 근거로 정해졌는지 한 줄로 보여줍니다 — **① 직접 지정 · ② 위멤버스 실적확정 · ③ 로움 실적확정 · ④ PATH_CD · ⑤ 신청서 내용 · ⑥ 추천인 코드 · ⑦ 최초 신청건에서 물려받음**. **미확인일 때는 왜 못 정했는지**도 알려줍니다 — 「PATH_CD ○○ — 유입경로 관리에 매핑이 없습니다」 · 「추천 정보 관리에 추천채널이 비어 있습니다」 · 「최초 신청건도 유입경로가 없습니다」 · 「직접 비움 — 비운 칸은 자동 판정을 하지 않습니다」처럼요. 자동 판정이 안 먹을 때 **어디서 멈췄는지 바로 확인**할 수 있습니다.'},
  {id:'u113',d:'2026-10-14',tt:'제외한 건을 보는 「제외 목록」 · 가입채널은 유입경로를 따라갑니다',
   b:'**① 실적에서 제외한 건을 볼 수 있습니다.** 실적 관리 툴바의 **「제외 목록」** 버튼을 누르면 제외해 둔 건이 한 표로 보입니다 — 「문의 있는 건」에서 뺀 것과 「문의 없는 실적」에서 뺀 것을 함께 보여주고, **행마다 되돌리기**가 있습니다. 종전에는 제외하면 **어디서도 볼 수 없었습니다**(문의 쪽은 화면이 아예 없었고, 문의 없는 실적 쪽은 건수만 보였습니다).\n\n**② 가입채널이 비어 있으면 유입경로를 따라갑니다.** 그 고객을 데려온 경로가 곧 가입 경로이기 때문입니다. 최종실적은 전부터 그렇게 계산하고 있었는데 **화면의 가입채널 칸만 비어 있어** 같은 건인데 칸마다 달라 보였습니다. **유입경로가 「미확인」이면 따라가지 않습니다**(근거 없는 값을 복사하면 미지정이 숨습니다). 직접 고른 값이 있으면 그 값이 우선입니다.'},
  {id:'u112',d:'2026-10-14',tt:'실적 관리 — 「문의 없는 실적」에도 관리 열 · 화면 정리',
