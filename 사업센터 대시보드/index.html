@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.393';
+window.__APP_VER='v08.394';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -4485,6 +4485,27 @@ window.inqRefCodeOf=function(fid){
   }
   return '';
 };
+/* ══ v08.394 사용자 확정("가입채널도 그때 그때 읽는 방식") ══
+   추천인 코드 → 추천채널 규칙은 v08.98부터 가입채널에도 있었지만 **파일을 올리는 순간에 한 번만**
+   `IX___inqManage[fid].joinCh`에 써 두는 방식이라, **추천 정보 관리 표를 나중에 채우면 이미 올라온
+   건에는 반영되지 않았다**(원택스 세무회계의 가입채널이 비어 있던 이유).
+   유입경로(v08.393)와 같이 **그때그때 읽는다** — 표를 고치면 바로 따라온다.
+   순서는 종전 화면 로직 그대로다:
+     ① 수기 지정 → ② 위멤버스 실적확정 명단 → ③ 로움 실적확정 명단 → ④ 추천인 코드 → 없으면 빈 값
+   ※ 업로드 때 써 두던 자동 지정(`xlAutoJoinChFromContent`·`xlLinkSubTasks`)은 **그대로 둔다** —
+     이미 저장된 값은 ①로 읽히고, 새로 올라온 건도 종전과 같은 값이 된다(두 경로가 같은 규칙). */
+window.joinChResolve=function(r){
+  if(!r)return '';
+  const row=(typeof r==='object')?r:((typeof inqRowOf==='function'&&inqRowOf(r))||{fid:r});
+  const fid=row.fid;
+  const m=(window.IX___inqManage||{})[fid]||{};
+  if(m.joinCh)return m.joinCh;                                                    // ① 수기·업로드 지정
+  if(typeof window.wembProtectHit==='function'&&window.wembProtectHit(row))return '위멤버스 > 온라인 마케팅';
+  if(typeof window.salesInsideHit==='function'&&window.salesInsideHit(row))return window.SALES_INSIDE_CH;
+  const rc=(typeof window.inqRefCodeOf==='function')?window.inqRefCodeOf(fid):'';  // ④ 추천인 코드
+  if(rc){ const ch=window.inflowNorm(window.refChannelOf(rc)); if(ch)return ch; }
+  return '';
+};
 window.__inflowFirstCache=null;
 window.inflowFirstFid=function(fid){
   const src=(PAY.inq&&PAY.inq.rows)||[];
@@ -4849,7 +4870,9 @@ window.IX_creditChannel=function(r){
   }
   // ③ 유입일 기준 3개월 실적보호기간
   const inflow=(typeof IX_inflowResolve==='function')?(IX_inflowResolve(r&&r.fid,r&&r.tt,r&&r.ci)||''):'';
-  const joinCh=m.joinCh||'';
+  /* v08.394 — 가입채널도 그때그때 읽는다(추천인 코드 포함). 위 ②-1·②-2에서 이미 돌려보낸
+     실적확정 명단 건은 여기까지 오지 않으므로 중복 판정이 아니다. */
+  const joinCh=(typeof window.joinChResolve==='function')?(window.joinChResolve(r)||''):(m.joinCh||'');
   const dt=String(r&&r.dt||'').slice(0,10);
   if(/^\d{4}-\d{2}-\d{2}$/.test(dt)){
     const s=dt.split('-').map(Number);
@@ -10482,7 +10505,8 @@ window.spPaint=function(){
        최종실적 값은 IX_creditChannel이 정하며, 그 안에서
          ② 실적보호업체(명단 사업자번호)는 문의부터 가입까지 무조건 위멤버스,
          ③ 그 외는 업무등록일 기준 3개월 보호기간을 적용한다. */
-    const byJoinCh=function(r){return (window.IX___inqManage[r.fid]||{}).joinCh||'';};
+    /* v08.394 — 추천인 코드까지 그때그때 읽는다(joinChResolve) */
+    const byJoinCh=function(r){return window.joinChResolve(r)||'';};
     const byFinal=function(r){
       const v=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
       return /^미분류/.test(v)?'':v;
@@ -11299,7 +11323,8 @@ window.spPaint=function(){
       // v08.98 가입채널·최종실적은 가입 문의만 대상 — 가입해야 실적이다
       /* v08.279 — 가입채널도 실적보호업체는 위멤버스 확정이라 일괄 지정 대상에서 뺀다
          (아래 최종실적과 같은 처리). */
-      joinCh: L.filter(function(x){ return x.isJoin && !x.wemb && !x.inside && !(M[x.r.fid]||{}).joinCh; }).map(function(x){return x.r;}),
+      /* v08.394 — 추천인 코드로 이미 채워진 건도 「미지정」이 아니다(x.joinCh = joinChResolve 결과) */
+      joinCh: L.filter(function(x){ return x.isJoin && !x.wemb && !x.inside && !x.joinCh; }).map(function(x){return x.r;}),
       /* v08.279 — 로움 실적확정 명단도 확정값이라 일괄 지정에서 뺀다(위멤버스와 같은 처리) */
       finalCh:L.filter(function(x){ return x.isJoin && !x.wemb && !x.inside && un(x.finalV); }).map(function(x){return x.r;})
     };
@@ -11349,7 +11374,8 @@ window.spPaint=function(){
          탭은 v08.196부터 세 칸 모두 위멤버스로 채우고 있었다 — 두 탭을 같은 기준으로 맞춘다).
          수동으로 고른 값이 있으면 그것을 우선한다 — 유입경로·최종실적의 「수동 지정 우선」
          규칙과 같게 둔다(잠그지 않으므로 사람이 바꿀 수 있어야 한다). */
-      const joinCh=m.joinCh||(wemb?'위멤버스 > 온라인 마케팅':(inside?window.SALES_INSIDE_CH:''));
+      /* v08.394 — 추천인 코드까지 그때그때 읽는다(joinChResolve). 종전 순서는 그대로다. */
+      const joinCh=window.joinChResolve(r);
       const finalV=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
       /* v08.98 요청("가입채널·최종실적은 가입을 해야 의미가 있으므로") — 가입 문의가 아니면
          가입채널·최종실적은 지정 대상이 아니다. 미정으로 세지도 않고, 드롭다운도 잠근다.
@@ -11633,7 +11659,8 @@ window.spPaint=function(){
       const finalV=(typeof IX_creditChannel==='function')?(IX_creditChannel(r)||''):'';
       /* v08.279 — 가입채널 선택지도 실적보호업체 자동값(위멤버스)을 포함해야 그 값으로 걸러볼 수 있다 */
       const _wemb=(typeof window.wembProtectHit==='function')&&window.wembProtectHit(r);
-      pick('inflow',inflow); pick('joinCh',m.joinCh||(_wemb?'위멤버스 > 온라인 마케팅':'')); pick('finalV',finalV);
+      /* v08.394 — 목록 값과 같은 함수를 써야 선택지와 실제 값이 어긋나지 않는다 */
+      pick('inflow',inflow); pick('joinCh',window.joinChResolve(r)); pick('finalV',finalV);
       pick('tp',String(r.tp||'').trim());
     });
     const optVals=function(k){ return (OPTNA[k]?['(미지정)']:[]).concat(Object.keys(OPT[k]).sort()); };
@@ -15944,6 +15971,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u109',d:'2026-10-14',tt:'가입채널도 추천 정보 관리 표를 그때그때 읽습니다',
+  b:'추천인 코드로 가입채널을 정하는 규칙은 전부터 있었지만, **파일을 올리는 순간에 한 번만** 지정돼서 **추천 정보 관리 표를 나중에 채우면 이미 올라온 건에는 반영되지 않았습니다**(원택스 세무회계의 가입채널이 비어 있던 이유). 이제 **유입경로와 같이 그때그때 읽습니다** — 표를 고치면 바로 따라옵니다. 순서는 종전 그대로입니다: **직접 지정 → 위멤버스 실적확정 → 로움 실적확정 → 추천인 코드**. 표에 코드가 없으면 종전대로 비워 둡니다(지어내지 않습니다). 「가입채널 미정」 건수와 **가입채널별 실적**, **최종실적**도 같은 값을 따라갑니다.'},
  {id:'u108',d:'2026-10-14',tt:'추천인 코드가 있으면 유입경로를 추천채널로 채웁니다',
   b:'신청서에 **추천인 코드**(예: WE_LEE)가 적혀 있으면, **추천 정보 관리** 표에서 그 코드에 적어 둔 **추천채널**을 유입경로로 씁니다. 그 사람이 데려온 고객이기 때문입니다. 예) 원택스 세무회계(추천인 코드 WE_LEE) → 유입경로 **위멤버스**. **추천 정보 관리 표를 고치면 바로 따라옵니다** — 업로드를 다시 할 필요가 없습니다. 표에 그 코드가 없거나 추천채널 칸이 비어 있으면 종전대로 「유입경로 미확인」입니다(지어내지 않습니다). 추천채널에 상세만 적혀 있으면(예: 영업채널1) 「영업 > 영업채널1」로 맞춰 줍니다. **직접 지정한 값이 있으면 그 값이 우선**입니다.'},
  {id:'u107',d:'2026-10-14',tt:'후속 신청건의 유입경로를 최초 신청건에서 물려받습니다',
