@@ -2217,7 +2217,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.394';
+window.__APP_VER='v08.395';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11391,7 +11391,14 @@ window.spPaint=function(){
          정지해제 영업 건처럼 마스터에 재가입일이 안 찍히는 케이스가 있어 문의 유형만으로는
          실적 대상 여부를 판단할 수 없다. 판단은 사람이 하고 화면은 지정만 열어 둔다. */
       const todo=un(inflow)||un(finalV);
-      return {r:r, inflow:inflow, joinCh:joinCh, finalV:finalV, wemb:wemb, inside:inside, todo:todo, manualF:!!m.finalCh, isJoin:isJoin};
+      /* v08.395 어느 칸을 사람이 지정했는지 — 화면은 칸별 주황 테두리, 엑셀은 이 목록을 적는다.
+         유입경로는 **일부러 비운 것도 사람의 결정**이므로 키 유무로 본다. */
+      const manualList=[];
+      if(Object.prototype.hasOwnProperty.call(m,'inflow'))manualList.push('유입경로');
+      if(m.joinCh)manualList.push('가입채널');
+      if(m.finalCh)manualList.push('최종실적');
+      return {r:r, inflow:inflow, joinCh:joinCh, finalV:finalV, wemb:wemb, inside:inside, todo:todo,
+              manualF:!!m.finalCh, manualList:manualList, isJoin:isJoin};
     }).filter(function(x){
       /* v08.98 「지정 필요」를 유입경로/최종실적으로 나눠 볼 수 있게 한다 — 무엇이 남았는지
          한 번에 알 수 있어야 지정 작업이 끝났는지 판단할 수 있다. */
@@ -11441,7 +11448,8 @@ window.spPaint=function(){
       const r=x.r;
       return [r.tt||'', r.wr||'', String(r.dt||'').slice(0,10), r.tp||'',
         na(x.inflow), x.isJoin?na(x.joinCh):'해당없음(실적 대상 아님)', x.isJoin?na(x.finalV):'해당없음(실적 대상 아님)',
-        x.wemb?'Y':'', x.manualF?'Y':'', x.todo?'지정 필요':'완료'];
+        /* v08.395 — 「Y」 하나로는 어느 칸이 사람 손인지 알 수 없어 칸 이름을 적는다 */
+        x.wemb?'Y':'', (x.manualList||[]).join('·'), x.todo?'지정 필요':'완료'];
     });
     const ws1=XLSX.utils.aoa_to_sheet([head1].concat(body1));
     ws1['!cols']=[{wch:32},{wch:12},{wch:11},{wch:10},{wch:16},{wch:14},{wch:14},{wch:10},{wch:8},{wch:10}];
@@ -11719,7 +11727,22 @@ window.spPaint=function(){
     })();
     const body=all.length? all.slice(0,300).map(function(x){
       const r=x.r;
-      const mark=x.wemb?'wemb':(x.inside?'inside':(x.manualF?'manual':''));
+      /* ══ v08.395 사용자 요청("실적관리에서 수동지정한 건 구분되게 표시해줘") ══
+         종전 「수동 지정」(주황 왼쪽선)은 **최종실적을 수기로 고른 경우**에만, 그것도 **세 칸 모두**에
+         붙었다(`manualF = !!m.finalCh`). 그래서 ① 유입경로나 가입채널만 수기로 지정한 건은 표시가
+         아예 없었고 ② 최종실적만 고른 건인데 세 칸이 다 수동인 것처럼 보였다.
+         v08.392~v08.394로 **자동으로 채워지는 값이 늘어난 만큼**(최초 신청건 물려받기 · 추천인 코드)
+         어느 칸이 사람 손인지 구분이 더 중요해졌다 — **칸마다 따로** 판정한다.
+           · 유입경로: `IX___inqManage[fid]`에 inflow 키가 있으면(값이 있든 **일부러 비웠든**) 수동
+           · 가입채널·최종실적: 그 값이 지정돼 있으면 수동
+         실적확정 명단(위멤버스 빨강 · 로움 파랑)은 행 단위 확정이라 종전대로 세 칸 모두에 우선한다. */
+      const mark=x.wemb?'wemb':(x.inside?'inside':'');
+      const _mm=M[r.fid]||{};
+      const mk=function(f){
+        if(mark)return mark;
+        if(f==='inflow')return Object.prototype.hasOwnProperty.call(_mm,'inflow')?'manual':'';
+        return _mm[f]?'manual':'';
+      };
       const _fk=_firstInq.key[r.fid];
       const _f=_fk?_firstInq.first[_fk]:null;
       const _isDup=!!(_f&&String(_f.fid)!==String(r.fid));
@@ -11743,10 +11766,11 @@ window.spPaint=function(){
              +(pi.pl?IX_esc(pi.pl):'<span class="na">—</span>')+'</td>';
          })()
         /* v08.279 — 실적보호업체(mark='wemb')는 세 칸 모두 빨간 테두리로 표시한다 */
-        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mark)+'</td>'
+        /* v08.395 — 수동 지정 표시는 칸마다 따로(mk) */
+        +'<td>'+sel(r.fid,'inflow',(M[r.fid]||{}).inflow||x.inflow, un(x.inflow), mk('inflow'))+'</td>'
         /* v08.98 가입 문의가 아니면 잠근다(요청) — 신청만 들어온 건은 아직 실적이 아니다. */
-        +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, mark, !x.isJoin)+'</td>'
-        +'<td>'+sel(r.fid,'finalCh',(M[r.fid]||{}).finalCh||x.finalV, x.isJoin&&un(x.finalV), mark, !x.isJoin)+'</td>'
+        +'<td>'+sel(r.fid,'joinCh',x.joinCh, false, mk('joinCh'), !x.isJoin)+'</td>'
+        +'<td>'+sel(r.fid,'finalCh',(M[r.fid]||{}).finalCh||x.finalV, x.isJoin&&un(x.finalV), mk('finalCh'), !x.isJoin)+'</td>'
         +'<td style="white-space:nowrap"><span class="mgmt-badge" onclick="inqDetail(\''+r.fid+'\')">상세</span>'
         +' <span class="mgmt-badge" style="background:var(--red-lt);color:var(--red);border-color:transparent" onclick="pmDel(\''+r.fid+'\')" title="실적 관리·집계에서 제외">제외</span></td>'
         +'</tr>';
@@ -15971,6 +15995,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u110',d:'2026-10-14',tt:'실적 관리 — 사람이 지정한 칸만 주황 테두리로 구분합니다',
+  b:'실적 관리 목록에서 **직접 지정한 칸만** 왼쪽에 주황 선이 붙습니다. 종전에는 **최종실적을 고른 경우에만**, 그것도 **세 칸 모두**에 붙어서 ① 유입경로나 가입채널만 지정한 건은 표시가 아예 없었고 ② 최종실적만 골랐는데 세 칸이 다 수동인 것처럼 보였습니다. 자동으로 채워진 값(추천인 코드 · 최초 신청건)은 주황 선이 없으니 **어느 칸이 사람 손인지 한눈에 구분**됩니다. 엑셀 다운로드의 「수동지정」 칸도 Y 대신 **「유입경로·가입채널」처럼 칸 이름**이 적힙니다. 위멤버스(빨강)·로움(파랑) 실적확정 표시는 종전대로 세 칸 모두에 우선합니다.'},
  {id:'u109',d:'2026-10-14',tt:'가입채널도 추천 정보 관리 표를 그때그때 읽습니다',
   b:'추천인 코드로 가입채널을 정하는 규칙은 전부터 있었지만, **파일을 올리는 순간에 한 번만** 지정돼서 **추천 정보 관리 표를 나중에 채우면 이미 올라온 건에는 반영되지 않았습니다**(원택스 세무회계의 가입채널이 비어 있던 이유). 이제 **유입경로와 같이 그때그때 읽습니다** — 표를 고치면 바로 따라옵니다. 순서는 종전 그대로입니다: **직접 지정 → 위멤버스 실적확정 → 로움 실적확정 → 추천인 코드**. 표에 코드가 없으면 종전대로 비워 둡니다(지어내지 않습니다). 「가입채널 미정」 건수와 **가입채널별 실적**, **최종실적**도 같은 값을 따라갑니다.'},
  {id:'u108',d:'2026-10-14',tt:'추천인 코드가 있으면 유입경로를 추천채널로 채웁니다',
