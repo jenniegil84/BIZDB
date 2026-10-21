@@ -904,6 +904,9 @@ table.t .na{color:#B6BCC6}
 .ww-note-img{width:26px;height:26px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-left:6px;
   cursor:pointer;border:1px solid var(--line2)}
 .ww-by{color:var(--tx3);opacity:.8}
+/* v08.407 요청("주간업무현황에 실행기록 날짜 추가") — 본문 앞 날짜. 본문을 가리지 않도록
+   작성자(.ww-by)와 같은 흐린 색, 열 머리 날짜와 같은 고정폭 글꼴을 쓴다. */
+.ww-dt{color:var(--tx3);font-family:ui-monospace,Consolas,monospace;font-size:9.5px;font-weight:600}
 .ww-e{font-size:11px;color:var(--tx3);padding:14px 2px}
 /* v08.107 요청("이번주 다음주를 위아래로 하지말고 2열로 배치") — 좁은 화면에서 1열로
    접히던 반응형 규칙을 제거. 항상 2열을 유지한다(칸이 좁아지면 글자가 줄바꿈될 뿐). */
@@ -2217,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.406';
+window.__APP_VER='v08.407';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -15200,9 +15203,21 @@ function mergeSet(baseArr,localArr,theirsArr,keyFn){
   const idx=function(arr){ const m={}; (arr||[]).forEach(function(x){ if(x)m[keyFn(x)]=x; }); return m; };
   const b=idx(baseArr), l=idx(localArr), t=idx(theirsArr);
   const eq=function(x,y){ try{return JSON.stringify(x)===JSON.stringify(y);}catch(e){return x===y;} };
-  const ids={}; Object.keys(b).concat(Object.keys(l),Object.keys(t)).forEach(function(k){ids[k]=1;});
+  /* ══ v08.407 버그 수정("카드 정렬을 바꿨는데도 계속 유지되는 현상") ══
+     종전: 결과 순서를 `Object.keys(기준).concat(내 것, 남의 것)`으로 만들었다 — 즉 **기준(서버에서
+     마지막으로 읽은 순서)**이 항상 앞에 섰다. 그래서 보드에서 카드를 끌어 자리를 바꾸면
+     `move()`가 CARDS 순서를 바꾸고 저장이 나가는데, 저장 직전의 3자 병합이 배열을 **기준 순서로
+     다시 세워** 바뀐 자리를 버렸다. 병합 결과는 화면에도 바로 반영되므로(mrg.set → paint),
+     끌어 놓은 카드가 1초도 안 돼 제자리로 돌아갔다 — 새로고침과 무관한 「되돌아감」의 원인.
+     내용 변경(다른 열로 옮기기 = c.g 변경)은 항목 값이 달라져 살아남았고, **순서만** 사라졌다.
+     이제 **내 화면 순서를 먼저** 세우고, 내게 없는 것(남이 새로 추가)·기준에만 있는 것을 뒤에 잇는다.
+     ※ 값 병합 규칙(아래 7갈래)은 손대지 않았다 — 바뀐 것은 **나열 순서**뿐이다. */
+  const ids=[], __seen={};
+  const addKeys=function(arr){ (arr||[]).forEach(function(x){ if(!x)return; const k=keyFn(x);
+    if(!__seen[k]){ __seen[k]=1; ids.push(k); } }); };
+  addKeys(localArr); addKeys(theirsArr); addKeys(baseArr);
   const out=[];
-  Object.keys(ids).forEach(function(id){
+  ids.forEach(function(id){
     const bi=b[id], li=l[id], ti=t[id];
     if(!bi&&li&&!ti){ out.push(li); return; }              // 나만 추가
     if(!bi&&!li&&ti){ out.push(ti); return; }               // 남만 추가
@@ -16228,6 +16243,10 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u122',d:'2026-10-21',tt:'주간 업무 현황 실행기록에 날짜를 표시합니다',
+  b:'주간회의 ② 팀별 주간 업무 현황에서 실행기록 앞에 **그 기록이 찍힌 날짜(월.일)**를 붙였습니다. 한 칸이 한 주라 월·일만 보여줍니다. 기록은 종전대로 날짜 오름차순이라 위에서 아래로 읽으면 그 주의 흐름이 보입니다. 날짜가 없는 기록은 비워 둡니다.'},
+ {id:'u121',d:'2026-10-21',tt:'카드를 끌어 자리를 바꿔도 제자리로 돌아가던 문제를 고쳤습니다',
+  b:'보드에서 카드를 끌어 순서를 바꾸면 **1초도 안 돼 원래 자리로 되돌아가던** 문제를 고쳤습니다. **원인**: 저장 직전에 다른 사람의 변경과 합치는 과정에서, 목록을 **서버에서 마지막으로 읽은 순서**로 다시 세우고 있었습니다. 그래서 **다른 열로 옮기는 것은 남았지만(카드 값이 바뀌므로) 같은 열 안의 자리바꿈은 사라졌습니다**. 이제 **내 화면 순서를 그대로 지키고**, 그 사이 다른 사람이 새로 만든 카드만 뒤에 붙입니다. 합치는 규칙(누가 고치고 누가 지웠는지) 자체는 바꾸지 않았습니다.'},
  {id:'u120',d:'2026-10-14',tt:'겹침 띠에서 겹침 건수와 비율을 뺐습니다',
   b:'주간회의 띠의 머리글을 **「플러스 가입 90건 · 개업세무사 19건」** 두 숫자만 남겼습니다. 겹침 건수(16)와 그 비율(17.8%)은 지웠습니다. 범례도 **「개업세무사 19건」**으로, 괄호 안 내역(겹침 16 · 밖 3)을 지웠습니다. 집계는 바뀌지 않았습니다 — 띠의 파란 칸 길이는 종전과 같습니다.'},
  {id:'u119',d:'2026-10-14',tt:'추이 그래프의 「가입」에 재가입이 빠져 있던 것을 고쳤습니다',
@@ -18260,7 +18279,12 @@ function teamWeekTableHtml(team){
       const logs=x.logs.slice().sort((a,b)=>String(a.d).localeCompare(String(b.d)))
         /* v08.101 요청("담당자이름앞에 '-'추가") · v08.103 요청("실행기록마다 이미지") — 있으면
            담당자 이름 뒤에 작은 썸네일을 붙인다. 클릭하면 원본 크기로 새 탭에서 연다. */
-        .map(g=>'<div class="ww-note">– '+esc(g.txt||'')+(g.by?' - <span class="ww-by">'+esc(byLabel(g.by))+'</span>':'')
+        /* v08.407 요청("주간회의 주간업무현황에 실행기록 날짜 추가") — 기록마다 찍힌 날짜(g.d)를
+           본문 앞에 붙인다. 한 칸이 한 주라 월·일(MM.DD)만 보이면 충분하다. 날짜가 없는 기록은
+           없는 대로 비워 둔다(지어내지 않는다). 정렬은 종전대로 날짜 오름차순이라 위에서 아래로 읽힌다. */
+        .map(g=>'<div class="ww-note">– '
+          +(g.d?'<span class="ww-dt">'+esc(String(g.d).slice(5,10).replace('-','.'))+'</span> ':'')
+          +esc(g.txt||'')+(g.by?' - <span class="ww-by">'+esc(byLabel(g.by))+'</span>':'')
           +(g.img?'<img class="ww-note-img" src="'+esc(g.img)+'" onclick="window.open(\''+esc(g.img)+'\',\'_blank\')" title="새 탭에서 보기">':'')
           +'</div>').join('');
       /* ══ v08.317 요청("주간현황에 탭카드에 있는 링크도 가져오고 표시는 클립모양으로 넣어줘") ══
