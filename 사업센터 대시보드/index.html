@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.410';
+window.__APP_VER='v08.411';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11337,7 +11337,7 @@ window.spPaint=function(){
            같아야 한다(perfStat의 one() — 'M|사업자번호|구분|일자').
            「플러스 전환」은 화면 표시용 이름일 뿐 사건은 요금제변경이므로 키는 요금제변경으로 만든다.
            실적보호업체는 기간 무관 위멤버스 확정이라 고를 필요가 없다(v08.175와 같은 처리). */
-        const kKind=(kind==='플러스 전환')?'요금제변경':kind;
+        const kKind=(kind==='요금제 상향')?'요금제변경':kind;   /* v08.411 라벨만 바뀌었다 — 키는 그대로 */
         /* v08.410 사무소명까지 넣은 키(옛 키는 폴백으로 함께 들고 다닌다) */
         const KK=window.pmEvKeys(x.bz,x.nm,kKind,d);
         const wemb=(typeof window.wembProtectHit==='function')&&window.wembProtectHit({bz:x.bz});
@@ -11358,7 +11358,16 @@ window.spPaint=function(){
            카드·목록·채널표·이 목록이 모두 같은 규칙 하나를 본다. */
         const skip=!window.planChgReal(x);
         /* 플러스로 올라간 건은 실적으로 볼 여지가 커 따로 표시한다(변경 전이 플러스가 아닐 때만) */
-        if(!skip)push(isPlus(pl)&&!isPlus(bf)?'플러스 전환':'요금제변경', String(x.pc).slice(0,10), bf+' → '+pl);
+        /* ══ v08.411 라벨을 상향 판정 하나에 맞춘다 ══
+           종전 라벨은 여기서 **따로 판정**했다(`플러스면 플러스 전환`). 그래서 상향의 뜻이 넓어지자
+           (레거시 → 베이직도 상향) **목록 라벨·칸 잠금과 집계가 어긋났다** — 스페셜 → 베이직이
+           상향으로 집계되는데 목록에서는 「요금제변경」이라 최종실적 칸이 잠겨 있었다.
+           이제 집계와 **같은 함수**(`window.perfIsUpgrade`)로 판정한다.
+           이름도 「플러스 전환」 → **「요금제 상향」**으로 바꾼다 — 플러스로 가는 것만이 아니게 됐고,
+           동결 지표 「플러스 전환 60」(업셀·인사이트 가입일 기준)과 이름이 겹쳐 헷갈렸다.
+           ※ 저장 키(kKind)는 종전대로 '요금제변경'이라 **기존 지정·제외는 그대로 유효**하다. */
+        const isUp=(typeof window.perfIsUpgrade==='function')?window.perfIsUpgrade(x):(isPlus(pl)&&!isPlus(bf));
+        if(!skip)push(isUp?'요금제 상향':'요금제변경', String(x.pc).slice(0,10), bf+' → '+pl);
       }
     });
     return out.sort(function(a,b){ return String(b.d).localeCompare(String(a.d)); });
@@ -11788,7 +11797,7 @@ window.spPaint=function(){
        ※ 여기를 고치면 **집계 쪽(t2·t3·t4의 모수)과 반드시 같이 본다** — 한쪽만 바꾸면 다시
          「고를 수 있는데 안 들어가는」 상태가 된다. */
     const canJoin =function(x){ return x.kind==='신규가입'||x.kind==='재가입'; };
-    const canFinal=function(x){ return canJoin(x)||x.kind==='플러스 전환'; };
+    const canFinal=function(x){ return canJoin(x)||x.kind==='요금제 상향'; };
     const isJoin=canFinal;   /* 아래 「지정 안 된 건」 집계·필터가 쓰던 이름 — 최종실적 기준으로 둔다 */
     /* v08.279 — 로움 실적확정 명단도 위멤버스와 같은 방식으로 세 칸을 확정한다 */
     const ins=function(x){return (typeof window.salesInsideHit==='function')&&window.salesInsideHit({bz:x.bz});};
@@ -11833,7 +11842,7 @@ window.spPaint=function(){
       /* v08.409 잠근 이유를 그 칸에서 바로 알 수 있게 한다 — 사건 종류마다 다르다.
          화면에 글을 더 쓰지 않도록 툴팁으로만 둔다(CLAUDE.md 28번). */
       const offWhy=(f==='joinCh')
-        ? ((kind==='플러스 전환')
+        ? ((kind==='요금제 상향')
             ? '요금제 상향이라 가입이 아닙니다 — 가입채널별 실적은 가입·재가입만 셉니다'
             : '가입·재가입이 아니라 가입채널별 실적에 들어가지 않습니다')
         : '상향(비플러스 → 플러스)이 아닌 요금제 변경이라 최종실적별 실적에 들어가지 않습니다';
@@ -14406,9 +14415,39 @@ window.pkgStartCountWeek=function(s,e){
      화면에서만 쓰고, 「전체 가입 현황」·주간회의의 가입 집계는 종전 기준(joinSplitCount)을 그대로 둔다.
    반환: [{row, kind:'신규가입'|'재가입'|'요금제상향', date}] */
 window.perfIsPlusPlan=function(v){ return /플러스/.test(String(v||'')); };
+/* ══ v08.411 사용자 확정 — 「상향」의 뜻을 넓힌다 ══
+   2026-10-21 지시: **"스페셜 → 베이직도 상향이야 · 현재는 베이직과 플러스만 있지만 과거에
+   여러 요금제를 썼었고 과거 요금제에서 베이직으로 변경되는 것도 상향으로 봐야 돼"**
+   종전 판정은 **비플러스 → 플러스** 하나뿐이라, 레거시 요금제에서 현행 베이직으로 올라온 건이
+   「요금제 상향 채널별 실적」·「최종실적별 실적」 어디에도 들어가지 않았다.
+
+   지금 규칙(둘 중 하나면 상향):
+     ① 비플러스 → **플러스**                      (종전 그대로)
+     ② **레거시 요금제 → 베이직**                   (신설)
+        레거시 = 비어 있지 않고 · 플러스도 베이직도 아닌 값
+                 (스페셜요금제 · 기본요금제 · PREMIUM · STANDARD · FREE …)
+
+   일부러 상향으로 **보지 않는 것** — 셋 다 사용자 확정이다:
+     · **구간요금제 → 베이직** — "구간요금제에서 베이직으로 전환한건 상향이 아니야"(2026-10-21).
+       구간요금제 폐지에 따른 내부 일괄 전환이라 고객이 고른 변경이 아니다(정책 v01.21).
+       이 판정은 `planChgReal`이 이미 막고 있으므로 아래 ②에 걸리지 않는다 — **순서 중요**:
+       `planChgReal` 검사를 맨 앞에 두어야 ②가 그 결정을 덮지 않는다.
+     · **플러스 → 베이직** — 현행 상위 요금제에서 내려온 것이니 하향이다(②의 「레거시」에서 제외).
+     · **(변경 전 비어 있음) → 베이직** — 과거 요금제 기록이 없어 올라온 것인지 알 수 없다.
+       근거 없는 값은 넣지 않는다(공통 규칙 7번). [미결] 사용자 판단 대기 — 포함하기로 하면
+       아래 `isLegacy`에서 빈 값을 허용하면 된다(2026 기준 12건이 늘어난다).
+
+   2026 실측: 상향 36 → **57**건(스페셜·기본·PREMIUM 등 → 베이직 21건이 들어온다). */
 window.perfIsUpgrade=function(x){
   if(typeof window.planChgReal==='function'&&!window.planChgReal(x))return false;
-  return window.perfIsPlusPlan(x&&x.pl)&&!window.perfIsPlusPlan(x&&x.bf);
+  const bf=String((x&&x.bf)||'').trim(), pl=String((x&&x.pl)||'').trim();
+  const plus=window.perfIsPlusPlan;
+  if(plus(pl)&&!plus(bf))return true;                       /* ① 비플러스 → 플러스 */
+  const isBasic =function(v){ return /베이직/.test(v)&&!plus(v); };
+  const isEmpty =function(v){ return !v||v==='-'; };
+  const isLegacy=function(v){ return !isEmpty(v)&&!plus(v)&&!isBasic(v); };
+  if(isBasic(pl)&&isLegacy(bf))return true;                 /* ② 레거시 → 베이직 */
+  return false;
 };
 window.perfEvents=function(s,e){
   const R=window.__xlOfficeRows||[];
@@ -16350,6 +16389,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u126',d:'2026-10-21',tt:'「상향」의 뜻을 넓혔습니다 — 과거 요금제에서 베이직으로 바뀐 것도 상향',
+  b:'종전에는 **플러스로 올라간 것만** 상향으로 셌습니다. 현재 요금제는 베이직·플러스뿐이고 과거에 여러 요금제를 썼으므로, **과거 요금제(스페셜·기본·PREMIUM·STANDARD·FREE 등) → 베이직**도 상향으로 셉니다. 2026년 상향 **36건 → 57건**이 되고, 「요금제 상향 채널별 실적」과 「최종실적별 실적」이 그만큼 늘어납니다. **상향으로 보지 않는 것 셋**: ① **구간요금제 → 베이직**(구간요금제 폐지에 따른 내부 일괄 전환이라 고객이 고른 변경이 아닙니다) ② **플러스 → 베이직**(하향입니다) ③ **변경 전이 비어 있는 건**(과거 요금제 기록이 없어 올라온 것인지 알 수 없습니다 — 근거 없는 값은 넣지 않습니다). 「문의 없는 실적」 목록의 라벨도 **「플러스 전환」 → 「요금제 상향」**으로 바꿨습니다 — 플러스로 가는 것만이 아니게 됐고, 지표 「플러스 전환」과 이름이 겹쳐 헷갈렸습니다. **동결 지표 13개는 하나도 바뀌지 않았습니다.**'},
  {id:'u125',d:'2026-10-21',tt:'같은 사업자번호의 다른 사무소가 한꺼번에 사라지던 문제를 고쳤습니다',
   b:'「문의 없는 실적」에서 한 건을 제외했는데 **같은 사업자번호의 다른 사무소까지 통째로 사라지던** 문제를 고쳤습니다(신고: "세정회계법인(박희순) 제외했더니 통째로 없어졌어"). 사건을 구분하는 열쇠가 **사업자번호·구분·일자**뿐이라, 한 사업자번호 아래 사무소가 여럿이면 **셋이 같은 열쇠**였습니다. 채널을 하나에 지정하면 셋이 같이 바뀌던 것도 같은 이유입니다. 이제 **사무소명까지** 열쇠에 넣어 따로 셉니다. **기존에 지정해 둔 값은 그대로 보입니다.** 다만 **이미 제외해 둔 건은 여전히 함께 묶여 있으니**, 「제외 목록」에서 한 번 되돌린 뒤 다시 제외하시면 그 한 건만 빠집니다.'},
  {id:'u124',d:'2026-10-21',tt:'집계가 받지 않는 칸은 잠급니다 — 「문의 없는 실적」',
