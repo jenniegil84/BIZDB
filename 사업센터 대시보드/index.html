@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.411';
+window.__APP_VER='v08.412';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -16389,6 +16389,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u127',d:'2026-10-27',tt:'카드 상세의 저장 기준을 하나로 맞췄습니다 — 쓰고 칸을 벗어나면 저장',
+  b:'팀 탭 카드 상세에서 **어떤 칸은 Enter를 쳐야 등록되고 어떤 칸은 벗어나면 저장**돼 기준이 둘이었습니다(요청: "기준을 좀 통일해봐"). 이름·담당자·주기·설명·추진현황·자료·논의사항 같은 **수정 칸**은 벗어나면 저장됐지만, **「할 일 추가」와 「실행 기록」 입력칸은 Enter나 [추가] 버튼만** 받았습니다 — 쓰고 다른 데를 클릭하면 **쓴 글이 그냥 사라졌습니다.** 이제 **쓰고 칸을 벗어나면 등록**됩니다(Enter·[추가] 버튼도 그대로). 같은 줄의 **📷·[추가]·날짜 칸으로 옮겨 가는 것은 등록으로 치지 않습니다** — 이미지를 붙이려는 것뿐인데 먼저 등록되면 안 되니까요. **📷로 이미지를 붙여도 쓰던 글이 더 이상 날아가지 않습니다.** 빈 칸에서 벗어나는 것은 아무 일도 아닙니다.'},
  {id:'u126',d:'2026-10-21',tt:'「상향」의 뜻을 넓혔습니다 — 과거 요금제에서 베이직으로 바뀐 것도 상향',
   b:'종전에는 **플러스로 올라간 것만** 상향으로 셌습니다. 현재 요금제는 베이직·플러스뿐이고 과거에 여러 요금제를 썼으므로, **과거 요금제(스페셜·기본·PREMIUM·STANDARD·FREE 등) → 베이직**도 상향으로 셉니다. 2026년 상향 **36건 → 57건**이 되고, 「요금제 상향 채널별 실적」과 「최종실적별 실적」이 그만큼 늘어납니다. **상향으로 보지 않는 것 셋**: ① **구간요금제 → 베이직**(구간요금제 폐지에 따른 내부 일괄 전환이라 고객이 고른 변경이 아닙니다) ② **플러스 → 베이직**(하향입니다) ③ **변경 전이 비어 있는 건**(과거 요금제 기록이 없어 올라온 것인지 알 수 없습니다 — 근거 없는 값은 넣지 않습니다). 「문의 없는 실적」 목록의 라벨도 **「플러스 전환」 → 「요금제 상향」**으로 바꿨습니다 — 플러스로 가는 것만이 아니게 됐고, 지표 「플러스 전환」과 이름이 겹쳐 헷갈렸습니다. **동결 지표 13개는 하나도 바뀌지 않았습니다.**'},
  {id:'u125',d:'2026-10-21',tt:'같은 사업자번호의 다른 사무소가 한꺼번에 사라지던 문제를 고쳤습니다',
@@ -19109,6 +19111,11 @@ function openUnis(id){
   paintPage();paint();
 }
 function openPage(id){if(DRAGGED)return;if(PGKIND==='card'&&PGID===id){closePage();return;}
+  /* v08.412 다른 카드를 열면 들고 있던 입력(글·이미지)은 버린다 — 남의 카드에 붙으면 안 된다.
+     **화면에 떠 있는 칸까지 비워야 한다** — 안 비우면 바로 뒤 `paintPage`의 보존(`__lgKeepTxt`)이
+     옛 카드의 글을 다시 집어 와 여기서 비운 것이 무효가 된다. */
+  if(PGID!==id){ const _t=document.getElementById('lgT'); if(_t)_t.value='';
+                 window.__lgPendingTxt=''; window.__lgPendingImg=''; }
   PGKIND='card';PGID=id;ALLP=false;document.getElementById('ov').classList.add('on');
   document.getElementById('pg').classList.add('on');document.body.classList.add('peek');paintPage();paint();}
 function closePage(){PGID=null;PGKIND='card';ALLP=false;document.getElementById('ov').classList.remove('on');
@@ -19153,8 +19160,46 @@ function setF(id,f,v){
 function setAct(id,i,v){const c=card(id);if(c&&c.acts[i]){c.acts[i].t=v;paint();paintPage();}}
 function tgAct(id,i){const c=card(id);if(c&&c.acts[i]){c.acts[i].done=!c.acts[i].done;paint();paintPage();}}
 function delAct(id,i){const c=card(id);if(c){c.acts.splice(i,1);paint();paintPage();}}
-function addAct(id){const e=document.getElementById('acIn'),v=(e.value||'').trim();if(!v){e.focus();return;}
-  card(id).acts.push({t:v,done:false});paint();paintPage();const f=document.getElementById('acIn');if(f)f.focus();}
+/* ══ v08.412 요청("어떤글은 엔터쳐야 등록되고, 어떤글은 입력하면 등록되는데 기준을 좀 통일해봐") ══
+   카드 상세(peek)의 저장 기준이 두 가지였다:
+     · 기존 항목 **수정**(이름·담당자·주기·설명·추진현황·할 일 글·자료·논의사항 …)
+       → `onchange` = **칸을 벗어나거나 Enter** 를 치면 저장
+     · **추가** 칸(할 일 추가 `acIn` · 실행 기록 `lgT`)
+       → **Enter 또는 [추가] 버튼만**. 쓰고 다른 데를 클릭하면 **쓴 글이 그냥 사라졌다.**
+   → **「쓰고 칸을 벗어나면 저장」 하나로 맞춘다.** 추가 칸도 벗어나면 등록된다.
+     Enter·[추가] 버튼은 종전대로 그대로 쓸 수 있다.
+   ※ 같은 줄 안(📷 이미지 첨부·[추가] 버튼·날짜 칸)으로 옮겨 가는 것은 **등록으로 치지 않는다** —
+     이미지를 붙이려고 📷을 누른 것뿐인데 기록이 먼저 등록돼 버리면 안 되기 때문이다.
+   ※ 빈 칸에서 벗어나는 것은 아무 일도 아니다. 그때 **포커스를 도로 뺏지 않는다**(quiet) —
+     다른 칸을 누를 수 없게 된다. */
+window.pgAddBlur=function(fn,id,ev){
+  const el=ev&&ev.target;
+  try{
+    const rt=ev&&ev.relatedTarget;
+    if(rt&&rt.closest&&rt.closest('.add'))return;   /* 같은 줄의 📷·추가·날짜로 옮겨 간 것 */
+  }catch(e){}
+  /* ══ v08.412 — 「화면을 다시 그려서 칸이 사라진 것」은 등록으로 치지 않는다 ══
+     패널을 다시 그리면(`paintPage`) 입력칸이 통째로 교체되면서 blur가 난다. 그것까지 등록으로
+     보면, 글을 쓰는 중에 다른 곳에서 화면만 다시 그려도 **저절로 등록되는 고리**가 생긴다
+     (실측: 같은 글이 두 번 등록됐다).
+     한 박자 미룬 뒤 **그 칸이 아직 화면에 남아 있는지**로 가른다 —
+       · 남아 있다 → 사람이 칸을 벗어난 것이다. 등록한다.
+       · 사라졌다 → 다시 그리느라 없어진 것이다. 아무 일도 하지 않는다(쓰던 글은 위에서 보존된다). */
+  setTimeout(function(){
+    try{
+      if(el&&el.ownerDocument&&!el.ownerDocument.contains(el))return;
+      fn(id,true);
+    }catch(e){ try{console.error('pgAddBlur',e);}catch(x){} }
+  },0);
+};
+function addAct(id,quiet){const e=document.getElementById('acIn'),v=((e&&e.value)||'').trim();
+  if(!v){if(!quiet&&e)e.focus();return;}
+  /* v08.412 **읽은 즉시 칸을 비운다.** Enter나 [추가] 버튼으로 등록하면 그 직후 같은 칸에서
+     blur가 한 번 더 들어와 **같은 글이 두 번 등록**됐다(실측). 비워 두면 뒤따르는 호출이
+     빈 칸을 읽고 아무 일도 하지 않는다 — 이벤트 순서에 기대지 않는 방식이다. */
+  if(e)e.value='';
+  card(id).acts.push({t:v,done:false});paint();paintPage();
+  if(!quiet){const f=document.getElementById('acIn');if(f)f.focus();}}
 /* v08.164 실행기록도 같은 문제 — 날짜(d)나 본문(txt)을 고치는 중에 패널을 다시 그리면
    입력 칸이 새로 만들어져 뒤이어 친 글자가 날아간다(「12월 31일」이 「3」만 들어가던 원인).
    값은 이미 화면에 들어가 있으므로 저장만 하고 다시 그리지 않는다.
@@ -19167,7 +19212,12 @@ function delLog(id,i){ if(!LOG[id])return; LOG[id].splice(i,1);paint();paintPage
    (addLog()가 실제로 행을 만들 때 이 대기 이미지를 함께 저장). */
 let __logImgTarget=null;
 window.__lgPendingImg='';
+/* v08.412 — 📷로 이미지를 붙이면 패널을 다시 그리는데, 그때 **쓰던 글이 날아갔다.**
+   첨부 이미지(`__lgPendingImg`)처럼 **쓰던 글도 들고 있다가** 다시 채워 준다. */
+window.__lgPendingTxt='';
+window.__lgKeepTxt=function(){ const t=document.getElementById('lgT'); if(t)window.__lgPendingTxt=t.value; };
 function pickLogImage(id,i){
+  if(i==null&&typeof window.__lgKeepTxt==='function')window.__lgKeepTxt();   /* v08.412 쓰던 글 보존 */
   __logImgTarget={id,i};
   const el=document.getElementById('logImgPicker');
   if(el){ el.value=''; el.click(); }
@@ -19188,7 +19238,7 @@ async function onLogImagePicked(input){
   paint();paintPage();
 }
 function removeLogImage(id,i){
-  if(i==null){ window.__lgPendingImg=''; paintPage(); return; }
+  if(i==null){ if(typeof window.__lgKeepTxt==='function')window.__lgKeepTxt(); window.__lgPendingImg=''; paintPage(); return; }
   if(LOG[id]&&LOG[id][i]){ LOG[id][i].img=''; paint();paintPage(); }
 }
 /* v07.62 실행기록 기본 날짜 — 보고 있는 달이 이번 달이면 오늘, 지난 달이면 그 달 말일, 다음 달이면 1일 */
@@ -19201,9 +19251,14 @@ function logDefD(){
   }
   return MO+'-01';
 }
-function addLog(id){const d=document.getElementById('lgD').value,t=(document.getElementById('lgT').value||'').trim();
-  if(t&&typeof logAct==='function'){const _c=card(id);logAct('실행기록 추가',(_c&&_c.nm)||id,d+' '+t.slice(0,40));}
-  if(!d||!t){document.getElementById('lgT').focus();return;}
+function addLog(id,quiet){const _dE=document.getElementById('lgD'),_tE=document.getElementById('lgT');
+  const d=(_dE&&_dE.value)||'',t=((_tE&&_tE.value)||'').trim();
+  /* v08.412 — 실제로 등록된 뒤에만 활동 기록을 남긴다(종전에는 아래 가드보다 **위**에 있어서
+     날짜가 비어 등록되지 않은 시도까지 기록으로 쌓였다. 칸을 벗어날 때도 부르게 된 지금은
+     그대로 두면 빈 시도가 계속 쌓인다). */
+  if(!d||!t){if(!quiet&&_tE)_tE.focus();return;}
+  if(_tE)_tE.value='';   /* v08.412 읽은 즉시 비운다 — 뒤따르는 blur로 두 번 등록되는 것을 막는다 */
+  if(typeof logAct==='function'){const _c=card(id);logAct('실행기록 추가',(_c&&_c.nm)||id,d+' '+t.slice(0,40));}
   /* v08.106 요청("병합 저장 방식으로 전환") — 항목마다 고유 id가 있어야 "이 항목을 누가
      더했다/지웠다/고쳤다"를 병합 시점에 구분할 수 있다(genEntryId·mergeSet 참고). */
   const entry={id:genEntryId(),d,txt:t,by:(card(id)||{}).own||''};
@@ -19214,9 +19269,9 @@ function addLog(id){const d=document.getElementById('lgD').value,t=(document.get
      그 상태에서 LOG[id].push(...)를 하면 undefined에 push하는 셈이라 오류가 나고, 화면에는
      아무 일도 일어나지 않는다 — 「입력했는데 저장이 안 된다」로 보이던 원인.
      이제 없으면 만들어서 넣는다. 아래 문서·논의사항도 같은 이유로 함께 고친다. */
-  (LOG[id]=LOG[id]||[]).push(entry); window.__lgPendingImg='';
+  (LOG[id]=LOG[id]||[]).push(entry); window.__lgPendingImg=''; window.__lgPendingTxt='';
   paint();paintPage();
-  const f=document.getElementById('lgT');if(f)f.focus();}
+  if(!quiet){const f=document.getElementById('lgT');if(f)f.focus();}}
 /* v08.164 입력 중 재렌더 금지 — 이름·주소·메모를 치는 도중 패널을 다시 그리면 글자가 날아간다 */
 function setDoc(id,i,f,v){ if(!DOCS[id]||!DOCS[id][i])return; DOCS[id][i][f]=v;
   if(typeof logAct==='function')logAct('자료 수정',(card(id)||{}).nm||id,String(v||'').slice(0,50)); }
@@ -19233,6 +19288,9 @@ function addIss(id){(ISSUES[id]=ISSUES[id]||[]).push({id:genEntryId(),nm:'새 �
 
 function paintPage(){
   schedulePersist();
+  /* v08.412 — 패널을 다시 그리면 실행기록 입력칸이 새로 만들어져 **쓰던 글이 날아갔다**.
+     그리기 전에 붙들어 두고(아래 value로 되살린다), 등록되면 비운다. */
+  if(typeof window.__lgKeepTxt==='function')window.__lgKeepTxt();
   if(PGKIND==='unis'){paintOrphanPage();return;}
   if(PGKIND==='inqrow'){paintInqPage();return;}
   const c=card(PGID);if(!c)return;
@@ -19300,7 +19358,9 @@ function paintPage(){
      +'<input type="checkbox" '+(a.done?'checked':'')+' onchange="tgAct(\''+c.id+'\','+i+')">'
      +'<input class="f" value="'+esc(a.t)+'" onchange="setAct(\''+c.id+'\','+i+',this.value)">'
      +'<button class="x" onclick="delAct(\''+c.id+'\','+i+')">×</button></div>').join(''):'<div class="emp">없음</div>')
-   +'<div class="add"><input id="acIn" placeholder="할 일 추가" onkeydown="if(event.key===\'Enter\')addAct(\''+c.id+'\')">'
+   /* v08.412 Enter·[추가] 버튼에 더해 **칸을 벗어나도** 등록된다 — 수정 칸과 같은 기준 */
+   +'<div class="add"><input id="acIn" placeholder="할 일 추가" onkeydown="if(event.key===\'Enter\')addAct(\''+c.id+'\')"'
+   +' onblur="pgAddBlur(addAct,\''+c.id+'\',event)">'
    +'<button class="btn" onclick="addAct(\''+c.id+'\')">추가</button></div></div>'
 
    +'<div class="sc"><div class="sc-h">실행 기록 <span class="n">'+moKo(MO)+' '+inm.length+' · 누적 '+all.length+'</span>'
@@ -19309,7 +19369,8 @@ function paintPage(){
       오늘 한 일을 적을 때마다 날짜를 고쳐야 했다. 기준월이 지난 달이면 그 달 말일로 둔다 —
       그 달을 보고 있는데 미래 날짜가 채워지면 안 되기 때문. */
    +'<div class="add"><input type="date" id="lgD" value="'+logDefD()+'">'
-   +'<input id="lgT" placeholder="무엇을 했는지" onkeydown="if(event.key===\'Enter\')addLog(\''+c.id+'\')">'
+   +'<input id="lgT" placeholder="무엇을 했는지" value="'+esc(window.__lgPendingTxt||'')+'" onkeydown="if(event.key===\'Enter\')addLog(\''+c.id+'\')"'
+   +' onblur="pgAddBlur(addLog,\''+c.id+'\',event)">'
    +(window.__lgPendingImg?'<span class="log-thumb-wrap"><img class="log-thumb" src="'+esc(window.__lgPendingImg)+'"><button class="log-thumb-x" onclick="removeLogImage(\''+c.id+'\',null)" title="이미지 제거">×</button></span>':'')
    +'<button class="img-btn'+(window.__lgPendingImg?' on':'')+'" onclick="pickLogImage(\''+c.id+'\',null)" title="이미지 첨부">📷</button>'
    +'<button class="btn" onclick="addLog(\''+c.id+'\')">추가</button></div></div>'
