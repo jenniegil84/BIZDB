@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.413';
+window.__APP_VER='v08.414';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11808,6 +11808,37 @@ window.spPaint=function(){
     const canFinal=function(x){ return true; };
     /* 집계가 **실제로 읽는** 범위 — 칸을 여는 기준과 분리해서 둔다.
        「지정 안 된 건」 세는 것과 툴팁 판단에 쓴다. 집계 쪽(t2·t3·t4)을 고치면 여기도 같이 고친다. */
+    /* ══ v08.414 요청("문의 있는건과 문의 없는 실적에서 중복된 건이 있다면 알려줬음 좋겠거든") ══
+       이 목록은 **같은 사업자번호에 같은 종류의 문의가 있으면** 그 사건을 빼고 보여 준다
+       (`pmOrphanRows`). 그런데 **문의 쪽에 사업자번호가 없거나 다르게 적혀 있으면** 걸러지지 않아
+       같은 업체가 두 탭에 모두 뜬다. 2026-10-21에 사용자가 「같은 건인데 왜 중복으로 들어간거야?」
+       라고 물었던 것이 이 경우였고, 확인해 보니 **사업자번호가 실제로 달랐다**(= 다른 업체).
+       → 매번 들여다보지 않아도 되게 **이름이 같은 건을 찾아 표시**한다.
+       ※ 여기 걸리는 건 전부 「이름은 같은데 사업자번호로는 안 묶인 것」이다. **진짜 중복일 수도,
+         이름만 비슷한 다른 업체일 수도 있다** — 그래서 **단정하지 않고 「중복?」으로 묻고**,
+         툴팁에 **양쪽 사업자번호를 나란히** 보여 사람이 1초 만에 가릴 수 있게 한다.
+       ※ 집계는 건드리지 않는다. 표시만 한다. 진짜 중복이면 그 행의 [제외]를 누르면 된다. */
+    const _dupIdx=(function(){
+      const m={};
+      const L=(typeof window.pmSrcRows==='function')?window.pmSrcRows():[];
+      (Array.isArray(L)?L:[]).forEach(function(r){
+        const n=(typeof window.__inqNameKey==='function')?window.__inqNameKey(r.tt||''):'';
+        if(n.length<4)return;                       /* 너무 짧은 이름은 우연히 겹친다 */
+        (m[n]=m[n]||[]).push(r);
+      });
+      return m;
+    })();
+    const dupOf=function(x){
+      const n=(typeof window.__inqNameKey==='function')?window.__inqNameKey(x.nm||''):'';
+      if(n.length<4)return null;
+      const L=_dupIdx[n]; if(!L||!L.length)return null;
+      /* 같은 종류끼리만 본다 — 가입 문의 ↔ 가입 사건 · 요금제 문의 ↔ 요금제 사건.
+         종류가 다르면 한 업체가 가입도 하고 요금제도 바꾼 정상적인 경우다. */
+      const need=(x.kind==='신규가입'||x.kind==='재가입')?'join':'plan';
+      const cls=(typeof window.inqCls==='function')?window.inqCls:function(){return 'inq';};
+      const hit=L.filter(function(r){ return cls(r)===need; });
+      return hit.length?hit[0]:null;
+    };
     const feedsJoin =function(x){ return x.kind==='신규가입'||x.kind==='재가입'; };
     const feedsFinal=function(x){ return feedsJoin(x)||x.kind==='요금제 상향'; };
     const isJoin=feedsFinal;   /* 아래 「지정 안 된 건」 집계·필터가 쓰던 이름 — 집계가 읽는 기준 */
@@ -11831,7 +11862,7 @@ window.spPaint=function(){
       return true;
     });
     /* 카드 숫자는 문의 쪽과 같은 방식 — 지금 목록(필터 전 전체)을 센다 */
-    let nTodo=0,nWemb=0,nNoInflow=0,nNoJoin=0,nNoFinal=0;
+    let nTodo=0,nWemb=0,nNoInflow=0,nNoJoin=0,nNoFinal=0,nDup=0;
     all.forEach(function(x){
       const v=val(x);
       if(un(v.inflow))nNoInflow++;
@@ -11839,10 +11870,31 @@ window.spPaint=function(){
       if(isJoin(x)&&un(v.final))nNoFinal++;
       if(un(v.inflow)||(isJoin(x)&&un(v.final)))nTodo++;
       if(x.wemb)nWemb++;
+      if(dupOf(x))nDup++;   /* v08.414 */
     });
     /* v08.397 요청("버튼제거") — 「문의 있는 건」과 같이 지정 상태 필터 버튼 6개를 뺐다.
        필터 자체(`__pmF.otodo`)는 코드에 남아 기본값 'all'로 고정된다. */
     const opt=function(cur){return (typeof window.inflowOptions==='function')?window.inflowOptions(cur||''):'';};
+    /* v08.414 「중복?」 배지 — 단정하지 않고 양쪽 사업자번호를 툴팁에 나란히 보여 준다 */
+    const _dupBadge=function(x){
+      const r=dupOf(x); if(!r)return '';
+      const b1=String(x.bz||'').replace(/[^0-9]/g,'');
+      const b2=String(r.bz||'').replace(/[^0-9]/g,'');
+      const fmt=function(v){ return v?(v.slice(0,3)+'-'+v.slice(3,5)+'-'+v.slice(5)):'번호 없음'; };
+      const same=(b1&&b2&&b1===b2);
+      const tip='문의 있는 건에 같은 이름이 있습니다'
+        +' · ['+String(r.tp||'')+'] '+String(r.tt||'')
+        +' · 등록 '+String(r.dt||'').slice(0,10)
+        +' · 사업자번호 — 이 건 '+fmt(b1)+' / 문의 '+fmt(b2)
+        +(same?' (같은 번호 — 진짜 중복입니다)'
+              :(b1&&b2)?' (번호가 다릅니다 — 다른 업체일 수 있습니다)'
+                       :' (한쪽에 번호가 없어 가릴 수 없습니다)');
+      return '<span title="'+IX_esc(tip)+'"'
+        +' style="display:inline-block;margin-left:6px;font-size:8.5px;font-weight:700;padding:1px 5px;'
+        +'border-radius:9px;vertical-align:1px;cursor:help;'
+        +(same?'background:#FEE2E2;color:#B91C1C':'background:var(--gray-lt);color:var(--gray-md)')
+        +'">중복?</span>';
+    };
     /* 문의 쪽 sel()과 같은 모양 — 미지정은 청록 테두리, 지정 대상이 아니면 잠근다 */
     const sel=function(key,f,cur,hl,off,lock,lockIn,kind,notFed){
       /* v08.279 요청("빨간테두리로 표시해주고"·"파란테두리로 표시해주고") — 문의 있는 건 탭의
@@ -11873,7 +11925,7 @@ window.spPaint=function(){
           const v=val(x), j=isJoin(x);
           const todo=un(v.inflow)||(j&&un(v.final));
           return '<tr'+(todo?' style="background:#FFFBEB"':'')+'>'
-            +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(x.nm)+'</div>'
+            +'<td style="text-align:left"><div style="font-weight:600">'+IX_esc(x.nm)+_dupBadge(x)+'</div>'
             +'<div style="font-size:9px;color:var(--gray-md)">'+IX_esc(x.bz||'사업자번호 없음')+' · '+IX_esc(x.d)+' · '+IX_esc(x.kind)+'</div></td>'
             +'<td style="text-align:left;font-size:10px">'+IX_esc(x.detail)+'</td>'
             + sel(x.key,'inflow',v.inflow, un(v.inflow), false, x.wemb, ins(x), x.kind)
@@ -11910,7 +11962,10 @@ window.spPaint=function(){
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="togglePmDelPanel()" id="pmDelBtn">제외 목록'
       +(((typeof window.pmDelRows==='function')&&window.pmDelRows().length)?(' '+window.pmDelRows().length):'')+'</button>'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건'
-      +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')+'</span>'
+      +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')
+      /* v08.414 — 몇 건이 「중복?」인지 여기서 바로 보이게 한다(목록이 길면 행 배지만으로는 못 찾는다) */
+      +(nDup?('<span style="margin-left:8px;color:#B91C1C;font-weight:700">중복? '+nDup+'</span>'):'')
+      +'</span>'
       +'</div>'
       +((typeof window.pmDelPanelHTML==='function')?window.pmDelPanelHTML():'')   /* v08.401 제외 목록 패널 */
       +'<div style="overflow:auto;max-height:600px"><table class="tbl sticky" style="min-width:900px"><thead><tr>'
@@ -16403,6 +16458,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u129',d:'2026-11-02',tt:'두 탭에 같은 업체가 겹쳐 보이면 「중복?」으로 알려줍니다',
+  b:'「문의 없는 실적」은 **같은 사업자번호에 같은 종류의 문의가 있으면** 그 사건을 빼고 보여줍니다. 그런데 **문의 쪽에 사업자번호가 없거나 다르게 적혀 있으면** 걸러지지 않아 같은 업체가 두 탭에 모두 뜹니다. 이제 그런 행 이름 옆에 **「중복?」** 배지가 붙고, 목록 오른쪽 위 건수 옆에 **몇 건인지** 함께 뜹니다. 배지에 마우스를 올리면 **상대 문의의 제목·등록일과 양쪽 사업자번호를 나란히** 보여줍니다 — 번호가 다르면 **「다른 업체일 수 있습니다」**라고 알려주므로 1초면 가려집니다. **단정하지 않고 묻는 이유**는 이름만 비슷한 다른 업체가 실제로 있기 때문입니다. **집계는 바뀌지 않습니다** — 표시만 합니다. 진짜 중복이면 그 행의 [제외]를 누르면 됩니다.'},
  {id:'u128',d:'2026-11-02',tt:'「문의 없는 실적」의 가입채널·최종실적 칸을 다시 열었습니다',
   b:'요청에 따라 **요금제 변경 건에서도 가입채널·최종실적을 고를 수 있게** 되돌렸습니다. 이제 **세 칸 모두 언제나 열립니다.** **집계는 바뀌지 않았습니다** — 상향(비플러스 → 플러스)이 아닌 요금제 변경에 채널을 넣어도 가입채널별·최종실적별 표에는 들어가지 않습니다(「실적 = 가입 + 상향」). 그래서 **그 칸에 마우스를 올리면 왜 안 들어가는지 뜹니다.** 잠그는 대신 알려 주는 방식으로 바꾼 것입니다. 「지정 안 된 건」 숫자는 **집계가 실제로 읽는 칸만** 셉니다 — 넣어도 안 쓰이는 칸 때문에 할 일이 남은 것처럼 보이지 않게 했습니다.'},
  {id:'u127',d:'2026-10-27',tt:'카드 상세의 저장 기준을 하나로 맞췄습니다 — 쓰고 칸을 벗어나면 저장',
