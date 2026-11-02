@@ -3,9 +3,14 @@
 > 매주 목요일 아침, Flow 프로젝트에서 **지난 한 주(목~수)에 등록·수정된 업무**를 자동으로
 > 수집해 이 폴더에 쌓는다. 주간회의(목요일) 전에 그 주 자료가 준비되게 하는 것이 목적이다.
 
-- 버전: v00.01
+- 버전: v00.02
 - 최초 작성일: 2026-10-21
 - 업데이트 이력:
+  - v00.02 (2026-10-27): 사용자가 Flow Open API 문서를 제공 — `api-문서/` 에 원문 보관.
+    4번을 구체화: **호스트는 `api.flow.team`**(종전에 `flow.team` 으로 잘못 적었다) ·
+    인증 헤더 `x-flow-api-key` · 키는 개발자 포털 「키관리」에서 발급 · 쓸 엔드포인트 4종 ·
+    호출 한도 · 목록에 날짜 필터가 없다는 제약 · Webhook 은 방향이 반대라 쓸 수 없다는 점.
+    환경(`test`)이 조직 소유라 **조직 관리자만** 네트워크·비밀값을 바꿀 수 있음을 확인.
   - v00.01 (2026-10-21): 최초 작성. 2026-10-15~21 1주치 시범 수집분 포함.
 
 ---
@@ -55,14 +60,40 @@ Flow 연결 통로(MCP)가 개인정보로 판단해 `<<biz_reg_no-0>>` · `<<ph
 
 ### 사업자번호를 받으려면 (둘 다 필요)
 
-1. **flow.team 아웃바운드 허용** — 지금은 실행 환경의 네트워크 정책이 막고 있다(403).
-   클라우드 환경 설정 → Edit → Network access 에서 접근 수준을 넓히거나
-   Allowed domains 에 `flow.team` 을 추가한다(Allow package managers 는 켠 채로).
-   https://code.claude.com/docs/en/cloud-environments#network-access
-2. **Flow API Key** — 환경 비밀값(Environment secrets)으로 등록한다.
+> 2026-10-27 — 사용자가 **Flow Open API 문서**를 제공해 아래를 구체화했다.
+> 원문은 `api-문서/` 에 그대로 보관한다(출처: https://api.flow.team/docs).
 
-둘이 갖춰지면 MCP 대신 Flow API를 직접 불러 **가림 없이** 받는다. 그때 이 문서의 4번을
-고쳐 쓴다.
+1. **`api.flow.team` 아웃바운드 허용** — 지금은 실행 환경의 네트워크 정책이 막고 있다(403).
+   **주의: 호스트는 `flow.team` 이 아니라 `api.flow.team` 이다**(모든 API의 기본 경로).
+   화면(`flow.team`)과 API(`api.flow.team`)가 다른 주소다. 둘 다 열어 두는 편이 안전하다.
+   클라우드 환경 설정 → Edit → Network access → Allowed domains
+   (Allow package managers 는 켠 채로). https://code.claude.com/docs/en/cloud-environments#network-access
+   ※ 이 환경(`test`)은 **조직 소유**라 **조직 관리자만** 바꿀 수 있다(2026-10-27 확인).
+2. **Flow 사용자 API Key** — 개발자 포털의 **「키관리」 페이지**에서 발급한다.
+   환경 비밀값(Network secrets / 환경 변수)에 **`FLOW_API_KEY`** 이름으로 등록한다.
+   호출할 때 요청 헤더 **`x-flow-api-key`** 에 넣는다.
+
+### 쓸 엔드포인트 (문서에서 확인)
+
+| 쓰임 | 엔드포인트 | 메모 |
+|---|---|---|
+| 프로젝트의 글·업무 목록 | `GET /user/posts/projects/{projectId}` | **목록 응답에 `content`·`htmlContent` 본문이 함께 온다** — 건별로 다시 열 필요가 줄어든다. `cursor`·`pageSize`(최대 100)·`templateTypes` |
+| 단건 상세 | `GET /user/posts/{postId}` | `tasks[]`·`subTasks[]` 원본. **업무번호는 여기서 나온다** |
+| 업무 필터 조회 | `GET /user/posts/projects/{projectId}/tasks/filter` | 컬럼값까지. `filterRecords` 로 상태 등 필터 |
+| 댓글 | `GET /user/comments/{postId}` | `replyYn=Y` 면 대댓글 10개까지 |
+
+- 호출 한도: **읽기 1,000회/분** (쓰기 120회/분) — 주 10건 수집에는 여유가 많다.
+- ⚠️ **목록 엔드포인트에 날짜 범위 필터가 없다.** 주간 증분은 최신부터 커서로 넘기며
+  구간을 벗어나면 멈추는 식으로 짜야 한다(정렬 순서를 실제 호출로 먼저 확인할 것).
+- ⚠️ **사업자번호가 가려지지 않고 오는지는 아직 확인하지 못했다.** 마스킹은 MCP 통로에서
+  일어나므로 REST를 직접 부르면 원문이 올 것으로 보이지만, **네트워크가 열려 실제로 불러
+  보기 전까지는 추측이다.** 열리면 가장 먼저 이것부터 확인한다.
+
+### Webhook 은 이 일에 쓰지 않는다
+
+`api-문서/00-webhook.md` 의 Webhook 은 **바깥 서비스 → 플로우** 방향이다(플로우에 글·채팅을
+남기는 용도). **플로우의 변경을 우리에게 알려 주는 기능이 아니다.** 그래서 주간 수집에는
+쓸 수 없고, 위 REST 조회로 가져온다.
 
 ## 5. 아직 하지 않은 것
 
