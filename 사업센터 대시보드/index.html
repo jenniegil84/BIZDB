@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.412';
+window.__APP_VER='v08.413';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11796,9 +11796,21 @@ window.spPaint=function(){
          언제나 열어 둔다(v08.408).
        ※ 여기를 고치면 **집계 쪽(t2·t3·t4의 모수)과 반드시 같이 본다** — 한쪽만 바꾸면 다시
          「고를 수 있는데 안 들어가는」 상태가 된다. */
-    const canJoin =function(x){ return x.kind==='신규가입'||x.kind==='재가입'; };
-    const canFinal=function(x){ return canJoin(x)||x.kind==='요금제 상향'; };
-    const isJoin=canFinal;   /* 아래 「지정 안 된 건」 집계·필터가 쓰던 이름 — 최종실적 기준으로 둔다 */
+    /* ══ v08.413 사용자 요청("문의없는 실적 - 요금제 변경건 가입채널 최종실적채널 칸 열어줘") ══
+       v08.409에서 **집계가 안 받는 칸을 잠갔는데**, 그걸 다시 연다. **세 칸 모두 언제나 열린다.**
+       **집계는 손대지 않았다** — 상향이 아닌 요금제 변경에 채널을 넣어도 가입채널별·최종실적별
+       표에는 여전히 안 들어간다(「실적 = 가입 + 상향」, v08.324 확정).
+       그래서 v08.409가 없애려던 혼란(고를 수는 있는데 아무 표에도 안 나타남)이 되돌아온다.
+       그 대신 **왜 안 들어가는지를 그 칸의 툴팁으로** 남긴다 — 잠그는 대신 알려 주는 쪽으로 바꾼 것이다.
+       ※ 되돌림 이력: v08.198 전부 열기 → v08.409 잠그기 → **v08.413 다시 열기**.
+         또 바꾸자는 말이 나오면 이 줄부터 보여 준다(CLAUDE.md 13번). */
+    const canJoin =function(x){ return true; };
+    const canFinal=function(x){ return true; };
+    /* 집계가 **실제로 읽는** 범위 — 칸을 여는 기준과 분리해서 둔다.
+       「지정 안 된 건」 세는 것과 툴팁 판단에 쓴다. 집계 쪽(t2·t3·t4)을 고치면 여기도 같이 고친다. */
+    const feedsJoin =function(x){ return x.kind==='신규가입'||x.kind==='재가입'; };
+    const feedsFinal=function(x){ return feedsJoin(x)||x.kind==='요금제 상향'; };
+    const isJoin=feedsFinal;   /* 아래 「지정 안 된 건」 집계·필터가 쓰던 이름 — 집계가 읽는 기준 */
     /* v08.279 — 로움 실적확정 명단도 위멤버스와 같은 방식으로 세 칸을 확정한다 */
     const ins=function(x){return (typeof window.salesInsideHit==='function')&&window.salesInsideHit({bz:x.bz});};
     const val=function(x){ const m=window.pmEvVal({key:x.key,old:x.keyOld}); const S=ins(x)?window.SALES_INSIDE_CH:'';   /* v08.410 옛 키 폴백 */
@@ -11812,7 +11824,7 @@ window.spPaint=function(){
       const t=F.otodo||'all';
       if(t==='todo'&&!(un(v.inflow)||(isJoin(x)&&un(v.final))))return false;
       if(t==='noInflow'&&!un(v.inflow))return false;
-      if(t==='noJoin'&&!(canJoin(x)&&!v.joinCh))return false;
+      if(t==='noJoin'&&!(feedsJoin(x)&&!v.joinCh))return false;
       if(t==='noFinal'&&!(isJoin(x)&&un(v.final)))return false;
       if(t==='done'&&(un(v.inflow)||(isJoin(x)&&un(v.final))))return false;
       if(q&&String(x.nm||'').indexOf(q)<0&&String(x.bz||'').indexOf(q)<0)return false;
@@ -11823,7 +11835,7 @@ window.spPaint=function(){
     all.forEach(function(x){
       const v=val(x);
       if(un(v.inflow))nNoInflow++;
-      if(canJoin(x)&&!v.joinCh)nNoJoin++;
+      if(feedsJoin(x)&&!v.joinCh)nNoJoin++;
       if(isJoin(x)&&un(v.final))nNoFinal++;
       if(un(v.inflow)||(isJoin(x)&&un(v.final)))nTodo++;
       if(x.wemb)nWemb++;
@@ -11832,24 +11844,26 @@ window.spPaint=function(){
        필터 자체(`__pmF.otodo`)는 코드에 남아 기본값 'all'로 고정된다. */
     const opt=function(cur){return (typeof window.inflowOptions==='function')?window.inflowOptions(cur||''):'';};
     /* 문의 쪽 sel()과 같은 모양 — 미지정은 청록 테두리, 지정 대상이 아니면 잠근다 */
-    const sel=function(key,f,cur,hl,off,lock,lockIn,kind){
+    const sel=function(key,f,cur,hl,off,lock,lockIn,kind,notFed){
       /* v08.279 요청("빨간테두리로 표시해주고"·"파란테두리로 표시해주고") — 문의 있는 건 탭의
          테두리 색 신호와 통일한다(위멤버스=빨강, 내부영업=파랑). */
       if(lock)return '<td><span class="rtag" title="실적보호업체(위멤버스 실적인정) · 사업자번호 일치 · 기간 무관"'
         +' style="background:#fff;color:var(--red);border:2px solid var(--red)">위멤버스 확정</span></td>';
       if(lockIn)return '<td><span class="rtag" title="로움 실적확정 명단 · 사업자번호 일치 · 채널값 = 영업 > 내부영업"'
         +' style="background:#fff;color:#1D4ED8;border:2px solid #3B82F6">로움 확정</span></td>';
-      /* v08.409 잠근 이유를 그 칸에서 바로 알 수 있게 한다 — 사건 종류마다 다르다.
+      /* v08.409 → v08.413 — 「집계가 이 값을 읽지 않는다」는 사실을 그 칸에서 바로 알 수 있게 한다.
+         v08.409에서는 **잠그고** 사유를 띄웠고, v08.413부터는 **열어 두고** 사유만 띄운다.
          화면에 글을 더 쓰지 않도록 툴팁으로만 둔다(CLAUDE.md 28번). */
-      const offWhy=(f==='joinCh')
+      const why=(f==='joinCh')
         ? ((kind==='요금제 상향')
-            ? '요금제 상향이라 가입이 아닙니다 — 가입채널별 실적은 가입·재가입만 셉니다'
-            : '가입·재가입이 아니라 가입채널별 실적에 들어가지 않습니다')
-        : '상향(비플러스 → 플러스)이 아닌 요금제 변경이라 최종실적별 실적에 들어가지 않습니다';
-      if(off)return '<td><select disabled title="'+IX_esc(offWhy)+'"'
+            ? '요금제 상향이라 가입이 아닙니다 — 가입채널별 실적(가입+재가입)에는 들어가지 않습니다'
+            : '가입·재가입이 아니라 가입채널별 실적에는 들어가지 않습니다')
+        : '상향(비플러스 → 플러스)이 아닌 요금제 변경이라 최종실적별 실적(가입+상향)에는 들어가지 않습니다';
+      if(off)return '<td><select disabled title="'+IX_esc(why)+'"'
         +' style="width:100%;font-size:10px;padding:3px 5px;border:1px solid var(--border);border-radius:5px;'
         +'background:var(--gray-lt);color:var(--gray-md);cursor:not-allowed"><option>—</option></select></td>';
       return '<td><select onchange="pmMasterSet(\''+key+'\',\''+f+'\',this.value)"'
+        +(notFed?(' title="'+IX_esc(why)+'"'):'')
         +' style="width:100%;font-size:10px;padding:3px 5px;border:1px solid '+(hl?'var(--teal)':'var(--border)')+';border-radius:5px;background:#fff">'
         +'<option value="">—</option>'+opt(cur)+'</select></td>';
     };
@@ -11863,8 +11877,8 @@ window.spPaint=function(){
             +'<div style="font-size:9px;color:var(--gray-md)">'+IX_esc(x.bz||'사업자번호 없음')+' · '+IX_esc(x.d)+' · '+IX_esc(x.kind)+'</div></td>'
             +'<td style="text-align:left;font-size:10px">'+IX_esc(x.detail)+'</td>'
             + sel(x.key,'inflow',v.inflow, un(v.inflow), false, x.wemb, ins(x), x.kind)
-            + sel(x.key,'joinCh',v.joinCh, false, !canJoin(x), x.wemb, ins(x), x.kind)
-            + sel(x.key,'final', v.final,  j&&un(v.final), !canFinal(x), x.wemb, ins(x), x.kind)
+            + sel(x.key,'joinCh',v.joinCh, false, !canJoin(x), x.wemb, ins(x), x.kind, !feedsJoin(x))
+            + sel(x.key,'final', v.final,  j&&un(v.final), !canFinal(x), x.wemb, ins(x), x.kind, !feedsFinal(x))
             /* v08.397 관리 열 — 상세는 마스터 원본 값을 보여주고(여기 행은 문의가 없다),
                제외는 이 목록·집계에서 뺀다(제외 목록은 별도 저장 — pmOrpDel) */
             +'<td style="white-space:nowrap"><span class="mgmt-badge" onclick="pmOrpDetail(\''+x.key.replace(/'/g,"\\'")+'\')">상세</span>'
@@ -16389,6 +16403,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u128',d:'2026-11-02',tt:'「문의 없는 실적」의 가입채널·최종실적 칸을 다시 열었습니다',
+  b:'요청에 따라 **요금제 변경 건에서도 가입채널·최종실적을 고를 수 있게** 되돌렸습니다. 이제 **세 칸 모두 언제나 열립니다.** **집계는 바뀌지 않았습니다** — 상향(비플러스 → 플러스)이 아닌 요금제 변경에 채널을 넣어도 가입채널별·최종실적별 표에는 들어가지 않습니다(「실적 = 가입 + 상향」). 그래서 **그 칸에 마우스를 올리면 왜 안 들어가는지 뜹니다.** 잠그는 대신 알려 주는 방식으로 바꾼 것입니다. 「지정 안 된 건」 숫자는 **집계가 실제로 읽는 칸만** 셉니다 — 넣어도 안 쓰이는 칸 때문에 할 일이 남은 것처럼 보이지 않게 했습니다.'},
  {id:'u127',d:'2026-10-27',tt:'카드 상세의 저장 기준을 하나로 맞췄습니다 — 쓰고 칸을 벗어나면 저장',
   b:'팀 탭 카드 상세에서 **어떤 칸은 Enter를 쳐야 등록되고 어떤 칸은 벗어나면 저장**돼 기준이 둘이었습니다(요청: "기준을 좀 통일해봐"). 이름·담당자·주기·설명·추진현황·자료·논의사항 같은 **수정 칸**은 벗어나면 저장됐지만, **「할 일 추가」와 「실행 기록」 입력칸은 Enter나 [추가] 버튼만** 받았습니다 — 쓰고 다른 데를 클릭하면 **쓴 글이 그냥 사라졌습니다.** 이제 **쓰고 칸을 벗어나면 등록**됩니다(Enter·[추가] 버튼도 그대로). 같은 줄의 **📷·[추가]·날짜 칸으로 옮겨 가는 것은 등록으로 치지 않습니다** — 이미지를 붙이려는 것뿐인데 먼저 등록되면 안 되니까요. **📷로 이미지를 붙여도 쓰던 글이 더 이상 날아가지 않습니다.** 빈 칸에서 벗어나는 것은 아무 일도 아닙니다.'},
  {id:'u126',d:'2026-10-21',tt:'「상향」의 뜻을 넓혔습니다 — 과거 요금제에서 베이직으로 바뀐 것도 상향',
