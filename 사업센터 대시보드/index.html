@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.414';
+window.__APP_VER='v08.415';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11274,7 +11274,7 @@ window.spPaint=function(){
      · 한 행에서 3개 값을 드롭다운으로 바로 지정(IX_inqSet — 신청 관리 상세와 같은 저장 경로)
      · 판정 규칙 설정표(유입경로 관리·추천 정보 관리)도 이 탭에서 연다
      집계 화면(일별·월별·누적)과 같은 원천을 쓰므로, 여기서 지정하면 그 숫자가 바로 따라온다. */
-  window.__pmF=window.__pmF||{q:'',todo:'all',otodo:'all',d1:'',d2:'',fIn:'',fJn:'',fFn:'',fTp:''};   // v08.98 열별 필터 · v08.174 문의 유형 · v08.196 문의 없는 실적 상태 필터(otodo)
+  window.__pmF=window.__pmF||{q:'',todo:'all',otodo:'all',d1:'',d2:'',fIn:'',fJn:'',fFn:'',fTp:'',oKind:''};   /* v08.415 oKind = 「문의 없는 실적」 사건 종류 필터 */   // v08.98 열별 필터 · v08.174 문의 유형 · v08.196 문의 없는 실적 상태 필터(otodo)
   /* v08.98 요청("실적과 관련없는 업무등록은 실적관리에서 빠져야 해") — 공지·테스트 등 실적 대상이
      아닌 문의는 실적 관리에서 제외한다. 실적 분석 3탭이 쓰는 기준(inqCls)과 같아야 두 화면의
      모수가 어긋나지 않는다. */
@@ -11761,6 +11761,64 @@ window.spPaint=function(){
     if(typeof window.logAct==='function'){ try{ window.logAct('실적 관리 엑셀 다운로드', per, list.length+'건'); }catch(e){} }
     if(typeof IX_toast==='function')IX_toast('엑셀 다운로드 완료 — '+list.length.toLocaleString()+'건');
   };
+  /* ══ v08.415 요청("엑셀다운로드 기능 추가") — 「문의 없는 실적」 전용 ══
+     「문의 있는 건」의 `pmExportXlsx`와 같은 모양이다. 다른 점은 원천뿐 —
+     이쪽은 `pmOrphanHTML`이 화면을 그리며 쌓아 둔 `window.__orpRows`를 그대로 쓴다.
+     **화면과 같은 필터·같은 값**이 보장된다(같은 계산을 두 번 하지 않는다).
+     부를 때 `pmOrphanHTML()`을 한 번 돌려 지금 필터로 새로 쌓는다 — 화면을 그리지는 않고
+     반환값을 버린다(그 함수는 HTML 문자열만 돌려주고 DOM을 건드리지 않는다). */
+  window.pmOrpExportXlsx=function(){
+    if(typeof XLSX==='undefined'){ if(typeof IX_toast==='function')IX_toast('엑셀 라이브러리를 불러오지 못했습니다'); return; }
+    try{ if(typeof window.pmOrphanHTML==='function')window.pmOrphanHTML(); }catch(e){}
+    const list=Array.isArray(window.__orpRows)?window.__orpRows:[];
+    if(!list.length){ if(typeof IX_toast==='function')IX_toast('다운로드할 데이터가 없습니다 — 필터를 확인하세요'); return; }
+    const na=function(v){return v?v:'미지정';};
+    const NO='해당없음(집계 대상 아님)';
+    const head1=['사무소','사업자번호','발생일','사건','요금제 변경','유입경로','가입채널','최종실적','중복 여부','실적보호업체'];
+    const body1=list.map(function(x){
+      return [x.nm, x.bz, x.d, x.kind, x.detail,
+        na(x.inflow),
+        x.feedsJoin ? na(x.joinCh) : NO,
+        x.feedsFinal? na(x.final)  : NO,
+        x.dup, x.wemb?'Y':''];
+    });
+    const ws1=XLSX.utils.aoa_to_sheet([head1].concat(body1));
+    ws1['!cols']=[{wch:26},{wch:14},{wch:11},{wch:11},{wch:22},{wch:18},{wch:16},{wch:16},{wch:18},{wch:10}];
+    const agg=function(items,keyFn){
+      const m={};
+      items.forEach(function(x){ const k=keyFn(x)||'미지정'; m[k]=(m[k]||0)+1; });
+      return Object.keys(m).sort(function(a,b){return m[b]-m[a];}).map(function(k){return [k,m[k]];});
+    };
+    const joinList =list.filter(function(x){return x.feedsJoin;});
+    const finalList=list.filter(function(x){return x.feedsFinal;});
+    const per=(window.__pmF.d1||window.__pmF.d2)?((window.__pmF.d1||'처음')+' ~ '+(window.__pmF.d2||'끝')):'전체 기간';
+    const s2=[];
+    s2.push(['문의 없는 실적 — 채널별 집계 · 발생일 '+per+' · 현재 목록 필터 기준']);
+    if(window.__pmF.oKind)s2.push(['사건 종류 필터: '+window.__pmF.oKind]);
+    s2.push([]);
+    s2.push(['[유입경로별] 전체 '+list.length+'건']);
+    s2.push(['유입경로','건수']);
+    agg(list,function(x){return x.inflow;}).forEach(function(r){s2.push(r);});
+    s2.push([]);
+    s2.push(['[가입채널별] 가입·재가입 '+joinList.length+'건']);
+    s2.push(['가입채널','건수']);
+    agg(joinList,function(x){return x.joinCh||x.inflow;}).forEach(function(r){s2.push(r);});
+    s2.push([]);
+    s2.push(['[최종실적별] 가입 + 요금제 상향 '+finalList.length+'건']);
+    s2.push(['최종실적','건수']);
+    agg(finalList,function(x){return x.final||x.inflow;}).forEach(function(r){s2.push(r);});
+    const ws2=XLSX.utils.aoa_to_sheet(s2);
+    ws2['!cols']=[{wch:26},{wch:10}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws1,'문의없는실적');
+    XLSX.utils.book_append_sheet(wb,ws2,'채널별_집계');
+    const fperiod=(window.__pmF.d1||window.__pmF.d2)?((window.__pmF.d1||'')+'~'+(window.__pmF.d2||'')):'전체기간';
+    const stamp=(function(){const d=new Date();const p=function(n){return String(n).padStart(2,'0');};
+      return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes());})();
+    XLSX.writeFile(wb,'문의없는실적_'+fperiod+'_'+stamp+'.xlsx');
+    if(typeof window.logAct==='function'){ try{ window.logAct('문의 없는 실적 엑셀 다운로드', per, list.length+'건'); }catch(e){} }
+    if(typeof IX_toast==='function')IX_toast('엑셀 다운로드 완료 — '+list.length.toLocaleString()+'건');
+  };
   /* ══ v08.167 「문의 없는 실적」 화면 ══
      마스터에만 있는 가입·재가입·요금제변경을 보여준다. 여기서는 채널을 지정하지 않는다 —
      지정은 문의(fid) 단위로 저장되는 구조라 문의가 없으면 저장할 자리가 없다.
@@ -11859,6 +11917,11 @@ window.spPaint=function(){
       if(t==='noFinal'&&!(isJoin(x)&&un(v.final)))return false;
       if(t==='done'&&(un(v.inflow)||(isJoin(x)&&un(v.final))))return false;
       if(q&&String(x.nm||'').indexOf(q)<0&&String(x.bz||'').indexOf(q)<0)return false;
+      /* v08.415 요청("제목별 필터기능 추가") — 「문의 있는 건」의 문의 유형 필터와 같은 자리·같은 모양.
+         이 탭에는 문의 제목이 없으므로 그 자리에 해당하는 **사건 종류**(신규가입·재가입·요금제 상향·
+         요금제변경)로 거른다. 선택지는 **지금 목록에 실제로 있는 값만** 만든다(고르면 0건인 선택지를
+         두지 않는다 — 문의 쪽 열 필터와 같은 원칙). */
+      if(F.oKind&&String(x.kind||'')!==F.oKind)return false;
       return true;
     });
     /* 카드 숫자는 문의 쪽과 같은 방식 — 지금 목록(필터 전 전체)을 센다 */
@@ -11942,6 +12005,17 @@ window.spPaint=function(){
        어느 숫자를 봐야 할지 알 수 없다. 계산값은 위 카드가 쓰도록 넘긴다. */
     window.__orpStat={total:all.length, todo:nTodo, wemb:nWemb,
                       noInflow:nNoInflow, noJoin:nNoJoin, noFinal:nNoFinal};
+    /* ══ v08.415 엑셀이 쓸 행을 그대로 쌓아 둔다 ══
+       **화면 표시 제한(300건)과 무관하게 걸린 필터 전체**를 담는다. 같은 값을 엑셀 쪽에서
+       다시 계산하면 두 곳이 갈라지므로(화면 ≠ 파일), 여기서 만든 것을 그대로 넘긴다. */
+    window.__orpRows=rows.map(function(x){
+      const v=val(x), r=dupOf(x);
+      const b1=String(x.bz||'').replace(/[^0-9]/g,''), b2=String((r&&r.bz)||'').replace(/[^0-9]/g,'');
+      return {nm:x.nm||'', bz:x.bz||'', d:x.d||'', kind:x.kind||'', detail:x.detail||'',
+              inflow:v.inflow||'', joinCh:v.joinCh||'', final:v.final||'',
+              wemb:!!x.wemb, feedsJoin:feedsJoin(x), feedsFinal:feedsFinal(x),
+              dup:r?((b1&&b2&&b1===b2)?'중복(번호 같음)':(b1&&b2)?'이름만 같음(번호 다름)':'이름만 같음(번호 없음)'):''};
+    });
     return '<div class="panel"><div class="panel-body">'
       +'<div style="display:flex;gap:7px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
       /* v08.278 — id는 다시 그린 뒤 커서를 되돌리는 데 쓴다(txRedraw). 두 하위 탭이 각각 자기 칸을 갖는다. */
@@ -11961,6 +12035,8 @@ window.spPaint=function(){
          두 탭은 **한 번에 하나만 그려지므로** id(`pmDelBtn`·`pmDelPanel`)가 겹치지 않는다. */
       +'<button class="btn gh" style="padding:4px 11px;font-size:10.5px" onclick="togglePmDelPanel()" id="pmDelBtn">제외 목록'
       +(((typeof window.pmDelRows==='function')&&window.pmDelRows().length)?(' '+window.pmDelRows().length):'')+'</button>'
+      /* v08.415 요청("엑셀다운로드 기능 추가") — 「문의 있는 건」과 같은 자리·같은 모양 */
+      +'<button class="btn" style="padding:4px 11px;font-size:10.5px" onclick="pmOrpExportXlsx()" title="현재 필터 기준 전체 · 목록+채널별 집계 2개 시트">⬇ 엑셀 다운로드</button>'
       +'<span style="margin-left:auto;font-size:10px;color:var(--gray-md)">'+rows.length.toLocaleString()+'건'
       +(rows.length>MAX?(' 중 상위 '+MAX+'건 표시'):'')
       /* v08.414 — 몇 건이 「중복?」인지 여기서 바로 보이게 한다(목록이 길면 행 배지만으로는 못 찾는다) */
@@ -11969,7 +12045,17 @@ window.spPaint=function(){
       +'</div>'
       +((typeof window.pmDelPanelHTML==='function')?window.pmDelPanelHTML():'')   /* v08.401 제외 목록 패널 */
       +'<div style="overflow:auto;max-height:600px"><table class="tbl sticky" style="min-width:900px"><thead><tr>'
-      +'<th style="text-align:left;width:26%">사무소·사건</th>'
+      /* v08.415 사건 종류 필터 — 「문의 있는 건」의 문의 유형 필터와 같은 마크업 */
+      +(function(){
+         const cur=F.oKind||'';
+         const seen={}; all.forEach(function(x){ if(x.kind)seen[x.kind]=1; });
+         const opts=Object.keys(seen).sort().map(function(v){
+           return '<option value="'+IX_esc(v)+'"'+(cur===v?' selected':'')+'>'+IX_esc(v)+'</option>'; }).join('');
+         return '<th style="text-align:left;width:26%"><div>사무소·사건</div>'
+           +'<select onchange="pmSet(\'oKind\',this.value)" style="width:100%;margin-top:3px;font-size:9.5px;padding:2px 4px;'
+           +'border:1px solid '+(cur?'var(--teal)':'var(--border)')+';border-radius:4px;background:#fff;font-weight:400">'
+           +'<option value="">전체</option>'+opts+'</select></th>';
+       })()
       +'<th style="text-align:left;width:13%">요금제</th>'
       +'<th style="width:19%">유입경로</th><th style="width:19%">가입채널</th><th style="width:19%">최종실적</th>'
       /* v08.397 요청("문의없는 실적에도 관리열 추가해줘") — 「문의 있는 건」과 같은 자리·같은 모양 */
@@ -16458,6 +16544,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u130',d:'2026-11-03',tt:'「문의 없는 실적」에 사건 종류 필터와 엑셀 다운로드를 넣었습니다',
+  b:'**① 사건 종류 필터** — 「사무소·사건」 열 머리에 드롭다운이 생겼습니다. 신규가입·재가입·요금제 상향·요금제변경으로 걸러 봅니다. 선택지는 **지금 목록에 실제로 있는 값만** 만들어, 골랐는데 0건인 경우가 없습니다(「문의 있는 건」의 문의 유형 필터와 같은 자리·같은 방식).\n\n**② 엑셀 다운로드** — 툴바에 **[⬇ 엑셀 다운로드]** 가 생겼습니다. **지금 걸린 필터 그대로, 화면의 300건 제한과 무관하게 전체**를 뽑습니다. 시트는 둘입니다 — **「문의없는실적」**(사무소·사업자번호·발생일·사건·요금제 변경·유입경로·가입채널·최종실적·중복 여부·실적보호업체)과 **「채널별_집계」**(유입경로별 전체 · 가입채널별 가입+재가입 · 최종실적별 가입+상향). 집계가 읽지 않는 칸은 **「해당없음(집계 대상 아님)」**으로 적어, 빈칸인지 대상이 아닌지 헷갈리지 않습니다.'},
  {id:'u129',d:'2026-11-02',tt:'두 탭에 같은 업체가 겹쳐 보이면 「중복?」으로 알려줍니다',
   b:'「문의 없는 실적」은 **같은 사업자번호에 같은 종류의 문의가 있으면** 그 사건을 빼고 보여줍니다. 그런데 **문의 쪽에 사업자번호가 없거나 다르게 적혀 있으면** 걸러지지 않아 같은 업체가 두 탭에 모두 뜹니다. 이제 그런 행 이름 옆에 **「중복?」** 배지가 붙고, 목록 오른쪽 위 건수 옆에 **몇 건인지** 함께 뜹니다. 배지에 마우스를 올리면 **상대 문의의 제목·등록일과 양쪽 사업자번호를 나란히** 보여줍니다 — 번호가 다르면 **「다른 업체일 수 있습니다」**라고 알려주므로 1초면 가려집니다. **단정하지 않고 묻는 이유**는 이름만 비슷한 다른 업체가 실제로 있기 때문입니다. **집계는 바뀌지 않습니다** — 표시만 합니다. 진짜 중복이면 그 행의 [제외]를 누르면 됩니다.'},
  {id:'u128',d:'2026-11-02',tt:'「문의 없는 실적」의 가입채널·최종실적 칸을 다시 열었습니다',
