@@ -2220,7 +2220,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.415';
+window.__APP_VER='v08.416';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -11274,7 +11274,7 @@ window.spPaint=function(){
      · 한 행에서 3개 값을 드롭다운으로 바로 지정(IX_inqSet — 신청 관리 상세와 같은 저장 경로)
      · 판정 규칙 설정표(유입경로 관리·추천 정보 관리)도 이 탭에서 연다
      집계 화면(일별·월별·누적)과 같은 원천을 쓰므로, 여기서 지정하면 그 숫자가 바로 따라온다. */
-  window.__pmF=window.__pmF||{q:'',todo:'all',otodo:'all',d1:'',d2:'',fIn:'',fJn:'',fFn:'',fTp:'',oKind:''};   /* v08.415 oKind = 「문의 없는 실적」 사건 종류 필터 */   // v08.98 열별 필터 · v08.174 문의 유형 · v08.196 문의 없는 실적 상태 필터(otodo)
+  window.__pmF=window.__pmF||{q:'',todo:'all',otodo:'all',d1:'',d2:'',fIn:'',fJn:'',fFn:'',fTp:'',oKind:'',oPl:'',oIn:'',oJn:'',oFn:''};   /* v08.415 oKind · v08.416 「문의 없는 실적」 열 필터(요금제·유입경로·가입채널·최종실적) */   // v08.98 열별 필터 · v08.174 문의 유형 · v08.196 문의 없는 실적 상태 필터(otodo)
   /* v08.98 요청("실적과 관련없는 업무등록은 실적관리에서 빠져야 해") — 공지·테스트 등 실적 대상이
      아닌 문의는 실적 관리에서 제외한다. 실적 분석 3탭이 쓰는 기준(inqCls)과 같아야 두 화면의
      모수가 어긋나지 않는다. */
@@ -11795,6 +11795,10 @@ window.spPaint=function(){
     const s2=[];
     s2.push(['문의 없는 실적 — 채널별 집계 · 발생일 '+per+' · 현재 목록 필터 기준']);
     if(window.__pmF.oKind)s2.push(['사건 종류 필터: '+window.__pmF.oKind]);
+    /* v08.416 — 열 필터를 걸고 받으면 어떤 조건으로 뽑은 표인지 시트에 남는다 */
+    [['oPl','요금제'],['oIn','유입경로'],['oJn','가입채널'],['oFn','최종실적']].forEach(function(f){
+      if(window.__pmF[f[0]])s2.push([f[1]+' 필터: '+window.__pmF[f[0]]]);
+    });
     s2.push([]);
     s2.push(['[유입경로별] 전체 '+list.length+'건']);
     s2.push(['유입경로','건수']);
@@ -11897,6 +11901,22 @@ window.spPaint=function(){
       const hit=L.filter(function(r){ return cls(r)===need; });
       return hit.length?hit[0]:null;
     };
+    /* v08.416 열 필터 — 고른 값과 실제 값을 맞춘다. '(미지정)'은 빈 값·미분류를 함께 고른다. */
+    const _omv=function(sel,v){
+      if(!sel)return true;
+      const t=String(v||'').trim();
+      return sel==='(미지정)' ? un(t) : (t===sel);
+    };
+    /* 선택지는 **필터 걸기 전 전체(all)** 에서 만든다 — 한 칸을 고를 때마다 다른 칸 선택지가
+       사라지면 되돌리기 어렵다(문의 쪽 열 필터와 같은 원칙). */
+    const _ovals=function(pick){
+      const m={}; let na=false;
+      all.forEach(function(x){
+        const t=String(pick(x)||'').trim();
+        if(un(t))na=true; else m[t]=1;
+      });
+      return (na?['(미지정)']:[]).concat(Object.keys(m).sort());
+    };
     const feedsJoin =function(x){ return x.kind==='신규가입'||x.kind==='재가입'; };
     const feedsFinal=function(x){ return feedsJoin(x)||x.kind==='요금제 상향'; };
     const isJoin=feedsFinal;   /* 아래 「지정 안 된 건」 집계·필터가 쓰던 이름 — 집계가 읽는 기준 */
@@ -11922,6 +11942,12 @@ window.spPaint=function(){
          요금제변경)로 거른다. 선택지는 **지금 목록에 실제로 있는 값만** 만든다(고르면 0건인 선택지를
          두지 않는다 — 문의 쪽 열 필터와 같은 원칙). */
       if(F.oKind&&String(x.kind||'')!==F.oKind)return false;
+      /* v08.416 요청("여기 필터가 없는데") — 요금제·유입경로·가입채널·최종실적 열에도 필터를 둔다.
+         「문의 있는 건」의 열 필터와 같은 방식이다. 값이 없거나 미분류인 건은 '(미지정)'으로 고른다. */
+      if(!_omv(F.oPl, x.detail))return false;
+      if(!_omv(F.oIn, v.inflow))return false;
+      if(!_omv(F.oJn, v.joinCh))return false;
+      if(!_omv(F.oFn, v.final ))return false;
       return true;
     });
     /* 카드 숫자는 문의 쪽과 같은 방식 — 지금 목록(필터 전 전체)을 센다 */
@@ -12056,8 +12082,23 @@ window.spPaint=function(){
            +'border:1px solid '+(cur?'var(--teal)':'var(--border)')+';border-radius:4px;background:#fff;font-weight:400">'
            +'<option value="">전체</option>'+opts+'</select></th>';
        })()
-      +'<th style="text-align:left;width:13%">요금제</th>'
-      +'<th style="width:19%">유입경로</th><th style="width:19%">가입채널</th><th style="width:19%">최종실적</th>'
+      /* v08.416 요청("여기 필터가 없는데") — 요금제·유입경로·가입채널·최종실적 열 머리에도
+         같은 모양의 필터를 둔다. 선택지는 필터 걸기 전 전체(all)에서 만든다. */
+      +(function(){
+         const oth=function(label,key,vals,w,left){
+           const cur=F[key]||'';
+           const opts=vals.map(function(v){
+             return '<option value="'+IX_esc(v)+'"'+(cur===v?' selected':'')+'>'+IX_esc(v)+'</option>'; }).join('');
+           return '<th style="'+(left?'text-align:left;':'')+'width:'+w+'"><div>'+label+'</div>'
+             +'<select onchange="pmSet(\''+key+'\',this.value)" style="width:100%;margin-top:3px;font-size:9.5px;padding:2px 4px;'
+             +'border:1px solid '+(cur?'var(--teal)':'var(--border)')+';border-radius:4px;background:#fff;font-weight:400">'
+             +'<option value="">전체</option>'+opts+'</select></th>';
+         };
+         return oth('요금제','oPl',_ovals(function(x){return x.detail;}),'13%',true)
+           +oth('유입경로','oIn',_ovals(function(x){return val(x).inflow;}),'19%',false)
+           +oth('가입채널','oJn',_ovals(function(x){return val(x).joinCh;}),'19%',false)
+           +oth('최종실적','oFn',_ovals(function(x){return val(x).final;}),'19%',false);
+       })()
       /* v08.397 요청("문의없는 실적에도 관리열 추가해줘") — 「문의 있는 건」과 같은 자리·같은 모양 */
       +'<th style="width:60px">관리</th>'
       +'</tr></thead><tbody>'+body+'</tbody></table></div>'
@@ -16544,6 +16585,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u131',d:'2026-11-03',tt:'「문의 없는 실적」의 요금제·유입경로·가입채널·최종실적 열에도 필터가 생겼습니다',
+  b:'지난번에 「사무소·사건」 열에만 필터를 넣었는데, **나머지 네 열(요금제·유입경로·가입채널·최종실적)에도 같은 드롭다운**을 넣었습니다. 「문의 있는 건」 탭의 열 필터와 같은 자리·같은 방식입니다.\n\n**선택지는 필터를 걸기 전 전체 목록에서** 만듭니다 — 한 칸을 고를 때마다 다른 칸의 선택지가 사라지면 되돌리기 어렵기 때문입니다. 아직 지정하지 않았거나 **미분류**인 건은 **「(미지정)」** 으로 한 번에 골라 볼 수 있습니다 — 「유입경로는 넣었는데 최종실적만 빠진 건」을 찾을 때 씁니다.\n\n필터를 건 채로 **[⬇ 엑셀 다운로드]** 를 누르면 그 조건 그대로 받아지고, 「채널별_집계」 시트 맨 위에 **어떤 필터로 뽑았는지**가 함께 적힙니다.'},
  {id:'u130',d:'2026-11-03',tt:'「문의 없는 실적」에 사건 종류 필터와 엑셀 다운로드를 넣었습니다',
   b:'**① 사건 종류 필터** — 「사무소·사건」 열 머리에 드롭다운이 생겼습니다. 신규가입·재가입·요금제 상향·요금제변경으로 걸러 봅니다. 선택지는 **지금 목록에 실제로 있는 값만** 만들어, 골랐는데 0건인 경우가 없습니다(「문의 있는 건」의 문의 유형 필터와 같은 자리·같은 방식).\n\n**② 엑셀 다운로드** — 툴바에 **[⬇ 엑셀 다운로드]** 가 생겼습니다. **지금 걸린 필터 그대로, 화면의 300건 제한과 무관하게 전체**를 뽑습니다. 시트는 둘입니다 — **「문의없는실적」**(사무소·사업자번호·발생일·사건·요금제 변경·유입경로·가입채널·최종실적·중복 여부·실적보호업체)과 **「채널별_집계」**(유입경로별 전체 · 가입채널별 가입+재가입 · 최종실적별 가입+상향). 집계가 읽지 않는 칸은 **「해당없음(집계 대상 아님)」**으로 적어, 빈칸인지 대상이 아닌지 헷갈리지 않습니다.'},
  {id:'u129',d:'2026-11-02',tt:'두 탭에 같은 업체가 겹쳐 보이면 「중복?」으로 알려줍니다',
