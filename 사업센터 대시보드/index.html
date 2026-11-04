@@ -184,6 +184,31 @@ body.sidecol #content{margin-left:46px}
    (①~⑥ 등)이 한 페이지씩 나뉘어 슬라이드처럼 찍히게 한다. 화면 표시에는 영향 없다(전부
    @media print 안에서만 적용). 주간회의뿐 아니라 .keytask를 쓰는 다른 화면도 같은 방식으로
    인쇄되므로 새 계산·새 구조 없이 기존 클래스만 재사용한다. */
+/* ══ v08.419 요청("주간회의 디자인 그대로 ppt로 변환해줘") ══
+   PPT 로 찍을 때만 쓰는 규칙. 화면 밖 작업판(#wkShotStage)에 블록을 복제해 넣고 찍으므로
+   **화면에는 아무 영향이 없다**(작업판은 left:-10000px 에 있다).
+   생각은 아래 @media print 와 같다 — 누르는 것(버튼·선택상자)은 빼고, 창이 좁아도 접히지 않게
+   다열 배치를 못박는다. 두 곳을 따로 두는 이유는 인쇄는 화면 전체를, 이쪽은 블록 하나씩
+   고정 폭(1280px)으로 찍기 때문이다. 한쪽을 고치면 **다른 쪽도 같이 본다.** */
+.wk-shot{width:1280px}
+.wk-shot .btn,.wk-shot button,.wk-shot select,
+.wk-shot .kt-add,.wk-shot .kt-del,.wk-shot .cb,
+.wk-shot .link,.wk-shot .wk-note-btn,.wk-shot .wk-note,
+.wk-shot .wkt-tabs{display:none!important}
+.wk-shot input,.wk-shot textarea{
+  border:none!important;background:transparent!important;padding:0!important;
+  -webkit-appearance:none;appearance:none;color:var(--tx)!important;resize:none!important;
+}
+.wk-shot .pf-2col{grid-template-columns:1fr 1fr!important}
+.wk-shot .pf-2col .pf-col{padding:0 16px!important}
+.wk-shot .pf-2col .pf-col:first-child{padding-left:0!important;border-right:1px solid var(--line)!important;border-bottom:none!important;padding-bottom:0!important;margin-bottom:0!important}
+.wk-shot .pf-2col .pf-col:last-child{padding-right:0!important}
+.wk-shot .wk-kpis.hero-row{grid-template-columns:repeat(4,1fr)!important}
+.wk-shot .wk-issue-g{grid-template-columns:1fr 1fr!important}
+.wk-shot .wk-cols2{grid-template-columns:1fr 1fr!important}
+.wk-shot .wkin-grid{grid-template-columns:repeat(3,1fr)!important}
+.wk-shot .wkin-grid.four{grid-template-columns:repeat(4,1fr)!important}
+.wk-shot .keytask,.wk-shot .wktm-card{box-shadow:none!important;margin-bottom:0!important}
 @media print{
   /* ══ v08.309 요청("이 설명들은 이모티콘 안에 숨겨줘") ══
      표 아래 기준 설명은 화면에서는 💡을 눌러야 펼쳐지지만(기본 접힘), 인쇄·PDF에는 그대로
@@ -841,7 +866,11 @@ table.t .na{color:#B6BCC6}
    색은 그룹 요소의 --gc 변수로 받아 머리 배경(8% 농도)·왼쪽 띠·점에 함께 쓴다. */
 .pf-grp{margin-top:14px;border-left:3px solid var(--gc,#CBD5E1);padding-left:10px}
 .pf-grp:first-child{margin-top:0}
-.pf-grp-h{background:color-mix(in srgb, var(--gc,#CBD5E1) 10%, transparent);
+/* ══ v08.419 — 여기 있던 color-mix() 를 뺀다 ══
+   화면에 보이는 색은 **똑같다**(10% 농도 = 16진수 끝 1A). 바꾼 이유는 PPT 로 찍을 때 쓰는
+   html2canvas 가 이 CSS 함수를 못 읽고 **「unsupported color function」 오류로 멈추기** 때문이다.
+   옅은 색은 그룹 요소에서 --gcl 로 함께 넘겨받는다(--gc 는 왼쪽 띠·점에 그대로 쓴다). */
+.pf-grp-h{background:var(--gcl,#CBD5E11A);
   border-radius:5px;padding:5px 9px;margin-bottom:2px}
 .pf-grp-h i{background:var(--gc,#CBD5E1)}
 .pf-grp-b .pf-row:last-child{border-bottom:none}
@@ -2226,13 +2255,17 @@ table.t .na{color:#B6BCC6}
        그 라이브러리가 **거기 실제로 있는지** 확인한다. -->
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"
   onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';document.head.appendChild(s);"></script>
+<!-- v08.419 요청("주간회의 디자인 그대로 ppt로 변환") — 화면을 그대로 찍어 슬라이드에 넣는다.
+     경로는 npm 패키지를 받아 dist/html2canvas.min.js 가 있는지 확인하고 적었다(CLAUDE.md 35번). -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+  onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';document.head.appendChild(s);"></script>
 <script>
 /* v08.210 요청("사이드바 로고 옆에 버전 기록해줘") — 화면에 버전을 표시하지 않기로 한
    이전 결정(CLAUDE.md 예외 규정, 2026-09-02)과 다른 새 지시라 그 사실을 사용자에게 먼저
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.418';
+window.__APP_VER='v08.419';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -16597,6 +16630,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u134',d:'2026-11-04',tt:'PPT 가 이제 주간회의 화면 그대로 나옵니다',
+  b:'종전에는 화면의 값을 읽어 **슬라이드로 다시 그렸습니다** — 글자는 고칠 수 있었지만 색 띠·배지·카드 모양이 화면과 달랐습니다.\n\n이제 각 블록을 **보이는 그대로 찍어** 슬라이드 한 장에 넣습니다. 표의 이번 달 강조, 상태별 색, 진행률 막대까지 화면과 같습니다.\n\n**달라진 점** — 그림이라 **파워포인트에서 글자 수정은 안 됩니다.** 대신 보이는 것과 100% 같습니다.\n\n**그 밖에** — 버튼처럼 누르는 것은 빠지고(인쇄할 때와 같습니다), (!) 기준 설명은 **발표자 노트**에 들어갑니다. ② 팀별은 **팀마다 한 장**입니다. 한 장보다 긴 블록은 이어지는 장으로 나뉘며, 자른 자리가 겹치게 조금 포개 둡니다. 그 주에 내용이 없는 블록은 슬라이드를 만들지 않습니다.'},
  {id:'u133',d:'2026-11-04',tt:'PPT 내려받기가 안 되던 문제를 고쳤습니다',
   b:'어제 올린 [📊 PPT로 내려받기]를 누르면 **「PPT 라이브러리를 불러오지 못했습니다」** 만 뜨고 아무것도 받아지지 않았습니다.\n\n**원인** — PPT 를 만드는 외부 라이브러리를 엑셀·차트와 같은 곳(cdnjs)에서 가져오도록 적었는데, **그 라이브러리는 거기에 올라가 있지 않습니다**. 주소가 없는 곳을 가리키고 있었습니다.\n\n**조치** — 이 화면이 이미 쓰고 있는 다른 곳(jsdelivr)으로 바꿨고, 혹시 그곳이 잠깐 막히면 **다른 곳으로 한 번 더** 받아오도록 했습니다. 이제 정상적으로 받아집니다.'},
  {id:'u132',d:'2026-11-04',tt:'주간회의를 PPT(편집 가능한 슬라이드)로 내려받습니다',
@@ -18571,11 +18606,12 @@ function teamProgressHtml(team){
        +'<div class="pf-own">'+esc(ownOf(c)||'—')+'</div></div>';
     }).join('');
     /* v07.48 단계 색을 그룹 전체에 넘긴다 — 머리 배경·왼쪽 띠에 같은 색을 쓴다 */
-    return '<div class="pf-grp" style="--gc:'+colColor(s)+'">'
+    /* v08.419 --gcl = 같은 색의 10% 농도(끝 1A). CSS 에서 color-mix 를 쓰지 않기 위함 */
+    return '<div class="pf-grp" style="--gc:'+colColor(s)+';--gcl:'+colColor(s)+'1A">'
       +'<div class="pf-grp-h"><i></i>'+s+'<span class="pf-cnt">'+list.length+'</span></div>'
       +'<div class="pf-grp-b">'+rows+'</div></div>';
   };
-  const mgmtHtml=mgmt.length?'<div class="pf-grp" style="--gc:#9CA3AF"><div class="pf-grp-h"><i></i>관리<span class="pf-cnt">'+mgmt.length+'</span></div><div class="pf-grp-b">'
+  const mgmtHtml=mgmt.length?'<div class="pf-grp" style="--gc:#9CA3AF;--gcl:#9CA3AF1A"><div class="pf-grp-h"><i></i>관리<span class="pf-cnt">'+mgmt.length+'</span></div><div class="pf-grp-b">'
    +mgmt.map(c=>'<div class="pf-row" onclick="goTab(\''+team.id+'\')">'
      +'<div class="pf-nm"><b>'+esc(c.nm)+'</b>'+priBadge(c)+'</div>'
      +'<div><span class="chip">'+esc(c.g)+'</span></div>'
@@ -19083,44 +19119,55 @@ function wkPptChunks(root){
   return out;
 }
 
-/* 표 한 줄의 높이(인치) 가늠 — 칸이 좁은데 글이 길면 파워포인트가 줄을 접어 행이 커진다.
-   가장 긴 칸을 기준으로 몇 줄이 될지 세어 더한다. 이걸 안 하면 장을 나눌 때 아래로 넘친다. */
-/* 표 열 너비 — 첫 열은 항목 이름(「ㄴ 업셀(인사이트·전환)」 같은 긴 글)이 들어가므로 넓게 잡는다.
-   고르게 나누면 12개월 표에서 첫 열이 0.86in 밖에 안 돼 글자가 서너 줄로 접힌다. */
-function wkPptColW(nCols,CW){
-  if(nCols<=1)return [CW];
-  const first=Math.min(CW*0.42, Math.max(CW/nCols, nCols>=8?2.1:2.6));
-  const rest=(CW-first)/(nCols-1);
-  const a=[first];
-  for(let i=1;i<nCols;i++)a.push(rest);
-  return a;
-}
-function wkPptRowH(row,cols){
-  let ln=1;
-  (row||[]).forEach(function(c,i){
-    const w=Array.isArray(cols)?(cols[i]||cols[0]):cols;
-    const per=Math.max(4,Math.floor(w/0.105));      /* 9.5pt 한글 기준 한 줄에 들어가는 글자 수 */
-    ln=Math.max(ln,Math.ceil(String(c||'').length/per));
-  });
-  /* 9.5pt 한 줄 ≈ 0.19in + 칸 안쪽 여백. 넉넉히 잡는다 — 모자라게 잡으면 아래로 넘친다. */
-  return 0.26+0.17*(Math.min(ln,4)-1);
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   v08.419 요청("디자인을 따로 만들지 말고, 주간회의 디자인 그대로 ppt로 변환해줘")
+   ── 방식을 바꿨다 ────────────────────────────────────────────────────────
+   v08.417은 화면의 값을 읽어 **PPT 요소(글·표)로 다시 그렸다** — 글자를 고칠 수 있는 대신
+   화면의 색 띠·배지·카드 모양은 비슷하게 흉내 낼 수밖에 없었다. 사용자가 받아 보고
+   **「화면 그대로」** 로 바꾸라고 확정했다.
+   → 이제 각 블록을 **화면 그대로 찍어** 슬라이드 한 장에 그림 하나로 넣는다.
+   ※ 되돌림 이력(CLAUDE.md 13번): v08.417 편집 가능한 슬라이드 → **v08.419 화면 그대로 그림**.
+     「글자를 고칠 수 있게 해달라」는 말이 다시 나오면 이 줄부터 보여 준다.
+   ※ 그림이라 **파워포인트에서 글자 수정은 안 된다.** 대신 보이는 것과 100% 같다.
 
-/* 조각 하나가 슬라이드에서 차지할 높이(인치) — 넘치면 다음 장으로 넘기는 판단에만 쓴다 */
-function wkPptH(ch,W){
-  /* 11pt 한글 한 글자 ≈ 0.122in, 한 줄 높이 ≈ 0.21in(줄간격 1.15 포함).
-     이 값을 작게 잡으면 다음 조각이 **글 위에 겹쳐 찍힌다** — 실제로 겹쳤다(v08.417 수정). */
-  const CPL=function(w){ return Math.max(8,Math.floor(w/0.122)); };
-  const lines=function(s,w){ return Math.max(1,Math.ceil(String(s||'').length/CPL(w))); };
-  if(ch.t==='h2')  return 0.36;
-  if(ch.t==='p')   return 0.21*lines(ch.s,W)+0.06;
-  if(ch.t==='bul') return ch.items.reduce(function(a,s){ return a+0.215*lines(s,W-0.34)+0.03; },0.05);
-  if(ch.t==='kpi') return 0.95;
-  if(ch.t==='table'){
-    const cols=wkPptColW(Math.max(1,(ch.rows[0]||[]).length),W);
-    return ch.rows.reduce(function(a,r){ return a+wkPptRowH(r,cols); },0.14);
+   ── 설계 ────────────────────────────────────────────────────────────────
+   ⚠️ 화면을 건드리지 않는다. 「#weekBody」 안에 **화면 밖(left:-10000px) 작업판**을 만들고
+      거기에 블록을 복제해 찍는다. 조상이 같으므로 CSS가 똑같이 먹는다(화면이 깜빡이지 않는다).
+   ⚠️ 복제본은 **입력칸의 지금 값**을 따로 옮겨 준다 — cloneNode 는 사용자가 친 값을 안 가져온다.
+   ⚠️ 폭을 1280px로 **고정**한다. 창 크기에 따라 2열이 1열로 접히면 슬라이드가 매주 달라진다
+      (인쇄 규칙이 같은 이유로 2열을 못박아 둔 것과 같다).
+   ⚠️ 버튼·선택상자처럼 **누르는 것은 뺀다**(인쇄할 때와 같다). 기준 설명(.wk-note)은 그림에서
+      빼고 **발표자 노트**로 보낸다 — 슬라이드는 깨끗하게, 기준은 보존.
+   ⚠️ ② 팀별은 화면에서 탭이라 한 팀만 보인다 → **화면과 같은 함수**(teamBlockHtml)로
+      팀마다 한 장씩 만든다.
+   ⚠️ 한 장보다 긴 블록은 **그림을 잘라** 여러 장으로 잇는다(자른 자리가 겹치게 조금 포갠다).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 화면 밖 작업판을 만든다(없으면). 조상이 #weekBody 라 CSS가 화면과 똑같이 적용된다. */
+function wkShotStage(){
+  const host=document.getElementById('weekBody'); if(!host)return null;
+  let st=document.getElementById('wkShotStage');
+  if(!st){
+    st=document.createElement('div');
+    st.id='wkShotStage';
+    host.appendChild(st);
   }
-  return 0.2;
+  st.className='wk-shot';
+  st.setAttribute('style','position:fixed;left:-10000px;top:0;width:'+WK_SHOT_W+'px;'
+    +'background:#fff;padding:14px;z-index:-1;pointer-events:none');
+  st.innerHTML='';
+  return st;
+}
+const WK_SHOT_W=1280;            /* 찍을 때 쓰는 고정 폭 — 창 크기와 무관하게 같은 결과를 낸다 */
+
+/* 복제본에 지금 입력값을 옮긴다 — cloneNode 는 attribute 만 베껴 사용자가 친 값이 빠진다 */
+function wkShotFill(src,dst){
+  const a=src.querySelectorAll('input,textarea'), b=dst.querySelectorAll('input,textarea');
+  for(let i=0;i<a.length&&i<b.length;i++){
+    if(b[i].tagName==='TEXTAREA')b[i].textContent=a[i].value;
+    b[i].value=a[i].value;
+    b[i].setAttribute('value',a[i].value);
+  }
 }
 
 /* ── 본체 ───────────────────────────────────────────────────────────────── */
@@ -19129,160 +19176,116 @@ window.wkExportPptx=function(){
     if(typeof toast==='function')toast('PPT 라이브러리를 불러오지 못했습니다 — 인터넷 연결을 확인해 주세요');
     return;
   }
+  if(typeof html2canvas==='undefined'){
+    if(typeof toast==='function')toast('화면 캡처 라이브러리를 불러오지 못했습니다 — 인터넷 연결을 확인해 주세요');
+    return;
+  }
   const body=document.getElementById('weekBody');
   if(!body||!body.children.length){
     if(typeof toast==='function')toast('주간회의 화면을 먼저 열어 주세요');
     return;
   }
-  const TEAL='00C896', DARK='0F172A', GRAY='64748B', LINE='E2E8F0', SOFT='F1F5F9';
-  const SW=13.333, SH=7.5;                  /* 16:9 — 인쇄(@page)와 같은 크기 */
-  const MX=0.62;                            /* 좌우 여백 */
-  const CW=SW-MX*2;                         /* 본문 폭 */
-  const TOP=1.18, BOT=0.62;                 /* 제목 아래 / 바닥글 위 */
-  const CH=SH-TOP-BOT;                      /* 본문에 쓸 수 있는 높이 */
-  const period=CURWK+' ~ '+wkEndOf(CURWK);
-  const pptx=new PptxGenJS();
-  pptx.defineLayout({name:'WK16x9',width:SW,height:SH});
-  pptx.layout='WK16x9';
-  pptx.title='주간회의 '+period;
+  const stage=wkShotStage(); if(!stage)return;
 
-  let pageNo=0;
-  const newSlide=function(title,note){
-    pageNo++;
-    const s=pptx.addSlide();
-    s.background={color:'FFFFFF'};
-    s.addShape(pptx.ShapeType.rect,{x:0,y:0,w:0.16,h:SH,fill:{color:TEAL}});
-    s.addText(String(title||''),{x:MX,y:0.40,w:CW,h:0.52,fontSize:21,bold:true,color:DARK,
-      fontFace:'맑은 고딕',valign:'middle'});
-    s.addShape(pptx.ShapeType.line,{x:MX,y:1.02,w:CW,h:0,line:{color:TEAL,width:2}});
-    s.addText(period,{x:MX,y:SH-0.50,w:CW/2,h:0.3,fontSize:10,color:GRAY,fontFace:'맑은 고딕'});
-    s.addText(String(pageNo),{x:MX+CW/2,y:SH-0.50,w:CW/2,h:0.3,fontSize:10,color:GRAY,
-      align:'right',fontFace:'맑은 고딕'});
-    if(note)s.addNotes(String(note));
-    return s;
-  };
-
-  /* 조각 목록을 슬라이드에 흘려 넣는다. 넘치면 「(계속)」 장을 만든다. */
-  const layout=function(title,chunks,note){
-    if(!chunks.length)return 0;
-    let s=newSlide(title,note), y=TOP, made=1;
-    const room=function(h){
-      if(y+h<=TOP+CH)return;
-      s=newSlide(title+' (계속)'); y=TOP; made++;
-    };
-    chunks.forEach(function(ch,ci){
-      const h=wkPptH(ch,CW);
-      /* 소제목은 바로 아래 내용과 **붙여서** 넘긴다 — 제목만 앞 장에 남고 표가 다음 장으로
-         넘어가면 어느 표인지 알 수 없다(「전체 가입 현황」이 그랬다). */
-      /* 표는 통째로 옮기지 않는다 — 들어가는 만큼 지금 장에 담고 나머지를 다음 장으로 넘긴다.
-         통째로 옮기면 앞 장이 텅 빈 채 끝난다(실제로 그랬다). 남은 자리가 거의 없을 때만 넘긴다. */
-      const NEED=1.3;
-      if(ch.t==='h2'&&chunks[ci+1]){
-        const nx=chunks[ci+1];
-        room(Math.min(h+(nx.t==='table'?NEED:wkPptH(nx,CW)),CH));
-      }else if(ch.t==='table'){
-        room(NEED);
-      }else{
-        room(Math.min(h,CH));
-      }
-      if(ch.t==='h2'){
-        s.addText(ch.s,{x:MX,y:y,w:CW,h:0.3,fontSize:13,bold:true,color:TEAL,fontFace:'맑은 고딕'});
-        y+=0.36;
-      }else if(ch.t==='p'){
-        s.addText(ch.s,{x:MX,y:y,w:CW,h:h-0.06,fontSize:11,color:DARK,fontFace:'맑은 고딕',valign:'top'});
-        y+=h;
-      }else if(ch.t==='bul'){
-        s.addText(ch.items.map(function(t){return {text:t,options:{bullet:{code:'2022'},breakLine:true}};}),
-          {x:MX+0.06,y:y,w:CW-0.06,h:h-0.04,fontSize:11,color:DARK,fontFace:'맑은 고딕',
-           lineSpacingMultiple:1.15,valign:'top'});
-        y+=h;
-      }else if(ch.t==='kpi'){
-        const n=ch.items.length, per=Math.min(n,6), cw=CW/per;
-        ch.items.forEach(function(k,i){
-          const col=i%per, rw=Math.floor(i/per);
-          if(rw&&col===0){ y+=0.95; room(0.95); }
-          const bx=MX+col*cw, by=y+rw*0;
-          s.addShape(pptx.ShapeType.roundRect,{x:bx+0.04,y:by,w:cw-0.08,h:0.82,
-            fill:{color:SOFT},line:{color:LINE,width:1},rectRadius:0.06});
-          s.addText(k.v,{x:bx+0.04,y:by+0.06,w:cw-0.08,h:0.42,fontSize:20,bold:true,color:DARK,
-            align:'center',fontFace:'맑은 고딕'});
-          s.addText(k.l,{x:bx+0.04,y:by+0.48,w:cw-0.08,h:0.28,fontSize:9,color:GRAY,
-            align:'center',fontFace:'맑은 고딕'});
-        });
-        y+=0.95;
-      }else if(ch.t==='table'){
-        /* 표가 한 장보다 길면 머리 행을 다시 달아 장을 나눈다 — 숫자만 남고 구분이 사라지면 못 읽는다 */
-        const head=ch.head?ch.rows[0]:null;
-        const colW=wkPptColW(Math.max(1,(ch.rows[0]||[]).length),CW);
-        let rest=ch.head?ch.rows.slice(1):ch.rows.slice();
-        while(rest.length){
-          /* 들어갈 수 있는 만큼만 담는다 — 한 줄씩 높이를 더해 보고 넘치면 거기서 끊는다 */
-          let room2=(TOP+CH)-y-0.14-(head?wkPptRowH(head,colW):0), take=0;
-          while(take<rest.length){
-            const hh=wkPptRowH(rest[take],colW);
-            if(take&&room2-hh<0)break;
-            room2-=hh; take++;
-          }
-          const part=rest.splice(0,Math.max(1,take));
-          const rows=(head?[head]:[]).concat(part).map(function(r,ri){
-            const isH=head&&ri===0;
-            return r.map(function(c){ return {text:c,options:{
-              bold:isH,color:isH?'FFFFFF':DARK,fill:{color:isH?TEAL:'FFFFFF'},
-              align:(ri>0&&/^[\d.,%+\-—]*$/.test(c))?'right':'left'}}; });
-          });
-          s.addTable(rows,{x:MX,y:y,w:CW,colW:colW,fontSize:9.5,fontFace:'맑은 고딕',
-            border:{type:'solid',color:LINE,pt:0.5},valign:'middle',margin:[2,4,2,4]});
-          y+=rows.reduce(function(a,r){ return a+wkPptRowH(r.map(function(c){return c.text;}),colW); },0.14);
-          if(rest.length){ s=newSlide(title+' (계속)'); y=TOP; made++; }
-        }
-      }
-    });
-    return made;
-  };
-
-  /* ── 표지 ── */
-  (function(){
-    const s=pptx.addSlide();
-    s.background={color:'0F172A'};
-    s.addShape(pptx.ShapeType.rect,{x:0,y:SH-0.22,w:SW,h:0.22,fill:{color:TEAL}});
-    s.addText('주간회의',{x:1.0,y:2.55,w:SW-2.0,h:0.9,fontSize:40,bold:true,color:'FFFFFF',fontFace:'맑은 고딕'});
-    s.addText(period,{x:1.0,y:3.45,w:SW-2.0,h:0.5,fontSize:18,color:TEAL,fontFace:'맑은 고딕'});
-    const now=new Date(), p=function(v){return String(v).padStart(2,'0');};
-    s.addText('사업센터 · '+now.getFullYear()+'-'+p(now.getMonth()+1)+'-'+p(now.getDate())+' 기준',
-      {x:1.0,y:3.95,w:SW-2.0,h:0.4,fontSize:11,color:'94A3B8',fontFace:'맑은 고딕'});
-  })();
-
-  /* ── 화면의 블록을 순서대로 ── */
-  let nSkip=0;
+  /* ① 찍을 거리를 모은다 — 화면 순서 그대로 */
+  const jobs=[];
   [].forEach.call(body.children,function(blk){
-    const titles=[].map.call(blk.querySelectorAll('.kt-h'),function(h){ return wkPptPlain(h); }).filter(Boolean);
-    const title=titles[0]||'주간회의';
-    /* 기준 설명(.wk-note)은 발표자 노트로 — 슬라이드 본문에는 넣지 않는다 */
+    if(blk.id==='wkShotStage')return;
+    const title=wkPptPlain(blk.querySelector('.kt-h'))||'주간회의';
     const note=[].map.call(blk.querySelectorAll('.wk-note'),function(x){ return wkPptPlain(x); })
       .filter(Boolean).join('\n\n');
-    /* ② 팀별은 화면에서 탭이라 한 팀만 그려져 있다 — 팀마다 화면과 같은 함수로 한 장씩 만든다 */
+    /* ② 팀별 — 팀마다 한 장 */
     if(/팀별/.test(title)&&typeof teamBlockHtml==='function'&&typeof WEEKTEAMS!=='undefined'){
       WEEKTEAMS.forEach(function(t){
-        const d=document.createElement('div');
-        d.innerHTML=teamBlockHtml(t);
-        const ch=wkPptChunks(d);
-        if(ch.length)layout('② '+t.nm+'팀 — 핵심과제·추진현황·주간업무', ch);
-        else nSkip++;
+        const probe=document.createElement('div');
+        probe.innerHTML=teamBlockHtml(t);
+        if(!wkPptChunks(probe).length)return;          /* 빈 팀은 건너뛴다 */
+        jobs.push({html:teamBlockHtml(t),note:''});
       });
       return;
     }
-    const ch=wkPptChunks(blk);
-    if(!ch.length){ nSkip++; return; }        /* 빈 블록은 슬라이드를 만들지 않는다(사용자 확정) */
-    layout(title,ch,note);
+    if(!wkPptChunks(blk).length)return;                /* 빈 블록은 슬라이드를 만들지 않는다 */
+    jobs.push({el:blk,note:note});
   });
+  if(!jobs.length){
+    if(typeof toast==='function')toast('이번 주에 담을 내용이 없습니다');
+    return;
+  }
 
-  const p2=function(v){return String(v).padStart(2,'0');};
-  const nw=new Date();
-  const fn='주간회의_'+period.replace(/ /g,'')+'_'
-    +nw.getFullYear()+p2(nw.getMonth()+1)+p2(nw.getDate())+'_'+p2(nw.getHours())+p2(nw.getMinutes())+'.pptx';
-  pptx.writeFile({fileName:fn});
-  if(typeof toast==='function')
-    toast('PPT 내려받는 중 — 슬라이드 '+pageNo+'장'+(nSkip?(' · 빈 블록 '+nSkip+'개 제외'):''));
+  const SW=13.333, SH=7.5, MG=0.26;                    /* 16:9 · 바깥 여백 */
+  const AW=SW-MG*2, AH=SH-MG*2;
+  const pptx=new PptxGenJS();
+  pptx.defineLayout({name:'WK16x9',width:SW,height:SH});
+  pptx.layout='WK16x9';
+  pptx.title='주간회의 '+CURWK+' ~ '+wkEndOf(CURWK);
+
+  let nSlide=0;
+  if(typeof toast==='function')toast('슬라이드를 만드는 중입니다 — 잠시만 기다려 주세요');
+
+  /* 한 장에 다 안 들어가면 그림을 잘라 여러 장으로 잇는다 */
+  const addShots=function(cv,note){
+    const maxH=Math.round(cv.width*(AH/AW));           /* 한 장에 들어갈 수 있는 세로 픽셀 */
+    const OV=Math.round(cv.width*0.012);               /* 자른 자리가 겹치게 조금 포갠다 */
+    let y=0, first=true;
+    while(y<cv.height){
+      const h=Math.min(maxH,cv.height-y);
+      const part=document.createElement('canvas');
+      part.width=cv.width; part.height=h;
+      const cx=part.getContext('2d');
+      cx.fillStyle='#fff'; cx.fillRect(0,0,part.width,part.height);
+      cx.drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
+      const dispH=AW*h/cv.width;
+      const s=pptx.addSlide();
+      s.background={color:'FFFFFF'};
+      s.addImage({data:part.toDataURL('image/png'),x:MG,y:MG,w:AW,h:Math.min(dispH,AH)});
+      if(first&&note)s.addNotes(note);
+      nSlide++; first=false;
+      if(cv.height-y<=maxH)break;
+      y+=maxH-OV;
+    }
+  };
+
+  /* 한 건씩 차례로 찍는다(동시에 찍으면 서로 레이아웃을 흔든다) */
+  const step=function(i){
+    if(i>=jobs.length){
+      const p2=function(v){return String(v).padStart(2,'0');};
+      const nw=new Date();
+      const fn='주간회의_'+CURWK+'~'+wkEndOf(CURWK)+'_'
+        +nw.getFullYear()+p2(nw.getMonth()+1)+p2(nw.getDate())+'_'+p2(nw.getHours())+p2(nw.getMinutes())+'.pptx';
+      pptx.writeFile({fileName:fn}).then(function(){
+        if(typeof toast==='function')toast('PPT 내려받는 중 — 슬라이드 '+nSlide+'장');
+      });
+      stage.innerHTML=''; stage.setAttribute('style','display:none');
+      return;
+    }
+    const j=jobs[i];
+    stage.innerHTML='';
+    let node;
+    if(j.html){ const d=document.createElement('div'); d.innerHTML=j.html; node=d.firstElementChild; }
+    else { node=j.el.cloneNode(true); wkShotFill(j.el,node); }
+    stage.appendChild(node);
+    html2canvas(stage,{scale:2,backgroundColor:'#ffffff',logging:false,useCORS:true,
+      width:WK_SHOT_W,windowWidth:WK_SHOT_W,
+      /* 그림이 안 열려도 오래 기다리지 않는다(기본 15초 × 장 수면 한참 걸린다) */
+      imageTimeout:3000,
+      /* 작업판과 그 조상만 베낀다 — 이 파일은 화면 하나에 전체 기능이 들어 있어
+         문서를 통째로 베끼면 장마다 몇 초씩 걸린다. 필요한 것만 남겨 빠르게 찍는다. */
+      ignoreElements:function(el){
+        try{
+          /* ⚠️ <head> 와 스타일은 반드시 남긴다. 이걸 빼면 복제본에 CSS 가 없어져
+             .wk-shot 규칙(버튼 숨기기 등)이 안 먹는다 — 실제로 버튼이 그대로 찍혔다. */
+          const t=el.tagName;
+          if(t==='HEAD'||t==='STYLE'||t==='LINK'||t==='BASE'||t==='META'||t==='TITLE')return false;
+          return !(el===stage||stage.contains(el)||el.contains(stage));
+        }catch(e){ return false; }
+      }})
+      .then(function(cv){ addShots(cv,j.note); step(i+1); })
+      .catch(function(e){
+        if(typeof toast==='function')toast('슬라이드를 만들지 못했습니다 — ' + (e&&e.message||''));
+        stage.innerHTML=''; stage.setAttribute('style','display:none');
+      });
+  };
+  step(0);
 };
 
 /* ══ v06.39 통합 현황(home) — 원본 index.html 통합현황을 이식(요청: "기존 index파일의 통합현황 가져와").
