@@ -2265,7 +2265,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.419';
+window.__APP_VER='v08.420';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -16630,6 +16630,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u135',d:'2026-11-04',tt:'PPT 슬라이드 묶음을 요청대로 다시 짰습니다',
+  b:'**① 월별 실적 현황**(전체 가입 현황 포함) — **무조건 한 장**입니다. 길면 줄여서 한 장에 맞춥니다.\n\n**② ① 주간 실적 요약 + ①-2 주간 인사이트 + ①-3 기간별 발생 건 목록** — 세 블록을 **묶어서 한 장**으로 만듭니다.\n\n**③ 팀별** — **추진현황**과 **주간 업무 현황**을 **따로 떼어** 각각 다른 장으로 만듭니다(두 장 모두 팀 이름이 위에 붙습니다). 과제가 많으면 추진현황은 이어지는 장으로 나뉩니다.\n\n한 장에 넣는 묶음은 **폭을 자동으로 맞춰** 슬라이드를 꽉 채웁니다 — 좌우에 흰 여백이 크게 남지 않습니다.\n\n**함께 고친 것** — ① 주간 실적 요약의 숫자가 알아볼 수 없는 모양으로 찍히던 문제를 고쳤습니다(입력칸을 글자로 바꿔 찍습니다). ⑤ 공유사항·⑥ 결정사항·③ 핵심 이슈의 글도 같은 이유로 또렷해졌습니다.'},
  {id:'u134',d:'2026-11-04',tt:'PPT 가 이제 주간회의 화면 그대로 나옵니다',
   b:'종전에는 화면의 값을 읽어 **슬라이드로 다시 그렸습니다** — 글자는 고칠 수 있었지만 색 띠·배지·카드 모양이 화면과 달랐습니다.\n\n이제 각 블록을 **보이는 그대로 찍어** 슬라이드 한 장에 넣습니다. 표의 이번 달 강조, 상태별 색, 진행률 막대까지 화면과 같습니다.\n\n**달라진 점** — 그림이라 **파워포인트에서 글자 수정은 안 됩니다.** 대신 보이는 것과 100% 같습니다.\n\n**그 밖에** — 버튼처럼 누르는 것은 빠지고(인쇄할 때와 같습니다), (!) 기준 설명은 **발표자 노트**에 들어갑니다. ② 팀별은 **팀마다 한 장**입니다. 한 장보다 긴 블록은 이어지는 장으로 나뉘며, 자른 자리가 겹치게 조금 포개 둡니다. 그 주에 내용이 없는 블록은 슬라이드를 만들지 않습니다.'},
  {id:'u133',d:'2026-11-04',tt:'PPT 내려받기가 안 되던 문제를 고쳤습니다',
@@ -19160,13 +19162,29 @@ function wkShotStage(){
 }
 const WK_SHOT_W=1280;            /* 찍을 때 쓰는 고정 폭 — 창 크기와 무관하게 같은 결과를 낸다 */
 
-/* 복제본에 지금 입력값을 옮긴다 — cloneNode 는 attribute 만 베껴 사용자가 친 값이 빠진다 */
+/* 복제본의 입력칸을 **그냥 글자로 바꾼다.**
+   두 가지를 한 번에 해결한다.
+     ① cloneNode 는 attribute 만 베껴 사용자가 친 값이 빠진다.
+     ② html2canvas 는 input/textarea 안의 글자를 제대로 못 그린다 — 실제로 ① 주간 실적 요약의
+        숫자가 알아볼 수 없는 모양으로 찍혔다(v08.420에서 발견).
+   글꼴·크기·색·정렬은 **원본에서 계산된 값을 그대로 복사**해 모양이 달라지지 않게 한다. */
 function wkShotFill(src,dst){
   const a=src.querySelectorAll('input,textarea'), b=dst.querySelectorAll('input,textarea');
   for(let i=0;i<a.length&&i<b.length;i++){
-    if(b[i].tagName==='TEXTAREA')b[i].textContent=a[i].value;
-    b[i].value=a[i].value;
-    b[i].setAttribute('value',a[i].value);
+    const o=a[i], c=b[i];
+    if(!c.parentNode)continue;
+    const cs=window.getComputedStyle(o);
+    const rep=document.createElement('div');
+    rep.className=o.className;
+    rep.textContent=String(o.value==null?'':o.value);
+    const st=rep.style;
+    st.display=(cs.display==='inline'?'inline-block':cs.display);
+    st.width=cs.width; st.minHeight=cs.height; st.boxSizing='border-box';
+    st.font=cs.font; st.lineHeight=cs.lineHeight; st.letterSpacing=cs.letterSpacing;
+    st.color=cs.color; st.textAlign=cs.textAlign; st.padding=cs.padding;
+    st.margin=cs.margin; st.whiteSpace='pre-wrap'; st.wordBreak='break-word';
+    st.border='none'; st.background='transparent';
+    c.parentNode.replaceChild(rep,c);
   }
 }
 
@@ -19187,26 +19205,75 @@ window.wkExportPptx=function(){
   }
   const stage=wkShotStage(); if(!stage)return;
 
-  /* ① 찍을 거리를 모은다 — 화면 순서 그대로 */
+  /* ══ ① 찍을 거리를 모은다 ══
+     v08.420 사용자 지시로 **묶음 구성이 화면 블록과 1:1 이 아니다.**
+       · 월별 실적 현황(+전체 가입 현황) → **무조건 한 장**("월별 실적현황은 한장으로 나와야해")
+       · ① 주간 실적 요약 + ①-2 인사이트 + ①-3 발생 건 목록 → **묶어서 한 장**
+       · ② 팀별 → 팀마다 **추진현황 / 주간 업무 현황 두 장으로 나눔**("분리")
+       · 그 밖(③④⑤⑥) → 종전대로 블록 하나에 한 장(길면 이어지는 장)
+     fit:true 는 **한 장에 다 넣는다**(넘치면 줄여서 맞춘다 — 글자가 작아지는 대신 안 잘린다).
+     fit:false 는 들어가는 만큼 담고 나머지를 다음 장으로 넘긴다. */
   const jobs=[];
-  [].forEach.call(body.children,function(blk){
-    if(blk.id==='wkShotStage')return;
-    const title=wkPptPlain(blk.querySelector('.kt-h'))||'주간회의';
-    const note=[].map.call(blk.querySelectorAll('.wk-note'),function(x){ return wkPptPlain(x); })
-      .filter(Boolean).join('\n\n');
-    /* ② 팀별 — 팀마다 한 장 */
+  const blocks=[].filter.call(body.children,function(b){ return b.id!=='wkShotStage'; });
+  const titleOf=function(b){ return wkPptPlain(b.querySelector('.kt-h'))||''; };
+  const noteOf=function(list){
+    const o=[];
+    list.forEach(function(b){
+      [].forEach.call(b.querySelectorAll('.wk-note'),function(x){ const t=wkPptPlain(x); if(t)o.push(t); });
+    });
+    return o.join('\n\n');
+  };
+  const nonEmpty=function(list){ return list.filter(function(b){ return wkPptChunks(b).length; }); };
+
+  const gMon=[], gWeek=[], rest=[];
+  blocks.forEach(function(b){
+    const t=titleOf(b);
+    if(/월별 실적 현황/.test(t)){ gMon.push(b); return; }
+    if(/^①/.test(t)){ gWeek.push(b); return; }      /* ① · ①-2 · ①-3 */
+    rest.push(b);
+  });
+  const m1=nonEmpty(gMon);  if(m1.length)jobs.push({els:m1,note:noteOf(m1),fit:true});
+  const w1=nonEmpty(gWeek); if(w1.length)jobs.push({els:w1,note:noteOf(w1),fit:true});
+
+  /* 팀 카드를 「추진현황까지」와 「주간 업무 현황」 두 토막으로 가른다.
+     두 토막 모두 팀 머리(.wktm-h)를 달고 간다 — 어느 팀 슬라이드인지 보여야 한다. */
+  const teamParts=function(html){
+    const d=document.createElement('div'); d.innerHTML=html;
+    const card=d.firstElementChild; if(!card)return [];
+    const kids=[].slice.call(card.children);
+    let idx=-1;
+    kids.forEach(function(x,i){
+      if(idx<0&&x.classList&&x.classList.contains('wk-sub')&&/주간 업무/.test(wkPptPlain(x)))idx=i;
+    });
+    if(idx<1)return [card];
+    const cut=function(keep){
+      const c=card.cloneNode(true);
+      [].slice.call(c.children).forEach(function(x,i){ if(i!==0&&!keep(i))x.remove(); });
+      return c;
+    };
+    const a1=cut(function(i){ return i<idx; });        /* 머리 + 핵심과제 + 추진현황 */
+    const b1=cut(function(i){ return i>=idx; });       /* 머리 + 주간 업무 현황 */
+    return [a1,b1];
+  };
+
+  rest.forEach(function(blk){
+    const title=titleOf(blk);
     if(/팀별/.test(title)&&typeof teamBlockHtml==='function'&&typeof WEEKTEAMS!=='undefined'){
       WEEKTEAMS.forEach(function(t){
-        const probe=document.createElement('div');
-        probe.innerHTML=teamBlockHtml(t);
+        const html=teamBlockHtml(t);
+        const probe=document.createElement('div'); probe.innerHTML=html;
         if(!wkPptChunks(probe).length)return;          /* 빈 팀은 건너뛴다 */
-        jobs.push({html:teamBlockHtml(t),note:''});
+        teamParts(html).forEach(function(node){
+          if(!wkPptChunks(node).length)return;         /* 그 주에 업무 기록이 없으면 그 장은 안 만든다 */
+          jobs.push({nodes:[node],note:'',fit:false});
+        });
       });
       return;
     }
     if(!wkPptChunks(blk).length)return;                /* 빈 블록은 슬라이드를 만들지 않는다 */
-    jobs.push({el:blk,note:note});
+    jobs.push({els:[blk],note:noteOf([blk]),fit:false});
   });
+
   if(!jobs.length){
     if(typeof toast==='function')toast('이번 주에 담을 내용이 없습니다');
     return;
@@ -19223,7 +19290,19 @@ window.wkExportPptx=function(){
   if(typeof toast==='function')toast('슬라이드를 만드는 중입니다 — 잠시만 기다려 주세요');
 
   /* 한 장에 다 안 들어가면 그림을 잘라 여러 장으로 잇는다 */
-  const addShots=function(cv,note){
+  const addShots=function(cv,note,fit){
+    /* v08.420 fit — 길어도 **한 장**에 넣는다. 넘치면 줄여서 맞추고 가운데에 둔다.
+       (잘라 나누지 않는다. 대신 글자가 작아진다 — 사용자가 「한장으로」라고 정한 묶음에만 쓴다.) */
+    if(fit){
+      let w=AW, h=AW*cv.height/cv.width;
+      if(h>AH){ h=AH; w=AH*cv.width/cv.height; }
+      const s1=pptx.addSlide();
+      s1.background={color:'FFFFFF'};
+      s1.addImage({data:cv.toDataURL('image/png'),x:MG+(AW-w)/2,y:MG+(AH-h)/2,w:w,h:h});
+      if(note)s1.addNotes(note);
+      nSlide++;
+      return;
+    }
     const maxH=Math.round(cv.width*(AH/AW));           /* 한 장에 들어갈 수 있는 세로 픽셀 */
     const OV=Math.round(cv.width*0.012);               /* 자른 자리가 겹치게 조금 포갠다 */
     let y=0, first=true;
@@ -19260,12 +19339,29 @@ window.wkExportPptx=function(){
     }
     const j=jobs[i];
     stage.innerHTML='';
-    let node;
-    if(j.html){ const d=document.createElement('div'); d.innerHTML=j.html; node=d.firstElementChild; }
-    else { node=j.el.cloneNode(true); wkShotFill(j.el,node); }
-    stage.appendChild(node);
+    /* els = 화면에 있는 블록(값을 옮겨 복제) · nodes = 이미 만들어 둔 조각(팀 토막) */
+    (j.els||[]).forEach(function(el){
+      const c=el.cloneNode(true); wkShotFill(el,c); stage.appendChild(c);
+    });
+    (j.nodes||[]).forEach(function(n){ stage.appendChild(n); });
+    /* v08.420 「한 장에 다 넣는」 묶음은 **폭을 자동으로 맞춘다.**
+       1280px 로 찍으면 세로로 길어, 한 장에 맞추려고 줄였을 때 좌우에 흰 여백이 크게 남는다.
+       폭을 넓히면 표·2열이 펼쳐져 **세로가 줄고** 16:9 에 가까워져 슬라이드를 꽉 채운다.
+       찍지 않고 높이만 재 보므로(scrollHeight) 비용이 거의 없다.
+       **가장 좁은 폭**부터 보고 16:9 를 넘기는 순간 멈춘다 — 폭이 넓을수록 글자가 작아지기 때문이다. */
+    let shotW=WK_SHOT_W;
+    if(j.fit){
+      const want=AW/AH;
+      const cand=[WK_SHOT_W,1440,1600,1760,1920,2100];
+      for(let k=0;k<cand.length;k++){
+        stage.style.width=cand[k]+'px';
+        shotW=cand[k];
+        if(stage.scrollWidth/Math.max(1,stage.scrollHeight)>=want)break;
+      }
+    }
+    stage.style.width=shotW+'px';
     html2canvas(stage,{scale:2,backgroundColor:'#ffffff',logging:false,useCORS:true,
-      width:WK_SHOT_W,windowWidth:WK_SHOT_W,
+      width:shotW,windowWidth:shotW,
       /* 그림이 안 열려도 오래 기다리지 않는다(기본 15초 × 장 수면 한참 걸린다) */
       imageTimeout:3000,
       /* 작업판과 그 조상만 베낀다 — 이 파일은 화면 하나에 전체 기능이 들어 있어
@@ -19279,7 +19375,7 @@ window.wkExportPptx=function(){
           return !(el===stage||stage.contains(el)||el.contains(stage));
         }catch(e){ return false; }
       }})
-      .then(function(cv){ addShots(cv,j.note); step(i+1); })
+      .then(function(cv){ addShots(cv,j.note,j.fit); step(i+1); })
       .catch(function(e){
         if(typeof toast==='function')toast('슬라이드를 만들지 못했습니다 — ' + (e&&e.message||''));
         stage.innerHTML=''; stage.setAttribute('style','display:none');
