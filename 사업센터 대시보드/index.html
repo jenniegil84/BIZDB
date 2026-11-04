@@ -2215,15 +2215,24 @@ table.t .na{color:#B6BCC6}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <!-- v08.417 요청("주간회의에 있는 내용을 ppt자료로 다운로드") — 편집 가능한 .pptx 를 만든다.
-     엑셀(XLSX)과 같은 방식으로 CDN 에서 받는다. 받지 못하면 버튼이 안내만 띄우고 아무 일도 하지 않는다. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+     받지 못하면 버튼이 안내만 띄우고 아무 일도 하지 않는다.
+     ══ v08.418 버그 수정(사용자 화면: "PPT 라이브러리를 불러오지 못했습니다") ══
+     v08.417에서 XLSX·Chart.js 와 같은 **cdnjs** 주소를 썼는데, **cdnjs 에는 pptxgenjs 가 없다**
+     (404). 그래서 배포하자마자 버튼이 안내만 띄웠다.
+     → 같은 파일에서 이미 쓰고 있는 **jsdelivr**(위 supabase 줄과 같은 곳)로 바꾼다. 경로는 npm
+       패키지 안의 실제 파일(`dist/pptxgen.bundle.js`)을 확인하고 적었다.
+     → 한 CDN 이 잠깐 막혀도 되도록 **unpkg 로 한 번 더** 시도한다(onerror).
+     ※ 교훈: 라이브러리마다 올라가 있는 CDN 이 다르다. 쓰던 CDN 이라고 그대로 가져다 쓰지 말고
+       그 라이브러리가 **거기 실제로 있는지** 확인한다. -->
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"
+  onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';document.head.appendChild(s);"></script>
 <script>
 /* v08.210 요청("사이드바 로고 옆에 버전 기록해줘") — 화면에 버전을 표시하지 않기로 한
    이전 결정(CLAUDE.md 예외 규정, 2026-09-02)과 다른 새 지시라 그 사실을 사용자에게 먼저
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.417';
+window.__APP_VER='v08.418';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -16588,6 +16597,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u133',d:'2026-11-04',tt:'PPT 내려받기가 안 되던 문제를 고쳤습니다',
+  b:'어제 올린 [📊 PPT로 내려받기]를 누르면 **「PPT 라이브러리를 불러오지 못했습니다」** 만 뜨고 아무것도 받아지지 않았습니다.\n\n**원인** — PPT 를 만드는 외부 라이브러리를 엑셀·차트와 같은 곳(cdnjs)에서 가져오도록 적었는데, **그 라이브러리는 거기에 올라가 있지 않습니다**. 주소가 없는 곳을 가리키고 있었습니다.\n\n**조치** — 이 화면이 이미 쓰고 있는 다른 곳(jsdelivr)으로 바꿨고, 혹시 그곳이 잠깐 막히면 **다른 곳으로 한 번 더** 받아오도록 했습니다. 이제 정상적으로 받아집니다.'},
  {id:'u132',d:'2026-11-04',tt:'주간회의를 PPT(편집 가능한 슬라이드)로 내려받습니다',
   b:'주간회의 화면 오른쪽 위 버튼이 **[📊 PPT로 내려받기]** 로 바뀌었습니다(종전 [🖨 PDF로 저장] 자리). 누르면 지금 보고 있는 그 주의 내용이 **.pptx 파일**로 받아집니다.\n\n**화면 그대로 찍은 그림이 아니라 진짜 슬라이드**입니다 — 파워포인트·구글 슬라이드에서 글자를 고치고 발표자 노트를 달 수 있습니다.\n\n**담기는 것** — 표지 + 월별 실적 현황 + ① 주간 실적 요약 + ①-2 인사이트 + ①-3 발생 건 목록 + ② 팀별(마케팅·UX·영업을 **팀마다 한 장씩**) + ③ 핵심 이슈 + ④ VOC + ⑤ 공유사항 + ⑥ 결정사항. **그 주에 내용이 없는 블록은 슬라이드를 만들지 않습니다.** 한 장에 넘치면 「(계속)」 장으로 이어지고, 표는 머리 행을 다시 달아 나눕니다.\n\n(!) 를 눌러야 보이던 **기준 설명은 발표자 노트**에 들어갑니다 — 슬라이드 본문은 깨끗하게 두고 기준은 남깁니다.\n\n※ PDF 가 필요하면 브라우저 인쇄(Ctrl+P → PDF로 저장)로 종전과 똑같이 뽑힙니다.'},
  {id:'u131',d:'2026-11-03',tt:'「문의 없는 실적」의 요금제·유입경로·가입채널·최종실적 열에도 필터가 생겼습니다',
