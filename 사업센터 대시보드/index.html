@@ -2265,7 +2265,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.420';
+window.__APP_VER='v08.421';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -16630,6 +16630,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u136',d:'2026-11-05',tt:'PPT 파일을 표준 형식으로 다시 묶었습니다 — 구글 슬라이드 호환',
+  b:'받은 .pptx 의 내부 구조가 **문서 표준과 조금 달랐습니다**(목차 파일이 맨 앞에 있어야 하는데 뒤쪽에 있었습니다). 파워포인트는 그냥 열지만, 깐깐한 프로그램은 거부할 수 있습니다. 이제 **표준대로 다시 묶어** 내보냅니다. 파일 크기도 20% 정도 줄었습니다.\n\n**구글 슬라이드로 옮기는 방법** — 앱끼리 복사·붙여넣기는 잘 안 됩니다. 아래 방법을 쓰세요.\n1. 구글 슬라이드에서 **파일 > 슬라이드 가져오기**\n2. **업로드** 탭에서 받은 .pptx 를 올립니다\n3. 넣을 슬라이드를 고르고 **슬라이드 가져오기**\n\n새 문서로 통째로 열려면 구글 드라이브에 올린 뒤 **마우스 오른쪽 > 연결 앱 > Google 슬라이드**를 쓰면 됩니다.'},
  {id:'u135',d:'2026-11-04',tt:'PPT 슬라이드 묶음을 요청대로 다시 짰습니다',
   b:'**① 월별 실적 현황**(전체 가입 현황 포함) — **무조건 한 장**입니다. 길면 줄여서 한 장에 맞춥니다.\n\n**② ① 주간 실적 요약 + ①-2 주간 인사이트 + ①-3 기간별 발생 건 목록** — 세 블록을 **묶어서 한 장**으로 만듭니다.\n\n**③ 팀별** — **추진현황**과 **주간 업무 현황**을 **따로 떼어** 각각 다른 장으로 만듭니다(두 장 모두 팀 이름이 위에 붙습니다). 과제가 많으면 추진현황은 이어지는 장으로 나뉩니다.\n\n한 장에 넣는 묶음은 **폭을 자동으로 맞춰** 슬라이드를 꽉 채웁니다 — 좌우에 흰 여백이 크게 남지 않습니다.\n\n**함께 고친 것** — ① 주간 실적 요약의 숫자가 알아볼 수 없는 모양으로 찍히던 문제를 고쳤습니다(입력칸을 글자로 바꿔 찍습니다). ⑤ 공유사항·⑥ 결정사항·③ 핵심 이슈의 글도 같은 이유로 또렷해졌습니다.'},
  {id:'u134',d:'2026-11-04',tt:'PPT 가 이제 주간회의 화면 그대로 나옵니다',
@@ -19188,6 +19190,43 @@ function wkShotFill(src,dst){
   }
 }
 
+/* ══ v08.421 버그 수정(사용자 신고 "다운받은 ppt로 구글슬라이드에 복사 붙혀넣기가 안되네") ══
+   PptxGenJS 가 만든 zip 은 **OOXML 규격을 어긴다** — `[Content_Types].xml` 이 맨 앞이 아니라
+   20번째에 있고, 앞에 폴더 항목 19개가 들어 있다. 파워포인트는 너그럽게 열지만
+   **구글 슬라이드는 이런 파일을 받지 않는다**(규격: 이 파일은 패키지의 첫 항목이어야 한다).
+   → 저장 직전에 **규격대로 다시 묶는다**: `[Content_Types].xml` 을 맨 앞에 두고 폴더 항목을 뺀다.
+   JSZip 은 pptxgen.bundle.js 안에 함께 들어 있어 그대로 쓴다. 없으면 종전 방식으로 떨어진다. */
+function wkPptSave(pptx,fn,nSlide){
+  const done=function(){ if(typeof toast==='function')toast('PPT 내려받는 중 — 슬라이드 '+nSlide+'장'); };
+  const plain=function(){ try{ pptx.writeFile({fileName:fn}).then(done); }catch(e){} };
+  if(typeof JSZip==='undefined'){ plain(); return; }
+  pptx.write({outputType:'arraybuffer'})
+    .then(function(buf){ return JSZip.loadAsync(buf); })
+    .then(function(zip){
+      const CT='[Content_Types].xml';
+      const names=Object.keys(zip.files).filter(function(k){ return !zip.files[k].dir; });
+      if(names.indexOf(CT)<0)throw new Error('no content types');
+      names.sort(function(a,b){ return (a===CT?0:1)-(b===CT?0:1); });   /* 이 파일만 맨 앞으로 */
+      const out=new JSZip();
+      return names.reduce(function(pr,k){
+        return pr.then(function(){ return zip.file(k).async('uint8array'); })
+                 .then(function(d){ out.file(k,d,{binary:true,createFolders:false}); });
+      },Promise.resolve()).then(function(){
+        return out.generateAsync({type:'blob',compression:'DEFLATE',
+          mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation'});
+      });
+    })
+    .then(function(blob){
+      const u=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=u; a.download=fn; a.style.display='none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ try{ document.body.removeChild(a); URL.revokeObjectURL(u); }catch(e){} },2000);
+      done();
+    })
+    .catch(function(){ plain(); });   /* 다시 묶는 데 실패하면 적어도 종전 파일은 받게 한다 */
+}
+
 /* ── 본체 ───────────────────────────────────────────────────────────────── */
 window.wkExportPptx=function(){
   if(typeof PptxGenJS==='undefined'){
@@ -19331,9 +19370,7 @@ window.wkExportPptx=function(){
       const nw=new Date();
       const fn='주간회의_'+CURWK+'~'+wkEndOf(CURWK)+'_'
         +nw.getFullYear()+p2(nw.getMonth()+1)+p2(nw.getDate())+'_'+p2(nw.getHours())+p2(nw.getMinutes())+'.pptx';
-      pptx.writeFile({fileName:fn}).then(function(){
-        if(typeof toast==='function')toast('PPT 내려받는 중 — 슬라이드 '+nSlide+'장');
-      });
+      wkPptSave(pptx,fn,nSlide);
       stage.innerHTML=''; stage.setAttribute('style','display:none');
       return;
     }
