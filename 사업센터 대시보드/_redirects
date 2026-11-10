@@ -1,0 +1,14 @@
+# ══ v08.423 보안 강화 — 내부 문서·점검 도구를 웹에서 못 받게 막는다 ══
+# 이 폴더는 Netlify 가 통째로 공개한다(CLAUDE.md 34번). index.html 만 보여야 하는데
+# 작업용 문서(정책·집계 규칙·변경 이력)와 점검 스크립트까지 주소만 알면 받아졌다.
+# 아래 목록에 있는 주소는 404 로 돌린다.
+# ⚠️ 이 폴더에 새 .md 나 점검용 .js 를 추가하면 **여기에도 한 줄 추가**해야 한다.
+/CLAUDE.md                       /404.html   404
+/CODE_MAP.md                     /404.html   404
+/PROJECT_CONTEXT.md              /404.html   404
+/MD_ROUTER.md                    /404.html   404
+/사업센터_정책정리_v01_43.md       /404.html   404
+/사업센터_데이터출처_정리_v01_03.md /404.html   404
+/사업센터_데이터정합규칙_v01_03.md  /404.html   404
+/_check_counts.js                /404.html   404
+/_check_screen_text.js           /404.html   404

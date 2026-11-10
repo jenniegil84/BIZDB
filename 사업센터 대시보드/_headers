@@ -1,0 +1,8 @@
+# ══ v08.423 보안 강화 — 모든 응답에 붙는 보안 머리글 ══
+# meta 태그로는 지정할 수 없는 것들을 여기서 준다(특히 frame-ancestors).
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin
