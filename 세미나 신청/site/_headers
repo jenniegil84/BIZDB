@@ -1,9 +1,0 @@
-# 세미나 신청 페이지 보안 머리글 · v00.02 (2026-11-12)
-# v00.02: 세모리포트 서비스 폰트(Noto Sans KR, Google Fonts) 허용
-# connect-src: 신청서를 받는 구글 Apps Script 주소만 허용(script.google.com 이 googleusercontent 로 넘겨준다)
-/*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://script.google.com https://script.googleusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
