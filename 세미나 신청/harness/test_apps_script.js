@@ -1,4 +1,4 @@
-// 하네스: Apps Script(Code.gs)를 가짜 구글/Flow 환경에서 돌려 검증 · v00.01
+// 하네스: Apps Script(Code.gs)를 가짜 구글/Flow 환경에서 돌려 검증 · v00.02
 // 실행: node "세미나 신청/harness/test_apps_script.js"
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const src = fs.readFileSync(path.join(__dirname, '../apps-script/Code.gs'), 'utf8');

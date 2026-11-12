@@ -1,4 +1,4 @@
-// 하네스: 신청 페이지를 실제 브라우저로 열어 화면·검증·제출 흐름을 확인 · v00.01
+// 하네스: 신청 페이지를 실제 브라우저로 열어 화면·검증·제출 흐름을 확인 · v00.02
 // 실행: node "세미나 신청/harness/check_page.js"  (스크린샷은 harness/out/ 에 저장, 저장소에 올리지 않음)
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
@@ -17,6 +17,7 @@ async function open(browser, { endpoint = EP, reply, viewport } = {}) {
   const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => m.type() === 'error' && errors.push(m.text()));
   await page.clock.install({ time: FIXED });
   const html = HTML.replace("endpoint: ''", "endpoint: '" + endpoint + "'");
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ contentType: 'text/css', body: '' }));
   await page.route('https://seminar.test/', r => r.fulfill({ contentType: 'text/html', body: html }));
   const sent = [];
   await page.route(EP, async r => { sent.push(JSON.parse(r.request().postData())); await r.fulfill({ contentType: 'application/json', body: JSON.stringify(reply || { ok: true }), headers: { 'access-control-allow-origin': '*' } }); });
@@ -40,8 +41,8 @@ async function fill(page) {
   });
 
   console.log('[화면 내용 — 기준일 2026-11-12]');
-  await t('다음 세미나 = 2026년 11월 18일 (수)', async () => {
-    const { page, ctx } = await open(browser); eq(await page.textContent('#heroNextDate'), '2026년 11월 18일 (수)'); await ctx.close();
+  await t('다음 세미나 = 11월 18일 (수) · 2026년 · 온라인', async () => {
+    const { page, ctx } = await open(browser); eq(await page.textContent('#heroNextDate'), '11월 18일 (수)'); eq(await page.textContent('#heroNextMeta'), '2026년 · 온라인'); await ctx.close();
   });
   await t('일정 3개 · 회차 선택지 3개(11/18, 12/16, 1/20)', async () => {
     const { page, ctx } = await open(browser);
@@ -58,6 +59,18 @@ async function fill(page) {
     const { page, ctx } = await open(browser);
     eq(await page.getAttribute('#contactBtn', 'href'), 'https://qe398.channel.io'); eq(await page.getAttribute('#contactBtn', 'target'), '_blank');
     await ctx.close();
+  });
+
+  await t('일정의 「이 회차 신청」 → 신청서 회차가 그 날짜로 바뀜', async () => {
+    const { page, ctx } = await open(browser);
+    await page.click('#sessions li:nth-child(2) .pick');
+    eq(await page.inputValue('#session'), '2026-12-16'); await ctx.close();
+  });
+  await t('개인정보 동의 내용: 기본 접힘 → 「내용 보기」로 펼침', async () => {
+    const { page, ctx } = await open(browser);
+    eq(await page.isVisible('#consentTable'), false);
+    await page.click('#consentToggle'); eq(await page.isVisible('#consentTable'), true);
+    eq((await page.textContent('#consentTable')).includes('보유 기간'), true); await ctx.close();
   });
 
   console.log('[입력 검증]');
@@ -83,7 +96,7 @@ async function fill(page) {
   await t('정상 제출 → 전송값 확인 + 완료 화면', async () => {
     const { page, ctx, sent, errors } = await open(browser); await fill(page); await page.click('#submitBtn');
     await page.waitForSelector('#done.show');
-    eq(sent[0], { session: '2026-11-18', name: '홍길동', phone: '01012345678', email: 'hong@example.com', office: '길동세무회계', topic: '부가세 보고서', agree: true, website: '', pageVersion: 'v00.01' });
+    eq(sent[0], { session: '2026-11-18', name: '홍길동', phone: '01012345678', email: 'hong@example.com', office: '길동세무회계', topic: '부가세 보고서', agree: true, website: '', pageVersion: 'v00.02' });
     eq(await page.textContent('#done h3'), '신청이 완료되었습니다');
     eq(await page.isVisible('#applyForm'), false);
     eq(errors, [], 'console errors');
@@ -104,6 +117,7 @@ async function fill(page) {
   await t('375px 폭 — 가로 스크롤 없음', async () => {
     const { page, ctx } = await open(browser, { viewport: { width: 375, height: 812 } });
     eq(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+    eq(await page.isVisible('.hdr-cta'), true, '모바일에서도 상단 신청 버튼 표시');
     await page.screenshot({ path: path.join(OUT, 'mobile.png'), fullPage: true });
     await ctx.close();
   });
