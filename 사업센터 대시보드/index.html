@@ -2302,7 +2302,7 @@ table.t .na{color:#B6BCC6}
    알렸다. document.title에는 더 이상 버전이 없어 기존 paintVer()의 title 정규식 추출이
    항상 빈 값이었다 — 이 상수 하나를 유일한 기준으로 삼는다. 새 버전을 만들 때마다 이 줄만
    갱신하면 사이드바 배지("사업센터" 로고 옆 #sdVer)에 그대로 반영된다. */
-window.__APP_VER='v08.426';
+window.__APP_VER='v08.427';
 window.__wembProtect=[];
 /* ══ v08.279 요청("위 업체 사업자번호가 발견될 경우 실적관리에 파란테두리로 표시해주고
    유입경로 가입채널 최종실적을 내부영업으로 적용해줘" · "위멤버스 실적확정은 빨간테두리,
@@ -2732,11 +2732,105 @@ window.inflowAdd=function(g){
     inflowSave();
   });
 };
+/* ══ v08.427 요청("B로 해" — 삭제할 때 쓰는 건을 보여주고 고르게 한다) ══
+   종전 삭제는 **선택지에서만** 뺐다. 그래서 이미 그 경로를 쓰던 건은 「(삭제됨)」으로 남고,
+   **자동 판정으로 정해지는 건은 화면을 그릴 때마다 그 값이 다시 만들어졌다**
+   (삭제 목록 `__inflowHide` 를 `inflowGroups()` 만 보고, 판정 쪽은 보지 않기 때문).
+   사용자 신고: "왜자꾸 삭제된 유입경로를 가져오는거야".
+   → 지우기 전에 **몇 건이 쓰고 있는지 세어 보여주고**, 옮길지·비울지·그대로 둘지 고르게 한다.
+   ⚠️ 옮기거나 비우면 그 건에 **직접 지정 값이 남는다**(빈 값 = 명시적 해제). 그래야 자동 판정이
+     다시 끼어들지 못한다 — 이게 「자꾸 돌아오는」 것을 끊는 핵심이다. */
+
+/* 이 경로를 지금 쓰고 있는 건 — 문의 쪽과 「문의 없는 실적」 쪽을 모두 센다(둘 다 집계에 들어간다) */
+window.inflowUsage=function(path){
+  const inq=[], orp=[];
+  try{
+    (window.pmSrcRows?window.pmSrcRows():[]).forEach(function(r){
+      const v=(typeof IX_inflowResolve==='function')?IX_inflowResolve(r.fid,r.tt,r.ci):'';
+      if(v===path)inq.push(r.fid);
+    });
+  }catch(e){}
+  try{
+    (window.pmOrphanRows?window.pmOrphanRows('',''):[]).forEach(function(x){
+      if(x.wemb)return;                                     /* 위멤버스 확정건은 값을 덮어쓰지 않는다 */
+      if(typeof window.salesInsideHit==='function'&&window.salesInsideHit({bz:x.bz}))return;
+      const v=(window.pmEvVal({key:x.key,old:x.keyOld})||{}).inflow||'';
+      if(v===path)orp.push(x.key);
+    });
+  }catch(e){}
+  return {inq:inq, orp:orp, n:inq.length+orp.length};
+};
+
+/* 모아 둔 건의 유입경로를 한 번에 바꾼다. newVal 이 빈 값이면 「미지정(명시적 해제)」이다. */
+window.inflowReassign=function(hit,newVal){
+  if(hit.inq.length){
+    hit.inq.forEach(function(fid){
+      (window.IX___inqManage[fid]=window.IX___inqManage[fid]||{}).inflow=newVal;
+    });
+    if(typeof IX_saveToSheet==='function')IX_saveToSheet('inq_manage',window.IX___inqManage);
+  }
+  if(hit.orp.length){
+    window.__pmMaster=window.__pmMaster||{};
+    hit.orp.forEach(function(k){
+      (window.__pmMaster[k]=window.__pmMaster[k]||{}).inflow=newVal;
+    });
+    if(typeof IX_saveToSheet==='function')IX_saveToSheet('perf_master',window.__pmMaster);
+  }
+};
+
 window.inflowDel=function(g,it){
-  if(!confirm("'"+g+' > '+it+"' 를 선택지에서 제거합니다.\n\n이미 이 경로로 기록된 문의는 '이전 기록'으로 유지됩니다."))return;
-  window.__inflowAdd[g]=(window.__inflowAdd[g]||[]).filter(function(x){return x!==it;});
-  if(window.__inflowHide.indexOf(g+' > '+it)<0)window.__inflowHide.push(g+' > '+it);
+  const path=g+' > '+it;
+  const hit=window.inflowUsage(path);
+  window.__inflowDelPending={g:g,it:it,path:path,hit:hit};
+  if(!hit.n){
+    if(!confirm("'"+path+"' 를 선택지에서 제거합니다.\n\n이 경로를 쓰는 건은 없습니다."))return;
+    window.inflowDelGo('keep'); return;
+  }
+  /* 옮길 수 있는 다른 경로 — 지우려는 경로 자신은 뺀다 */
+  const opts=[];
+  window.inflowGroups().forEach(function(x){
+    x[1].forEach(function(i2){ const v=x[0]+' > '+i2; if(v!==path)opts.push(v); });
+  });
+  const sel='<select id="inflowMoveTo" style="width:100%;font-size:11.5px;padding:6px 8px;'
+    +'border:1px solid var(--border);border-radius:6px;background:#fff">'
+    +opts.map(function(v){return '<option value="'+IX_esc(v)+'">'+IX_esc(v)+'</option>';}).join('')
+    +'</select>';
+  const B=function(fn,label,kind){
+    return '<button class="btn'+(kind?' '+kind:'')+'" style="width:100%;padding:8px;font-size:11.5px;margin-top:6px" '
+      +'onclick="inflowDelGo(\''+fn+'\')">'+label+'</button>';
+  };
+  openM({title:'유입경로 삭제 — '+path,
+    sub:'이 경로를 쓰는 건이 '+hit.n+'건 있습니다 (문의 '+hit.inq.length+' · 문의 없는 실적 '+hit.orp.length+')',
+    free:'<div style="font-size:11.5px">'
+      +sel
+      +B('move','위 경로로 '+hit.n+'건 옮기고 삭제')
+      +B('clear',hit.n+'건을 미지정으로 바꾸고 삭제')
+      +B('keep','건은 그대로 두고 선택지에서만 삭제','gh')
+      +'</div>'});
+};
+
+window.inflowDelGo=function(mode){
+  const P=window.__inflowDelPending; if(!P)return;
+  if(mode==='move'){
+    const el=document.getElementById('inflowMoveTo');
+    const to=el?el.value:'';
+    if(!to)return;
+    window.inflowReassign(P.hit,to);
+  }else if(mode==='clear'){
+    window.inflowReassign(P.hit,'');
+  }
+  /* 선택지에서 빼기 — 세 경우 모두 공통 */
+  window.__inflowAdd[P.g]=(window.__inflowAdd[P.g]||[]).filter(function(x){return x!==P.it;});
+  if(window.__inflowHide.indexOf(P.path)<0)window.__inflowHide.push(P.path);
+  window.__inflowDelPending=null;
+  try{ if(typeof closeM==='function')closeM(); }catch(e){}
+  try{ if(typeof window.logAct==='function')
+         window.logAct('유입경로 삭제',P.path,P.hit.n+'건 → '+(mode==='move'?'다른 경로로 이동':mode==='clear'?'미지정':'그대로 둠')); }catch(e){}
   inflowSave();
+  try{ if(typeof rerenderAll==='function')rerenderAll(); }catch(e){}
+  try{ if(typeof renderPerfMg==='function')renderPerfMg(); }catch(e){}
+  if(typeof IX_toast==='function')
+    IX_toast(mode==='keep'?'선택지에서 제거했습니다':(P.hit.n+'건을 바꾸고 제거했습니다'));
 };
 window.inflowAddGroup=function(){
   askText('대분류 추가', '새 대분류 이름을 입력하세요', '', function(v){
@@ -16689,6 +16783,8 @@ function actShell(){
    id는 바꾸지 않는다(바꾸면 이미 읽은 사람에게도 다시 NEW로 보인다) — 새 항목을 추가할 때만
    배열 맨 앞에 다음 순번의 새 id를 만든다. */
 const UPDATE_LOG=[
+ {id:'u142',d:'2026-11-15',tt:'삭제한 유입경로가 계속 돌아오던 문제를 고쳤습니다',
+  b:'유입경로를 삭제해도 목록에 **「지인 소개 (삭제됨)」** 처럼 계속 남고, 지워도 자꾸 되살아났습니다.\n\n**원인** — 삭제는 **선택지에서 빼는 것**까지만 했습니다. 유입경로는 값이 없으면 패스코드·신청서 내용·추천 정보 같은 근거로 **화면을 그릴 때마다 다시 계산**하는데, 이 계산이 「삭제됐다」는 사실을 모르고 있었습니다. 그래서 지워도 다시 만들어졌습니다.\n\n**이제는** 삭제를 누르면 **그 경로를 쓰는 건이 몇 건인지 먼저 보여주고** 셋 중에서 고릅니다.\n1. **다른 경로로 옮기고 삭제** — 고른 경로로 한 번에 바꿉니다\n2. **미지정으로 바꾸고 삭제** — 유입경로 미확인으로 비웁니다\n3. **건은 그대로 두고 선택지에서만 삭제** — 종전과 같은 동작입니다\n\n1·2번을 고르면 그 건에 값이 직접 박혀서 **자동 계산이 다시 끼어들지 못합니다** — 더 이상 돌아오지 않습니다.\n\n쓰는 건이 하나도 없으면 묻지 않고 바로 지웁니다. **문의**와 **문의 없는 실적** 양쪽을 모두 셉니다.'},
  {id:'u141',d:'2026-11-12',tt:'PPT 의 통합 현황이 엉뚱한 화면이던 문제를 고쳤습니다',
   b:'어제 넣은 통합 현황이 **지금 쓰지 않는 옛 화면**이었습니다. 모양도 통째로 깨져 보였습니다.\n\n**원인** — 통합 현황을 그리는 길이 두 갈래인데, 실제로 쓰이는 쪽이 아니라 **더 이상 닿지 않는 옛 코드**를 가져왔습니다. 게다가 그 화면의 디자인은 제자리에 있을 때만 적용되는 것이라 밖으로 꺼내면 모양이 무너집니다.\n\n**조치** — 이제 **통합 현황 탭을 실제로 열어 그 화면을 그대로 찍습니다.** 찍고 나면 보던 주간회의로 되돌아옵니다(내보내는 동안 화면이 잠깐 통합 현황으로 바뀝니다 — 정상입니다).\n\n**함께 고친 것** — 한 장이라도 실패하면 파일이 아예 안 받아지던 문제를 고쳤습니다. 이제 그 장만 건너뛰고 나머지는 받아집니다.'},
  {id:'u140',d:'2026-11-11',tt:'PPT 에 「통합 현황」이 함께 들어갑니다',
